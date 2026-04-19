@@ -1,5 +1,5 @@
 import React from 'react';
-import {View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ImageSourcePropType } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { RootStackParamList } from '../navigation/RootNavigator';
@@ -8,12 +8,13 @@ import { RootStackParamList } from '../navigation/RootNavigator';
 interface PlantItemProps {
   id: string;
   name: string;
+  image: ImageSourcePropType; // Added image prop
   onPress: (id: string) => void;
 }
 
-const PlantItem = ({ id, name, onPress }: PlantItemProps) => (
+const PlantItem = ({ id, name, image, onPress }: PlantItemProps) => (
   <TouchableOpacity style={styles.plantItem} onPress={() => onPress(id)}>
-    <View style={styles.imagePlaceholder} />
+    <Image source={image} style={styles.plantImage} />
     <Text style={styles.plantName}>{name}</Text>
     <Text style={styles.chevron}>{'>'}</Text>
   </TouchableOpacity>
@@ -22,10 +23,23 @@ const PlantItem = ({ id, name, onPress }: PlantItemProps) => (
 const HomeScreen = () => {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
 
-  // Mock datar
+  // Updated Mock Data with image requirements
   const plants = [
-    { id: '1', name: 'Phalaenopsis' },
-    { id: '2', name: 'Cattleya' },
+    { 
+      id: '1', 
+      name: 'Dendrobium Near Window', 
+      image: require('../assets/images/dendrobium-near-window.jpg') 
+    },
+    { 
+      id: '2', 
+      name: 'Kandyan Dance', 
+      image: require('../assets/images/kandyan-dance.jpg') 
+    },
+    { 
+      id: '3', 
+      name: 'White Orchid Plant', 
+      image: require('../assets/images/white-phalaenopsis.jpg') 
+    },
   ];
 
   return (
@@ -41,7 +55,8 @@ const HomeScreen = () => {
           <PlantItem 
             key={plant.id} 
             id={plant.id} 
-            name={plant.name} 
+            name={plant.name}
+            image={plant.image} // Pass the image here
             onPress={(id) => navigation.navigate('PlantDetails' as any, { plantId: id })} 
           />
         ))}
@@ -49,13 +64,12 @@ const HomeScreen = () => {
         {/* Add New Plant Button */}
         <TouchableOpacity 
           style={styles.addButton} 
-          onPress={() => navigation.navigate('AddPlant' as any)}
         >
           <Text style={styles.addButtonText}>⊕ Add New Plant</Text>
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Bottom Feature Buttons */}
+      {/* Bottom Feature Buttons remains the same */}
       <View style={styles.bottomActions}>
         <TouchableOpacity 
           style={styles.featureButton}
@@ -112,16 +126,18 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  imagePlaceholder: {
+  // Replaced imagePlaceholder with plantImage
+  plantImage: {
     width: 60,
     height: 60,
-    backgroundColor: '#e1e1e1',
     borderRadius: 8,
     marginRight: 15,
+    backgroundColor: '#f0f0f0', // Fallback color while loading
   },
   plantName: {
     flex: 1,
-    fontSize: 18,
+    fontSize: 16,
+    fontWeight: '600',
     color: '#333',
   },
   chevron: {
@@ -136,10 +152,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     marginTop: 10,
+    backgroundColor: '#36454F'
   },
   addButtonText: {
     fontSize: 18,
     fontWeight: '600',
+    color: '#fff'
   },
   bottomActions: {
     flexDirection: 'row',
@@ -155,12 +173,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 8,
+    backgroundColor: '#36454F'
   },
   featureButtonText: {
     textAlign: 'center',
     fontSize: 18,
     lineHeight: 24,
     fontWeight: '600',
+    color: '#fff'
   },
 });
 
