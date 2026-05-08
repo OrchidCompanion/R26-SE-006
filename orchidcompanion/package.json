@@ -1,0 +1,36 @@
+{
+  "name": "orchidcompanion",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "android": "react-native run-android",
+    "ios": "react-native run-ios",
+    "start": "react-native start"
+  },
+  "dependencies": {
+    "@react-navigation/native": "^7.2.2",
+    "@react-navigation/stack": "^7.8.10",
+    "react": "19.2.3",
+    "react-native": "0.85.1",
+    "react-native-gesture-handler": "^2.31.1",
+    "react-native-safe-area-context": "^5.7.0",
+    "react-native-screens": "^4.24.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.2",
+    "@babel/preset-env": "^7.25.3",
+    "@babel/runtime": "^7.25.0",
+    "@react-native-community/cli": "20.1.0",
+    "@react-native-community/cli-platform-android": "20.1.0",
+    "@react-native-community/cli-platform-ios": "20.1.0",
+    "@react-native/babel-preset": "0.85.1",
+    "@react-native/metro-config": "0.85.1",
+    "@react-native/typescript-config": "0.85.1",
+    "@types/react": "^19.2.0",
+    "prettier": "2.8.8",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">= 22.11.0"
+  }
+}
