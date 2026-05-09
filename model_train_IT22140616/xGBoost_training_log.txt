@@ -1,0 +1,44 @@
+﻿**********************
+Windows PowerShell transcript start
+Start time: 20260509003030
+Username: DESKTOP-8AQE6UN\dinuka
+RunAs User: DESKTOP-8AQE6UN\dinuka
+Configuration Name: 
+Machine: DESKTOP-8AQE6UN (Microsoft Windows NT 10.0.26200.0)
+Host Application: C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.exe -noexit -command try { . "d:\Microsoft_VS_Code\resources\app\out\vs\workbench\contrib\terminal\common\scripts\shellIntegration.ps1" } catch {}
+Process ID: 25112
+PSVersion: 5.1.26100.8115
+PSEdition: Desktop
+PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1.26100.8115
+BuildVersion: 10.0.26100.8115
+CLRVersion: 4.0.30319.42000
+WSManStackVersion: 3.0
+PSRemotingProtocolVersion: 2.3
+SerializationVersion: 1.1.0.1
+**********************
+Transcript started, output file is D:\R26-SE-006\model_train_IT22140616\xGBoost_training_log.txt
+]633;D;0]633;A]633;P;Cwd=D:\x5cR26-SE-006\x5cmodel_train_IT22140616PS D:\R26-SE-006\model_train_IT22140616> ]633;B
+]633;D]633;A]633;P;Cwd=D:\x5cR26-SE-006\x5cmodel_train_IT22140616PS D:\R26-SE-006\model_train_IT22140616> ]633;B
+PS>python train_orchids_xGBoost.py
+Extracting manual features from images...
+Training XGBoost Classifier...
+
+Pure XGBoost Accuracy: 0.9688
+              precision    recall  f1-score   support
+
+  dendrobium       0.94      0.98      0.96       168
+phalaenopsis       1.00      0.99      1.00       155
+    oncidium       0.97      0.93      0.95       157
+
+    accuracy                           0.97       480
+   macro avg       0.97      0.97      0.97       480
+weighted avg       0.97      0.97      0.97       480
+
+Model saved as orchid_pure_xgboost.pkl
+]633;D;0]633;A]633;P;Cwd=D:\x5cR26-SE-006\x5cmodel_train_IT22140616PS D:\R26-SE-006\model_train_IT22140616> ]633;B
+]633;D]633;A]633;P;Cwd=D:\x5cR26-SE-006\x5cmodel_train_IT22140616PS D:\R26-SE-006\model_train_IT22140616> ]633;B
+PS>Stop-Transcript
+**********************
+Windows PowerShell transcript end
+End time: 20260509003145
+**********************
