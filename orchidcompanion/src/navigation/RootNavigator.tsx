@@ -20,10 +20,10 @@ export type RootStackParamList = {
   AddPlant: undefined;
   PlantDetails: { plantId: string };
   IdentifyPlant: undefined;
-  AnalyseLocation: { luxValue: string, slot: string };
+  AnalyseLocation: { period?: string; averageLux?: number } | undefined;
   FlowerIdentify: undefined;
   PlantIdentify: undefined;
-  CheckLightIntensity: undefined;
+  CheckLightIntensity: { period: 'morning' | 'afternoon' | 'evening' };
 };
 
 const Stack = createStackNavigator<RootStackParamList>();

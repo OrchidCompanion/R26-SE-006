@@ -4,11 +4,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { RootStackParamList } from '../navigation/RootNavigator';
 
-// Reusable Plant Item Component
 interface PlantItemProps {
   id: string;
   name: string;
-  image: ImageSourcePropType; // Added image prop
+  image: ImageSourcePropType;
   onPress: (id: string) => void;
 }
 
