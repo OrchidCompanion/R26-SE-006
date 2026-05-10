@@ -72,7 +72,7 @@ const HomeScreen = () => {
       <View style={styles.bottomActions}>
         <TouchableOpacity 
           style={styles.featureButton}
-          onPress={() => navigation.navigate('IdentifyPlant' as any)}
+          onPress={() => navigation.navigate('PlantIdentify' as any)}
         >
           <Text style={styles.featureButtonText}>Identify{'\n'}Plant</Text>
         </TouchableOpacity>
