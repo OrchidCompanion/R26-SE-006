@@ -83,6 +83,13 @@ const HomeScreen = () => {
         >
           <Text style={styles.featureButtonText}>Analyse{'\n'}Location</Text>
         </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={styles.featureButton}
+          onPress={() => navigation.navigate('DiseaseAnalyze' as any)}
+        >
+          <Text style={styles.featureButtonText}>Analyze{'\n'}Disease</Text>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -160,12 +167,12 @@ const styles = StyleSheet.create({
   },
   bottomActions: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'space-around',
     padding: 20,
     backgroundColor: '#fff',
   },
   featureButton: {
-    width: '45%',
+    width: '30%',
     aspectRatio: 1,
     borderWidth: 1,
     borderColor: '#333',
