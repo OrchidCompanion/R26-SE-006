@@ -6,7 +6,7 @@ from sklearn.metrics import accuracy_score, classification_report, confusion_mat
 import joblib
 
 # Paths based on your training logs
-YOLO_MODEL_PATH = r'D:\R26-SE-006\model_train_IT22140616\runs\classify\orchid_yolo11n-cls\weights\best.pt'
+YOLO_MODEL_PATH = r'D:\R26-SE-006\model_train_IT22140616\runs\classify\orchid_yolo26n-cls-3\weights\best.pt'
 DATASET_PATH = os.path.abspath('./dataset')
 CLASSES = ['dendrobium', 'phalaenopsis', 'oncidium']
 
