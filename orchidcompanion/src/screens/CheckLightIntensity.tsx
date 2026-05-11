@@ -14,13 +14,12 @@ const CheckLightIntensity = () => {
   const [readings, setReadings] = useState<number[]>([]);
   const [isFinished, setIsFinished] = useState<boolean>(false);
 
-  // We use a ref to track readings so the timer interval can access the latest array
   const readingsRef = useRef<number[]>([]);
 
   useEffect(() => {
     console.log(`[Sensor] Starting light analysis for ${period}`);
     
-    // 1. Initialize Sensor
+    // Initialize Sensor
     AmbientLight.isAvailable().then((available) => {
       if (available) {
         AmbientLight.setUpdateInterval(500);
@@ -114,7 +113,7 @@ const CheckLightIntensity = () => {
           style={styles.backBtn}
           onPress={() => {
             console.log(`[Nav] Returning to main screen with avg: ${avgValue}`);
-            navigation.navigate('AnalyseLocation', { period, averageLux: avgValue });
+            navigation.replace('AnalyseLocation', { period, averageLux: avgValue });
           }}
         >
           <Text style={styles.backBtnText}>Confirm & Go Back</Text>
