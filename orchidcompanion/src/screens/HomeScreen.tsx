@@ -4,11 +4,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { RootStackParamList } from '../navigation/RootNavigator';
 
-// Reusable Plant Item Component
 interface PlantItemProps {
   id: string;
   name: string;
-  image: ImageSourcePropType; // Added image prop
+  image: ImageSourcePropType;
   onPress: (id: string) => void;
 }
 
@@ -73,7 +72,7 @@ const HomeScreen = () => {
       <View style={styles.bottomActions}>
         <TouchableOpacity 
           style={styles.featureButton}
-          onPress={() => navigation.navigate('IdentifyPlant' as any)}
+          onPress={() => navigation.navigate('PlantIdentify' as any)}
         >
           <Text style={styles.featureButtonText}>Identify{'\n'}Plant</Text>
         </TouchableOpacity>

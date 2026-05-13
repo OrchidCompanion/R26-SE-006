@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
-import { createStackNavigator } from '@react-navigation/stack';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import SplashScreen from '../screens/SplashScreen';
 import LoadingScreen from '../screens/LoadingScreen';
@@ -20,13 +20,13 @@ export type RootStackParamList = {
   AddPlant: undefined;
   PlantDetails: { plantId: string };
   IdentifyPlant: undefined;
-  AnalyseLocation: { luxValue: string, slot: string };
+  AnalyseLocation: { period?: string; averageLux?: number } | undefined;
   FlowerIdentify: undefined;
   PlantIdentify: undefined;
-  CheckLightIntensity: undefined;
+  CheckLightIntensity: { period: 'morning' | 'afternoon' | 'evening' };
 };
 
-const Stack = createStackNavigator<RootStackParamList>();
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 const RootNavigator = () => {
   return (

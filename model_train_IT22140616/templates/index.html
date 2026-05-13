@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Orchid Research Model Comparison</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; background-color: #f0f4f3; padding: 40px; }
+        .container { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); display: inline-block; min-width: 700px; }
+        table { width: 100%; margin-top: 25px; border-collapse: collapse; background: white; }
+        th, td { padding: 15px; border: 1px solid #eee; text-align: left; }
+        th { background-color: #1b5e20; color: white; text-transform: uppercase; font-size: 14px; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        #preview { max-width: 350px; border: 3px solid #ddd; border-radius: 8px; margin: 20px 0; display: none; }
+        .btn { background: #2e7d32; color: white; border: none; padding: 12px 30px; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: 600; }
+        .btn:hover { background: #1b5e20; }
+        .loading { color: #666; font-style: italic; display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Orchid Model Comparison</h1>
+
+        <input class="btn" type="file" id="imageInput" accept="image/*" style="margin-bottom: 10px;">
+        <br>
+        <img id="preview" src="#" alt="Image Preview">
+        <br>
+        <button class="btn" onclick="compareModels()">Run Inference Suite</button>
+        <p id="loadingMsg" class="loading">Processing image through 4 models...</p>
+
+        <table id="resultsTable" style="display:none;">
+            <thead>
+                <tr>
+                    <th>Architecture</th>
+                    <th>Predicted Species</th>
+                    <th>Confidence</th>
+                    <th>Total Latency</th>
+                </tr>
+            </thead>
+            <tbody id="resultsBody"></tbody>
+        </table>
+    </div>
+
+    <script>
+        const input = document.getElementById('imageInput');
+        const preview = document.getElementById('preview');
+
+        input.onchange = evt => {
+            const [file] = input.files;
+            if (file) {
+                preview.src = URL.createObjectURL(file);
+                preview.style.display = 'inline-block';
+            }
+        }
+
+        async function compareModels() {
+            const fileInput = document.getElementById('imageInput');
+            if (fileInput.files.length === 0) {
+                alert("Please select an orchid image.");
+                return;
+            }
+
+            document.getElementById('loadingMsg').style.display = 'block';
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            try {
+                const response = await fetch('/predict', { method: 'POST', body: formData });
+                const results = await response.json();
+
+                const tbody = document.getElementById('resultsBody');
+                tbody.innerHTML = ''; 
+                
+                for (const [model, data] of Object.entries(results)) {
+                    const row = `<tr>
+                        <td><strong>${model}</strong></td>
+                        <td>${data.species}</td>
+                        <td>${data.confidence}</td>
+                        <td>${data.inference_time}</td>
+                    </tr>`;
+                    tbody.innerHTML += row;
+                }
+                document.getElementById('resultsTable').style.display = 'table';
+            } catch (err) {
+                alert("Error during model inference. Check server logs.");
+            } finally {
+                document.getElementById('loadingMsg').style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>
