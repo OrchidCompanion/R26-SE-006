@@ -12,6 +12,7 @@ import AnalyseLocation from '../screens/AnalyseLocation';
 import FlowerIdentifyScreen from '../screens/FlowerIdentifyScreen';
 import PlantIdentifyScreen from '../screens/PlantIdentifyScreen';
 import CheckLightIntensity from '../screens/CheckLightIntensity';
+import DiseaseAnalyze from '../screens/DiseaseAnalyzeScreen';
 
 export type RootStackParamList = {
   Splash: undefined;
@@ -24,6 +25,7 @@ export type RootStackParamList = {
   FlowerIdentify: undefined;
   PlantIdentify: undefined;
   CheckLightIntensity: { period: 'morning' | 'afternoon' | 'evening' };
+  DiseaseAnalyze: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -42,6 +44,7 @@ const RootNavigator = () => {
         <Stack.Screen name="FlowerIdentify" component={FlowerIdentifyScreen} />
         <Stack.Screen name="PlantIdentify" component={PlantIdentifyScreen} />
         <Stack.Screen name="CheckLightIntensity" component={CheckLightIntensity} />
+        <Stack.Screen name="DiseaseAnalyze" component={DiseaseAnalyze} />
       </Stack.Navigator>
     </NavigationContainer>
   );
