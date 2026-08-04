@@ -1,5 +1,6 @@
 {
   "expo": {
+    "scheme": "orchidcompanion",
     "name": "orchidcompanion",
     "slug": "orchidcompanion",
     "version": "1.0.0",
