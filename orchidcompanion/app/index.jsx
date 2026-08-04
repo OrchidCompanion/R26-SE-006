@@ -1,13 +1,12 @@
-import { StyleSheet, Text, View } from 'react-native'
-
-const Home = () => {
+import "../global.css"
+import { Text, View } from "react-native";
+ 
+export default function App() {
   return (
-    <View>
-      <Text>Home</Text>
+    <View className="flex-1 items-center justify-center bg-white">
+      <Text className="text-xl font-bold text-green-500">
+        Welcome to Nativewind!
+      </Text>
     </View>
-  )
+  );
 }
-
-export default Home
-
-const styles = StyleSheet.create({})
