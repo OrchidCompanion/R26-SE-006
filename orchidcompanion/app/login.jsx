@@ -1,5 +1,14 @@
 import { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, ScrollView } from "react-native";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 
@@ -13,46 +22,80 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
-        <View className="flex-1 justify-center px-6 py-8">
-          <Text className="text-3xl font-bold text-gray-800 text-center mb-2">Welcome Back</Text>
-          <Text className="text-gray-500 text-center mb-8">Sign in to manage your orchids</Text>
+    <SafeAreaView className="flex-1 bg-gray-50">
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        className="flex-1"
+      >
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1 }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View className="flex-1 px-6 pt-36">
+            
+            {/* Header & User Profile Image */}
+            <View className="items-center mb-4">
+              <View className="w-28 h-28 bg-emerald-100 rounded-full p-1 mb-4 shadow-sm border border-emerald-200 justify-center items-center">
+                <Image
+                  source={require("../assets/user.png")}
+                  className="w-full h-full rounded-full"
+                  resizeMode="cover"
+                />
+              </View>
+              <Text className="text-3xl font-extrabold text-gray-800 tracking-tight">
+                User Login
+              </Text>
+            </View>
 
-          {/* Email Input */}
-          <View className="mb-4">
-            <Text className="text-gray-700 font-medium mb-1">Email</Text>
-            <TextInput
-              className="bg-gray-100 border border-gray-300 rounded-lg px-4 py-3 text-gray-800"
-              placeholder="Enter your email"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              value={email}
-              onChangeText={setEmail}
-            />
+            {/* Form Card */}
+            <View className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm mb-6">
+              {/* Email Input */}
+              <View className="mb-4">
+                <Text className="text-gray-700 font-semibold mb-1.5 text-xs uppercase tracking-wider">
+                  Email Address
+                </Text>
+                <TextInput
+                  className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 text-gray-800 text-base focus:border-emerald-500"
+                  placeholder="Enter your email"
+                  placeholderTextColor="#9CA3AF"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  value={email}
+                  onChangeText={setEmail}
+                />
+              </View>
+
+              {/* Password Input */}
+              <View className="mb-6">
+                <Text className="text-gray-700 font-semibold mb-1.5 text-xs uppercase tracking-wider">
+                  Password
+                </Text>
+                <TextInput
+                  className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 text-gray-800 text-base focus:border-emerald-500"
+                  placeholder="Enter your password"
+                  placeholderTextColor="#9CA3AF"
+                  secureTextEntry
+                  value={password}
+                  onChangeText={setPassword}
+                />
+              </View>
+
+              {/* Login Button */}
+              <TouchableOpacity
+                onPress={handleLogin}
+                activeOpacity={0.8}
+                className="bg-emerald-600 rounded-xl py-4 items-center justify-center shadow-sm active:bg-emerald-700"
+              >
+                <Text className="text-white font-bold text-base tracking-wide">
+                  Log In
+                </Text>
+              </TouchableOpacity>
+            </View>
+
           </View>
-
-          {/* Password Input */}
-          <View className="mb-6">
-            <Text className="text-gray-700 font-medium mb-1">Password</Text>
-            <TextInput
-              className="bg-gray-100 border border-gray-300 rounded-lg px-4 py-3 text-gray-800"
-              placeholder="Enter your password"
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-            />
-          </View>
-
-          {/* Login Button */}
-          <TouchableOpacity
-            onPress={handleLogin}
-            className="bg-green-600 rounded-lg py-3.5 items-center justify-center shadow-md active:bg-green-700"
-          >
-            <Text className="text-white font-semibold text-lg">Log In</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
