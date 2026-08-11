@@ -1,13 +1,23 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from routers import plants, sensors, auth
+from routers import (
+    auth,
+    plants,
+    sensors,
+    dht11,
+    bh1750,
+    npk,
+    bloom,
+    disease,
+    fertilizer,
+)
 
 app = FastAPI(
     title="OrchidCompanion API",
     description="API for React Web, React Native, and ESP32 orchid management system.",
-    version="1.0.0"
+    version="1.0.0",
 )
 
 app.add_middleware(
@@ -18,15 +28,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Register Routers
+# Routers
 app.include_router(auth.router)
 app.include_router(plants.router)
 app.include_router(sensors.router)
+app.include_router(dht11.router)
+app.include_router(bh1750.router)
+app.include_router(npk.router)
+app.include_router(bloom.router)
+app.include_router(disease.router)
+app.include_router(fertilizer.router)
 
 
 @app.get("/api/health", tags=["Health Check"])
 def health_check():
-    return {
-        "status": "healthy",
-        "timestamp": datetime.utcnow().isoformat()
-    }
+    """Public health check endpoint."""
+    return {"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat()}
