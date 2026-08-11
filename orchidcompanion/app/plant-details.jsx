@@ -2,9 +2,9 @@ import { useState } from "react";
 import { View, Text, ScrollView, TouchableOpacity, Modal, TextInput, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowLeft, RefreshCw, Edit, Trash2, ChevronDown, X, Check } from "lucide-react-native";
-
+import { RefreshCw, Edit, Trash2, ChevronDown, X, Check } from "lucide-react-native";
 import Header from "./components/Header";
+import { colors } from "./constants/colors";
 
 // Sample Database
 const plantsDatabase = [
@@ -20,7 +20,6 @@ const SPECIES_OPTIONS = ["oncidium", "phalaenopsis", "dendrobium"];
 export default function PlantDetailsScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
-
   const existingPlant = plantsDatabase.find((item) => String(item.id) === String(id));
 
   const [plant, setPlant] = useState({
@@ -96,127 +95,169 @@ export default function PlantDetailsScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <SafeAreaView className="flex-1" style={{ backgroundColor: colors.lightGray }}>
       {/* Navigation Bar */}
       <Header title="Plant Details" />
 
       <ScrollView className="flex-1 p-5" showsVerticalScrollIndicator={false}>
         {/* Top Info Card */}
-        <View className="bg-white p-5 rounded-2xl border border-gray-200 mb-4 shadow-xs">
+        <View
+          className="p-5 rounded-2xl border mb-4 shadow-xs"
+          style={{ backgroundColor: colors.white, borderColor: colors.borderGray }}
+        >
           <View className="flex-row justify-between items-start mb-1">
-            <Text className="text-2xl font-extrabold text-gray-800">
+            <Text className="text-2xl font-extrabold" style={{ color: colors.darkGray }}>
               {plant.name}
             </Text>
-            <Text className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full uppercase border border-emerald-100">
+            <Text
+              className="text-xs font-bold px-2.5 py-1 rounded-full uppercase border"
+              style={{
+                color: colors.primary,
+                backgroundColor: colors.primaryLight,
+                borderColor: colors.primaryLight,
+              }}
+            >
               {plant.species}
             </Text>
           </View>
           <View className="flex-row justify-between items-center">
-            <Text className="text-sm font-medium text-gray-500">
-              <Text className="text-gray-800 font-semibold">{plant.location}</Text>
+            <Text className="text-sm font-medium" style={{ color: colors.mediumGray }}>
+              <Text className="font-semibold" style={{ color: colors.darkGray }}>{plant.location}</Text>
             </Text>
-            <Text className="text-sm font-bold text-gray-400">ID: {plant.id}</Text>
+            <Text className="text-sm font-bold" style={{ color: colors.mediumGray }}>ID: {plant.id}</Text>
           </View>
-
         </View>
 
         {/* Location Sensors */}
-        <View className="bg-white p-4 rounded-2xl border border-gray-200 mb-4 shadow-xs">
-          <View className="flex-row justify-between items-center pb-2 mb-3 border-b border-gray-100">
-            <Text className="text-base font-bold text-gray-800">
+        <View
+          className="p-4 rounded-2xl border mb-4 shadow-xs"
+          style={{ backgroundColor: colors.white, borderColor: colors.borderGray }}
+        >
+          <View
+            className="flex-row justify-between items-center pb-2 mb-3 border-b"
+            style={{ borderColor: colors.borderGray }}
+          >
+            <Text className="text-base font-bold" style={{ color: colors.darkGray }}>
               Location Sensors
             </Text>
-            <TouchableOpacity onPress={handleRefreshLocation} className="p-2 bg-emerald-600 rounded-full">
-              <RefreshCw size={18} color="#ffffff" />
+            <TouchableOpacity onPress={handleRefreshLocation} className="p-2 rounded-full" style={{ backgroundColor: colors.primary }}>
+              <RefreshCw size={18} color={colors.white} />
             </TouchableOpacity>
           </View>
-
           <View className="space-y-1.5 mb-3">
             <View className="flex-row justify-between mb-1">
-              <Text className="text-sm text-gray-500">Temperature :</Text>
-              <Text className="text-sm font-bold text-gray-800">31.2 °C</Text>
+              <Text className="text-sm" style={{ color: colors.mediumGray }}>Temperature :</Text>
+              <Text className="text-sm font-bold" style={{ color: colors.darkGray }}>31.2 °C</Text>
             </View>
             <View className="flex-row justify-between mb-1">
-              <Text className="text-sm text-gray-500">Humidity :</Text>
-              <Text className="text-sm font-bold text-gray-800">60 %</Text>
+              <Text className="text-sm" style={{ color: colors.mediumGray }}>Humidity :</Text>
+              <Text className="text-sm font-bold" style={{ color: colors.darkGray }}>60 %</Text>
             </View>
             <View className="flex-row justify-between">
-              <Text className="text-sm text-gray-500">Light :</Text>
-              <Text className="text-sm font-bold text-gray-800">100 Lux</Text>
+              <Text className="text-sm" style={{ color: colors.mediumGray }}>Light :</Text>
+              <Text className="text-sm font-bold" style={{ color: colors.darkGray }}>100 Lux</Text>
             </View>
           </View>
-
-          <Text className="text-xs text-gray-500 text-right pt-2 border-t border-gray-100">
+          <Text
+            className="text-xs text-right pt-2 border-t"
+            style={{ color: colors.mediumGray, borderColor: colors.borderGray }}
+          >
             Last Update : 2026-08-09 10:20 AM
           </Text>
         </View>
 
         {/* Fertilizer Reading */}
-        <View className="bg-white p-4 rounded-2xl border border-gray-200 mb-4 shadow-xs">
-          <View className="flex-row justify-between items-center pb-2 mb-3 border-b border-gray-100">
-            <Text className="text-base font-bold text-gray-800">
+        <View
+          className="p-4 rounded-2xl border mb-4 shadow-xs"
+          style={{ backgroundColor: colors.white, borderColor: colors.borderGray }}
+        >
+          <View
+            className="flex-row justify-between items-center pb-2 mb-3 border-b"
+            style={{ borderColor: colors.borderGray }}
+          >
+            <Text className="text-base font-bold" style={{ color: colors.darkGray }}>
               Last Fertilizer Reading
             </Text>
           </View>
-
           <View className="flex-row justify-around mb-2">
-            <View className="items-center bg-emerald-50/50 rounded-xl my-2 py-2 flex-1">
-              <Text className="text-base font-bold text-gray-500">N</Text>
-              <Text className="text-lg font-bold text-emerald-700">10</Text>
+            <View className="items-center rounded-xl my-2 py-2 flex-1" style={{ backgroundColor: colors.primaryLight }}>
+              <Text className="text-base font-bold" style={{ color: colors.mediumGray }}>N</Text>
+              <Text className="text-lg font-bold" style={{ color: colors.primary }}>10</Text>
             </View>
-            <View className="items-center bg-emerald-50/50 rounded-xl my-2 py-2 flex-1 mx-4">
-              <Text className="text-base font-bold text-gray-500">P</Text>
-              <Text className="text-lg font-bold text-emerald-700">20</Text>
+            <View className="items-center rounded-xl my-2 py-2 flex-1 mx-4" style={{ backgroundColor: colors.primaryLight }}>
+              <Text className="text-base font-bold" style={{ color: colors.mediumGray }}>P</Text>
+              <Text className="text-lg font-bold" style={{ color: colors.primary }}>20</Text>
             </View>
-            <View className="items-center bg-emerald-50/50 rounded-xl my-2 py-2 flex-1">
-              <Text className="text-base font-bold text-gray-500">K</Text>
-              <Text className="text-lg font-bold text-emerald-700">18</Text>
+            <View className="items-center rounded-xl my-2 py-2 flex-1" style={{ backgroundColor: colors.primaryLight }}>
+              <Text className="text-base font-bold" style={{ color: colors.mediumGray }}>K</Text>
+              <Text className="text-lg font-bold" style={{ color: colors.primary }}>18</Text>
             </View>
           </View>
-
-          <Text className="text-xs text-gray-500 text-right pt-2 border-t border-gray-100">
+          <Text
+            className="text-xs text-right pt-2 border-t"
+            style={{ color: colors.mediumGray, borderColor: colors.borderGray }}
+          >
             Last Update : 2026-08-08 01:20 PM
           </Text>
         </View>
 
         {/* Predicted Blooming */}
-        <View className="bg-white p-4 rounded-2xl border border-gray-200 mb-4 shadow-xs">
-          <View className="flex-row justify-between items-center pb-2 mb-2 border-b border-gray-100">
-            <Text className="text-base font-bold text-gray-800">
+        <View
+          className="p-4 rounded-2xl border mb-4 shadow-xs"
+          style={{ backgroundColor: colors.white, borderColor: colors.borderGray }}
+        >
+          <View
+            className="flex-row justify-between items-center pb-2 mb-2 border-b"
+            style={{ borderColor: colors.borderGray }}
+          >
+            <Text className="text-base font-bold" style={{ color: colors.darkGray }}>
               Predicted Blooming
             </Text>
-            <TouchableOpacity onPress={handleRefreshBloom} className="p-2 bg-emerald-600 rounded-full">
-              <RefreshCw size={18} color="#ffffff" />
+            <TouchableOpacity onPress={handleRefreshBloom} className="p-2 rounded-full" style={{ backgroundColor: colors.primary }}>
+              <RefreshCw size={18} color={colors.white} />
             </TouchableOpacity>
           </View>
-
           <View className="py-2 items-center">
-            <Text className="text-base font-semibold text-emerald-800 mb-2">
-              within <Text className="text-xl font-extrabold text-emerald-600">20 weeks</Text>
+            <Text className="text-base font-semibold mb-2" style={{ color: colors.primary }}>
+              within <Text className="text-xl font-extrabold" style={{ color: colors.primary }}>20 weeks</Text>
             </Text>
           </View>
-
-          <Text className="text-xs text-gray-500 text-right pt-2 border-t border-gray-100">
+          <Text
+            className="text-xs text-right pt-2 border-t"
+            style={{ color: colors.mediumGray, borderColor: colors.borderGray }}
+          >
             Last Update : 2026-08-09 10:20 AM
           </Text>
         </View>
 
         {/* Disease History */}
-        <View className="bg-white p-4 rounded-2xl border border-gray-200 mb-4 shadow-xs">
-          <Text className="text-base font-bold text-gray-800 mb-2 pb-2 border-b border-gray-100">
+        <View
+          className="p-4 rounded-2xl border mb-4 shadow-xs"
+          style={{ backgroundColor: colors.white, borderColor: colors.borderGray }}
+        >
+          <Text
+            className="text-base font-bold mb-2 pb-2 border-b"
+            style={{ color: colors.darkGray, borderColor: colors.borderGray }}
+          >
             Disease History
           </Text>
-          <Text className="text-sm font-medium text-gray-400 italic text-center py-2">
+          <Text className="text-sm font-medium italic text-center py-2" style={{ color: colors.mediumGray }}>
             Not Data Available
           </Text>
         </View>
 
         {/* Fertilizer Requirement */}
-        <View className="bg-white p-4 rounded-2xl border border-gray-200 mb-6 shadow-xs">
-          <Text className="text-base font-bold text-gray-800 mb-2 pb-2 border-b border-gray-100">
+        <View
+          className="p-4 rounded-2xl border mb-6 shadow-xs"
+          style={{ backgroundColor: colors.white, borderColor: colors.borderGray }}
+        >
+          <Text
+            className="text-base font-bold mb-2 pb-2 border-b"
+            style={{ color: colors.darkGray, borderColor: colors.borderGray }}
+          >
             Fertilizer Requirement
           </Text>
-          <Text className="text-sm font-medium text-gray-400 italic text-center py-2">
+          <Text className="text-sm font-medium italic text-center py-2" style={{ color: colors.mediumGray }}>
             No Data Available
           </Text>
         </View>
@@ -225,21 +266,23 @@ export default function PlantDetailsScreen() {
         <View className="flex-row justify-between mb-8">
           <TouchableOpacity
             onPress={openUpdateModal}
-            className="w-[48%] bg-emerald-600 py-3.5 rounded-xl flex-row items-center justify-center shadow-xs active:bg-emerald-700"
+            className="w-[48%] py-3.5 rounded-xl flex-row items-center justify-center shadow-xs"
+            style={{ backgroundColor: colors.primary }}
           >
-            <Edit size={18} color="#ffffff" />
-            <Text className="text-white font-bold ml-2">Update</Text>
+            <Edit size={18} color={colors.white} />
+            <Text className="font-bold ml-2" style={{ color: colors.white }}>Update</Text>
           </TouchableOpacity>
-
           <TouchableOpacity
             onPress={handleRemovePlant}
-            className="w-[48%] bg-red-50 border border-red-200 py-3.5 rounded-xl flex-row items-center justify-center shadow-xs active:bg-red-100"
+            className="w-[48%] py-3.5 rounded-xl border flex-row items-center justify-center shadow-xs"
+            style={{ backgroundColor: colors.dangerLight, borderColor: colors.danger }}
           >
-            <Trash2 size={18} color="#dc2626" />
-            <Text className="text-red-600 font-bold ml-2">Remove</Text>
+            <Trash2 size={18} color={colors.danger} />
+            <Text className="font-bold ml-2" style={{ color: colors.danger }}>Remove</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
+
 
       {/* UPDATE MODAL */}
       <Modal
@@ -248,22 +291,29 @@ export default function PlantDetailsScreen() {
         animationType="fade"
         onRequestClose={() => setIsModalVisible(false)}
       >
-        <View className="flex-1 bg-black/50 justify-center items-center px-5">
-          <View className="bg-white w-full rounded-3xl p-6 shadow-xl border border-gray-100">
-            <View className="flex-row justify-between items-center mb-4 pb-2 border-b border-gray-100">
-              <Text className="text-xl font-bold text-gray-800">Update Plant</Text>
+        <View className="flex-1 justify-center items-center px-5" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+          <View
+            className="w-full rounded-3xl p-6 shadow-xl border"
+            style={{ backgroundColor: colors.white, borderColor: colors.borderGray }}
+          >
+            <View
+              className="flex-row justify-between items-center mb-4 pb-2 border-b"
+              style={{ borderColor: colors.borderGray }}
+            >
+              <Text className="text-xl font-bold" style={{ color: colors.darkGray }}>Update Plant</Text>
               <TouchableOpacity onPress={() => setIsModalVisible(false)}>
-                <X size={20} color="#6b7280" />
+                <X size={20} color={colors.mediumGray} />
               </TouchableOpacity>
             </View>
 
             {/* Plant Name Input */}
             <View className="mb-4">
-              <Text className="text-xs font-bold text-gray-600 uppercase mb-1">
+              <Text className="text-xs font-bold uppercase mb-1" style={{ color: colors.mediumGray }}>
                 Plant Name
               </Text>
               <TextInput
-                className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-800 text-base"
+                className="rounded-xl px-4 py-3 text-base border"
+                style={{ backgroundColor: colors.lightGray, borderColor: colors.borderGray, color: colors.darkGray }}
                 value={formName}
                 onChangeText={setFormName}
                 placeholder="Enter plant name"
@@ -272,11 +322,12 @@ export default function PlantDetailsScreen() {
 
             {/* Location Input */}
             <View className="mb-4">
-              <Text className="text-xs font-bold text-gray-600 uppercase mb-1">
+              <Text className="text-xs font-bold uppercase mb-1" style={{ color: colors.mediumGray }}>
                 Location
               </Text>
               <TextInput
-                className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-800 text-base"
+                className="rounded-xl px-4 py-3 text-base border"
+                style={{ backgroundColor: colors.lightGray, borderColor: colors.borderGray, color: colors.darkGray }}
                 value={formLocation}
                 onChangeText={setFormLocation}
                 placeholder="e.g. Near Gate"
@@ -285,21 +336,24 @@ export default function PlantDetailsScreen() {
 
             {/* Species Dropdown Selector */}
             <View className="mb-6">
-              <Text className="text-xs font-bold text-gray-600 uppercase mb-1">
+              <Text className="text-xs font-bold uppercase mb-1" style={{ color: colors.mediumGray }}>
                 Species
               </Text>
               <TouchableOpacity
                 onPress={() => setShowSpeciesDropdown(!showSpeciesDropdown)}
-                className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 flex-row justify-between items-center"
+                className="rounded-xl px-4 py-3 flex-row justify-between items-center border"
+                style={{ backgroundColor: colors.lightGray, borderColor: colors.borderGray }}
               >
-                <Text className="text-gray-800 text-base capitalize font-medium">
+                <Text className="text-base capitalize font-medium" style={{ color: colors.darkGray }}>
                   {formSpecies}
                 </Text>
-                <ChevronDown size={18} color="#6b7280" />
+                <ChevronDown size={18} color={colors.mediumGray} />
               </TouchableOpacity>
-
               {showSpeciesDropdown && (
-                <View className="bg-white border border-gray-200 rounded-xl mt-1 overflow-hidden shadow-sm">
+                <View
+                  className="rounded-xl mt-1 overflow-hidden shadow-sm border"
+                  style={{ backgroundColor: colors.white, borderColor: colors.borderGray }}
+                >
                   {SPECIES_OPTIONS.map((spec) => (
                     <TouchableOpacity
                       key={spec}
@@ -307,34 +361,37 @@ export default function PlantDetailsScreen() {
                         setFormSpecies(spec);
                         setShowSpeciesDropdown(false);
                       }}
-                      className="px-4 py-3 border-b border-gray-100 flex-row justify-between items-center active:bg-gray-50"
+                      className="px-4 py-3 border-b flex-row justify-between items-center"
+                      style={{ borderColor: colors.borderGray }}
                     >
-                      <Text className="text-gray-800 capitalize font-medium">
+                      <Text className="capitalize font-medium" style={{ color: colors.darkGray }}>
                         {spec}
                       </Text>
-                      {formSpecies === spec && <Check size={16} color="#059669" />}
+                      {formSpecies === spec && <Check size={16} color={colors.primary} />}
                     </TouchableOpacity>
                   ))}
                 </View>
-              )}
+              )}              
             </View>
 
             {/* Modal Actions */}
             <View className="flex-row justify-end space-x-3 gap-3">
               <TouchableOpacity
                 onPress={() => setIsModalVisible(false)}
-                className="px-5 py-3 rounded-xl bg-gray-100"
+                className="px-5 py-3 rounded-xl"
+                style={{ backgroundColor: colors.lightGray }}
               >
-                <Text className="text-gray-600 font-bold">Cancel</Text>
+                <Text className="font-bold" style={{ color: colors.mediumGray }}>Cancel</Text>
               </TouchableOpacity>
-
               <TouchableOpacity
                 onPress={handleSaveUpdate}
-                className="px-6 py-3 rounded-xl bg-emerald-600"
+                className="px-6 py-3 rounded-xl"
+                style={{ backgroundColor: colors.primary }}
               >
-                <Text className="text-white font-bold">Save</Text>
+                <Text className="font-bold" style={{ color: colors.white }}>Save</Text>
               </TouchableOpacity>
             </View>
+            
           </View>
         </View>
       </Modal>

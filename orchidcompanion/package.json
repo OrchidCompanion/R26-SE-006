@@ -21,8 +21,10 @@
   },
   "private": true,
   "devDependencies": {
+    "@types/react": "~19.1.10",
     "babel-preset-expo": "~54.0.10",
     "prettier-plugin-tailwindcss": "^0.5.11",
-    "tailwindcss": "^3.4.17"
+    "tailwindcss": "^3.4.17",
+    "typescript": "~5.9.2"
   }
 }

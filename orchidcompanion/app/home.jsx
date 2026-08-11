@@ -1,6 +1,7 @@
 import { View, Text, ScrollView, TouchableOpacity, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import { colors } from "./constants/colors";
 
 const samplePlants = [
   { id: 1, name: "Plant A", species: "dendrobium", location: "Greenhouse Section A" },
@@ -8,7 +9,6 @@ const samplePlants = [
   { id: 3, name: "Plant C", species: "oncidium", location: "Indoor Window Sill" },
   { id: 4, name: "Plant D", species: "oncidium", location: "Greenhouse Section B" },
 ];
-
 const actionButtons = [
   { id: "add", title: "Add Plant", icon: require("../assets/home-icons/plant.png") },
   { id: "identify", title: "Identify Species", icon: require("../assets/home-icons/magnifying-glass.png") },
@@ -17,57 +17,60 @@ const actionButtons = [
   { id: "disease", title: "Identify Disease", icon: require("../assets/home-icons/syringe.png") },
   { id: "bloom", title: "Predict Bloom", icon: require("../assets/home-icons/orchid.png") },
 ];
-
 export default function HomeScreen() {
   const router = useRouter();
-
   const handleAction = (title) => {
     console.log(`Action triggered: ${title}`);
   };
-
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <SafeAreaView className="flex-1" style={{ backgroundColor: colors.lightGray }}>
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         <View className="px-5 py-3">
           {/* Welcome */}
           <View className="mb-2 mx-1">
-            <Text className="text-lg font-bold text-gray-800">
+            <Text className="text-lg font-bold" style={{ color: colors.darkGray }}>
               Welcome
             </Text>
-            <Text className="text-2xl font-bold text-gray-800">
+            <Text className="text-2xl font-bold" style={{ color: colors.darkGray }}>
               Dinuka Rathnayake
             </Text>
           </View>
 
           {/* Recently Added Plants Section */}
-          <View className="mb-3 bg-gray-100/70 p-3 rounded-2xl border border-gray-200">
-            <Text className="text-lg font-bold text-gray-800 mb-2 px-1">
+          <View
+            className="mb-3 p-3 rounded-2xl border"
+            style={{ backgroundColor: colors.lightGray, borderColor: colors.borderGray }}
+          >
+            <Text className="text-lg font-bold mb-2 px-1" style={{ color: colors.darkGray }}>
               Recently Added Plants
             </Text>
-
             {/* Plant List */}
             {samplePlants.slice(0, 3).map((item) => (
               <TouchableOpacity
                 key={item.id}
                 activeOpacity={0.7}
                 onPress={() => router.push({ pathname: "/plant-details", params: { id: item.id } })}
-                className="bg-white px-3.5 py-2.5 rounded-xl mb-2 border border-gray-200 flex-row items-center justify-between shadow-xs"
+                className="px-3.5 py-2.5 rounded-xl mb-2 border flex-row items-center justify-between shadow-xs"
+                style={{ backgroundColor: colors.white, borderColor: colors.borderGray }}
               >
                 <View className="flex-1">
-                  <Text className="text-sm font-semibold text-emerald-600 uppercase mb-0.5">
+                  <Text
+                    className="text-sm font-semibold uppercase mb-0.5"
+                    style={{ color: colors.primary }}
+                  >
                     {item.species}
                   </Text>
-                  <Text className="text-xl font-bold text-gray-800 mb-0.5">
+                  <Text className="text-xl font-bold mb-0.5" style={{ color: colors.darkGray }}>
                     {item.name}
                   </Text>
-
-                  <Text className="text-sm font-semibold text-gray-500">
+                  <Text className="text-sm font-semibold" style={{ color: colors.mediumGray }}>
                     {item.location}
                   </Text>
                 </View>
-
                 {/* Arrow Navigation */}
-                <Text className="text-gray-400 font-bold text-xl px-1">›</Text>
+                <Text className="font-bold text-xl px-1" style={{ color: colors.mediumGray }}>
+                  ›
+                </Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -77,7 +80,7 @@ export default function HomeScreen() {
             onPress={() => router.push("/all-plants")}
             className="align-self-end items-end mb-6 mr-2"
           >
-            <Text className="text-lg font-bold text-emerald-600">
+            <Text className="text-lg font-bold" style={{ color: colors.primary }}>
               View All Plants
             </Text>
           </TouchableOpacity>
@@ -88,10 +91,11 @@ export default function HomeScreen() {
               <TouchableOpacity
                 key={btn.id}
                 onPress={() => handleAction(btn.title)}
-                className="w-[48%] bg-white p-3.5 rounded-2xl mb-2 border border-gray-200 items-center justify-center shadow-xs active:bg-gray-50"
+                className="w-[48%] p-3.5 rounded-2xl mb-2 border items-center justify-center shadow-xs"
+                style={{ backgroundColor: colors.white, borderColor: colors.borderGray }}
               >
                 <Image source={btn.icon} className="w-14 h-14 mb-2" resizeMode="contain" />
-                <Text className="text-base font-semibold text-gray-800 text-center">
+                <Text className="text-base font-semibold text-center" style={{ color: colors.darkGray }}>
                   {btn.title}
                 </Text>
               </TouchableOpacity>
