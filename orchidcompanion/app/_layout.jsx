@@ -7,6 +7,8 @@ export default function RootLayout() {
       <Stack.Screen name="index" />
       <Stack.Screen name="login" />
       <Stack.Screen name="home" />
+      <Stack.Screen name="all-plants" />
+      <Stack.Screen name="plant-details" />
     </Stack>
   );
 }
