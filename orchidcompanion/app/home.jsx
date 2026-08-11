@@ -3,6 +3,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { colors } from "./constants/colors";
 
+import PlantCard from "./components/PlantCard";
+
 const samplePlants = [
   { id: 1, name: "Plant A", species: "dendrobium", location: "Greenhouse Section A" },
   { id: 2, name: "Plant B", species: "dendrobium", location: "Outdoor Terrace Shelf 1" },
@@ -44,34 +46,9 @@ export default function HomeScreen() {
             <Text className="text-lg font-bold mb-2 px-1" style={{ color: colors.darkGray }}>
               Recently Added Plants
             </Text>
-            {/* Plant List */}
+            
             {samplePlants.slice(0, 3).map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                activeOpacity={0.7}
-                onPress={() => router.push({ pathname: "/plant-details", params: { id: item.id } })}
-                className="px-3.5 py-2.5 rounded-xl mb-2 border flex-row items-center justify-between shadow-xs"
-                style={{ backgroundColor: colors.white, borderColor: colors.borderGray }}
-              >
-                <View className="flex-1">
-                  <Text
-                    className="text-sm font-semibold uppercase mb-0.5"
-                    style={{ color: colors.primary }}
-                  >
-                    {item.species}
-                  </Text>
-                  <Text className="text-xl font-bold mb-0.5" style={{ color: colors.darkGray }}>
-                    {item.name}
-                  </Text>
-                  <Text className="text-sm font-semibold" style={{ color: colors.mediumGray }}>
-                    {item.location}
-                  </Text>
-                </View>
-                {/* Arrow Navigation */}
-                <Text className="font-bold text-xl px-1" style={{ color: colors.mediumGray }}>
-                  ›
-                </Text>
-              </TouchableOpacity>
+              <PlantCard key={item.id} plant={item} />
             ))}
           </View>
 
