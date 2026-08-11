@@ -2,7 +2,6 @@ import { View, Text, ScrollView, TouchableOpacity, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 
-// Sample Data matching Supabase schema & provided sample table
 const samplePlants = [
   { id: 1, name: "Plant A", species: "dendrobium", location: "Greenhouse Section A" },
   { id: 2, name: "Plant B", species: "dendrobium", location: "Outdoor Terrace Shelf 1" },
@@ -30,7 +29,7 @@ export default function HomeScreen() {
     <SafeAreaView className="flex-1 bg-gray-50">
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         <View className="px-5 py-3">
-          {/* Welcome Header */}
+          {/* Welcome */}
           <View className="mb-2 mx-1">
             <Text className="text-lg font-bold text-gray-800">
               Welcome
