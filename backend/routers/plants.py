@@ -1,58 +1,34 @@
-from enum import Enum
 from typing import Optional
-from fastapi import APIRouter, HTTPException, status
+from datetime import datetime, timezone
+from fastapi import APIRouter, HTTPException, status, Depends
 from pydantic import BaseModel
 
 from database import supabase
+from utils.auth import get_current_user
 
-
-# --- Enums ---
-class SpeciesEnum(str, Enum):
-    oncidium = "oncidium"
-    phalaenopsis = "phalaenopsis"
-    dendrobium = "dendrobium"
-
-
-class StatusEnum(str, Enum):
-    active = "active"
-    inactive = "inactive"
-
-
-# --- Pydantic Data Models ---
 class PlantCreate(BaseModel):
-    name: str
-    species: SpeciesEnum
-    location: str
-    user_id: Optional[str] = None
-    status: StatusEnum = StatusEnum.active
-
+    plant_name: str
+    plant_species: str
+    plant_location: str
 
 class PlantUpdate(BaseModel):
-    name: Optional[str] = None
-    species: Optional[SpeciesEnum] = None
-    location: Optional[str] = None
-    user_id: Optional[str] = None
-    status: Optional[StatusEnum] = None
+    plant_name: Optional[str] = None
+    plant_species: Optional[str] = None
+    plant_location: Optional[str] = None
 
-
-# --- Router Initialization ---
 router = APIRouter(
     prefix="/api/plants",
     tags=["Plants"]
 )
 
-
-# --- Endpoints ---
-
 @router.post("", status_code=status.HTTP_201_CREATED)
-def create_plant(plant: PlantCreate):
-    """Add a new plant to the database."""
-    response = supabase.table("plants").insert({
-        "name": plant.name,
-        "species": plant.species.value,
-        "location": plant.location,
-        "user_id": plant.user_id,
-        "status": plant.status.value
+def create_plant(plant: PlantCreate, current_user: dict = Depends(get_current_user)):
+    """Create a new plant."""
+    response = supabase.table("plant").insert({
+        "plant_name": plant.plant_name,
+        "plant_species": plant.plant_species,
+        "plant_location": plant.plant_location,
+        "user_id": current_user["user_id"]
     }).execute()
 
     if not response.data:
@@ -62,53 +38,43 @@ def create_plant(plant: PlantCreate):
 
 
 @router.get("")
-def get_all_plants(include_inactive: bool = False):
-    """View all plants. Filters out soft-deleted (inactive) plants by default."""
-    query = supabase.table("plants").select("*")
-    if not include_inactive:
-        query = query.eq("status", "active")
-    response = query.execute()
+def get_all_plants(current_user: dict = Depends(get_current_user)):
+    """View all active plants for the current user."""
+    response = supabase.table("plant").select("*").eq("user_id", current_user["user_id"]).is_("deleted_at", "null").execute()
     return response.data
 
 
 @router.get("/{plant_id}")
-def get_plant_by_id(plant_id: int):
-    """Get specific plant details by ID."""
-    response = supabase.table("plants").select("*").eq("id", plant_id).execute()
+def get_plant_by_id(plant_id: str, current_user: dict = Depends(get_current_user)):
+    """Get plant details by ID."""
+    response = supabase.table("plant").select("*").eq("plant_id", plant_id).eq("user_id", current_user["user_id"]).is_("deleted_at", "null").execute()
     if not response.data:
-        raise HTTPException(status_code=404, detail=f"Plant with ID {plant_id} not found.")
+        raise HTTPException(status_code=404, detail="Plant not found.")
     return response.data[0]
 
 
 @router.put("/{plant_id}")
-def update_plant(plant_id: int, plant_data: PlantUpdate):
+def update_plant(plant_id: str, plant_data: PlantUpdate, current_user: dict = Depends(get_current_user)):
     """Update plant details."""
-    update_fields = {
-        k: v.value if isinstance(v, Enum) else v
-        for k, v in plant_data.model_dump().items()
-        if v is not None
-    }
-
+    update_fields = {k: v for k, v in plant_data.model_dump().items() if v is not None}
     if not update_fields:
         raise HTTPException(status_code=400, detail="No fields provided for update.")
 
-    response = supabase.table("plants").update(update_fields).eq("id", plant_id).execute()
+    response = supabase.table("plant").update(update_fields).eq("plant_id", plant_id).eq("user_id", current_user["user_id"]).is_("deleted_at", "null").execute()
     if not response.data:
-        raise HTTPException(status_code=404, detail=f"Plant with ID {plant_id} not found.")
+        raise HTTPException(status_code=404, detail="Plant not found or update failed.")
 
     return response.data[0]
 
 
 @router.delete("/{plant_id}")
-def soft_delete_plant(plant_id: int):
-    """Soft delete a plant by changing its status to 'inactive'."""
-    response = (
-        supabase.table("plants")
-        .update({"status": StatusEnum.inactive.value})
-        .eq("id", plant_id)
-        .execute()
-    )
-    if not response.data:
-        raise HTTPException(status_code=404, detail=f"Plant with ID {plant_id} not found.")
+def soft_delete_plant(plant_id: str, current_user: dict = Depends(get_current_user)):
+    """Soft delete a plant."""
+    response = supabase.table("plant").update({
+        "deleted_at": datetime.now(timezone.utc).isoformat()
+    }).eq("plant_id", plant_id).eq("user_id", current_user["user_id"]).is_("deleted_at", "null").execute()
 
-    return {"message": f"Plant {plant_id} marked as inactive successfully."}
+    if not response.data:
+        raise HTTPException(status_code=404, detail="Plant not found.")
+
+    return {"message": "Plant soft deleted successfully."}
