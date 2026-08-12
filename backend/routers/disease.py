@@ -123,11 +123,19 @@ async def analyze_leaf_and_npk(
         _, buffer = cv2.imencode(".jpg", img)
         b64_img = base64.b64encode(buffer.tobytes()).decode("utf-8")
 
+        plant_query = (
+            supabase.table("plant").select("user_id").eq("plant_id", plant_id).execute()
+        )
+        owner_id = (
+            plant_query.data[0]["user_id"]
+            if plant_query.data
+            else current_user["user_id"]
+        )
+
         npk_query = (
             supabase.table("npk_sensor")
             .select("*")
             .eq("plant_id", plant_id)
-            .eq("user_id", current_user["user_id"])
             .order("created_at", desc=True)
             .limit(1)
             .execute()
@@ -164,7 +172,7 @@ async def analyze_leaf_and_npk(
             supabase.table("disease_analysis")
             .insert(
                 {
-                    "user_id": current_user["user_id"],
+                    "user_id": owner_id,
                     "plant_id": plant_id,
                     "verdict": verdict_type,
                     "disease_name": top_class,
@@ -202,56 +210,7 @@ async def analyze_leaf_and_npk(
             os.remove(tmp_path)
 
 
-@router.get("", status_code=status.HTTP_200_OK)
-def get_user_disease_history(current_user: dict = Depends(get_current_user)):
-    """Fetch all active disease analysis history records for logged in user."""
-    res = (
-        supabase.table("disease_analysis")
-        .select("*")
-        .eq("user_id", current_user["user_id"])
-        .is_("deleted_at", "null")
-        .order("created_at", desc=True)
-        .execute()
-    )
-    return res.data
-
-
 @router.get("/plant/{plant_id}", status_code=status.HTTP_200_OK)
-def get_plant_disease_history(
-    plant_id: str, current_user: dict = Depends(get_current_user)
-):
-    """Fetch disease analysis history records for a specific plant."""
-    res = (
-        supabase.table("disease_analysis")
-        .select("*")
-        .eq("plant_id", plant_id)
-        .eq("user_id", current_user["user_id"])
-        .is_("deleted_at", "null")
-        .order("created_at", desc=True)
-        .execute()
-    )
-    return res.data
-
-
-@router.delete("/{analysis_id}", status_code=status.HTTP_200_OK)
-def soft_delete_analysis_record(
-    analysis_id: str, current_user: dict = Depends(get_current_user)
-):
-    """Soft delete an analysis record."""
-    res = (
-        supabase.table("disease_analysis")
-        .update({"deleted_at": datetime.now(timezone.utc).isoformat()})
-        .eq("analysis_id", analysis_id)
-        .eq("user_id", current_user["user_id"])
-        .is_("deleted_at", "null")
-        .execute()
-    )
-    if not res.data:
-        raise HTTPException(status_code=404, detail="Record not found.")
-    return {"message": "Disease record deleted successfully."}
-
-
-@router.get("/plant/{plant_id}")
 def get_plant_disease_history(
     plant_id: str,
     page: int = 1,
@@ -269,3 +228,19 @@ def get_plant_disease_history(
         .execute()
     )
     return {"data": res.data, "total": res.count, "page": page, "limit": limit}
+
+
+@router.delete("/{analysis_id}", status_code=status.HTTP_200_OK)
+def soft_delete_analysis_record(
+    analysis_id: str, current_user: dict = Depends(get_current_user)
+):
+    res = (
+        supabase.table("disease_analysis")
+        .update({"deleted_at": datetime.now(timezone.utc).isoformat()})
+        .eq("analysis_id", analysis_id)
+        .is_("deleted_at", "null")
+        .execute()
+    )
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Record not found.")
+    return {"message": "Disease record soft deleted successfully."}
