@@ -89,3 +89,22 @@ def delete_dht11_reading(
     if not response.data:
         raise HTTPException(status_code=404, detail="Reading not found.")
     return {"message": "Reading deleted successfully."}
+
+
+@router.get("/plant/{plant_id}")
+def get_dht11_by_plant(
+    plant_id: str,
+    page: int = 1,
+    limit: int = 10,
+    current_user: dict = Depends(get_current_user),
+):
+    start = (page - 1) * limit
+    res = (
+        supabase.table("dht11_sensor")
+        .select("*", count="exact")
+        .eq("plant_id", plant_id)
+        .order("created_at", desc=True)
+        .range(start, start + limit - 1)
+        .execute()
+    )
+    return {"data": res.data, "total": res.count, "page": page, "limit": limit}

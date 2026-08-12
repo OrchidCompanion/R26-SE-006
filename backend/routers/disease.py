@@ -13,7 +13,6 @@ from utils.auth import get_current_user
 
 router = APIRouter(prefix="/api/disease", tags=["Disease Analysis & History"])
 
-# Load ONNX Model once at startup
 MODELS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "models")
 ONNX_MODEL_PATH = os.path.join(MODELS_DIR, "disease-yolo26-best.onnx")
 
@@ -27,7 +26,7 @@ NPK_THRESHOLDS = {
 
 RECOMMENDATIONS = {
     "black_rot": {
-        "disease_info": "🔴 Black Rot detected! Fungal infection.",
+        "disease_info": "Black Rot detected! Fungal infection.",
         "treatment": [
             "Remove infected leaves immediately",
             "Apply copper-based fungicide",
@@ -36,7 +35,7 @@ RECOMMENDATIONS = {
         ],
     },
     "bacterial_brown_pot": {
-        "disease_info": "🟠 Bacterial Brown Spot detected!",
+        "disease_info": "Bacterial Brown Spot detected!",
         "treatment": [
             "Remove and destroy infected parts",
             "Apply bactericide",
@@ -45,7 +44,7 @@ RECOMMENDATIONS = {
         ],
     },
     "healthy": {
-        "disease_info": "🟢 Plant is Healthy!",
+        "disease_info": "Plant is Healthy!",
         "treatment": ["Continue current care routine"],
     },
 }
@@ -124,7 +123,6 @@ async def analyze_leaf_and_npk(
         _, buffer = cv2.imencode(".jpg", img)
         b64_img = base64.b64encode(buffer.tobytes()).decode("utf-8")
 
-        # Fetch latest NPK sensor reading for this plant
         npk_query = (
             supabase.table("npk_sensor")
             .select("*")
@@ -162,7 +160,6 @@ async def analyze_leaf_and_npk(
         verdict_type = "HEALTHY" if top_class == "healthy" else "DISEASE"
         confidence_val = round(top_score * 100, 2)
 
-        # INSERT full result to Supabase disease_analysis table
         db_insert = (
             supabase.table("disease_analysis")
             .insert(
@@ -203,9 +200,6 @@ async def analyze_leaf_and_npk(
     finally:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
-
-
-# --- Helper Endpoints to fetch history ---
 
 
 @router.get("", status_code=status.HTTP_200_OK)
@@ -255,3 +249,23 @@ def soft_delete_analysis_record(
     if not res.data:
         raise HTTPException(status_code=404, detail="Record not found.")
     return {"message": "Disease record deleted successfully."}
+
+
+@router.get("/plant/{plant_id}")
+def get_plant_disease_history(
+    plant_id: str,
+    page: int = 1,
+    limit: int = 10,
+    current_user: dict = Depends(get_current_user),
+):
+    start = (page - 1) * limit
+    res = (
+        supabase.table("disease_analysis")
+        .select("*", count="exact")
+        .eq("plant_id", plant_id)
+        .is_("deleted_at", "null")
+        .order("created_at", desc=True)
+        .range(start, start + limit - 1)
+        .execute()
+    )
+    return {"data": res.data, "total": res.count, "page": page, "limit": limit}
