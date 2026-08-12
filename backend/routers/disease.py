@@ -7,6 +7,9 @@ from typing import Optional
 from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, File, Form
 from ultralytics import YOLO
+from ultralytics.utils import checks
+
+checks.check_requirements = lambda *args, **kwargs: True
 
 from database import supabase
 from utils.auth import get_current_user
@@ -16,7 +19,15 @@ router = APIRouter(prefix="/api/disease", tags=["Disease Analysis & History"])
 MODELS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "models")
 ONNX_MODEL_PATH = os.path.join(MODELS_DIR, "disease-yolo26-best.onnx")
 
-model = YOLO(ONNX_MODEL_PATH)
+model = None
+
+
+def get_yolo_model():
+    global model
+    if model is None:
+        model = YOLO(ONNX_MODEL_PATH, task="detect")
+    return model
+
 
 NPK_THRESHOLDS = {
     "N": {"low": 25, "high": 65},
@@ -93,7 +104,8 @@ async def analyze_leaf_and_npk(
 
     try:
         img = cv2.imread(tmp_path)
-        results = model(tmp_path, conf=0.25, verbose=False)
+        yolo_instance = get_yolo_model()
+        results = yolo_instance(tmp_path, conf=0.25, verbose=False)
 
         top_class = "healthy"
         top_score = 0.0
