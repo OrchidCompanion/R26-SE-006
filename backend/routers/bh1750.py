@@ -39,7 +39,33 @@ def create_bh1750_reading(
     return response.data[0]
 
 
-@router.get("")
+@router.get("/plant/{plant_id}", status_code=status.HTTP_200_OK)
+def get_bh1750_readings_by_plant(
+    plant_id: str,
+    page: int = 1,
+    limit: int = 10,
+    current_user: dict = Depends(get_current_user),
+):
+    """Fetch BH1750 light readings for a specific plant with pagination."""
+    start = (page - 1) * limit
+    end = start + limit - 1
+    response = (
+        supabase.table("bh1750_sensor")
+        .select("*", count="exact")
+        .eq("plant_id", plant_id)
+        .order("created_at", desc=True)
+        .range(start, end)
+        .execute()
+    )
+    return {
+        "data": response.data,
+        "total": response.count if response.count is not None else len(response.data),
+        "page": page,
+        "limit": limit,
+    }
+
+
+@router.get("", status_code=status.HTTP_200_OK)
 def get_all_bh1750_readings(
     current_user: dict = Depends(get_current_user), limit: int = 50
 ):
@@ -55,7 +81,7 @@ def get_all_bh1750_readings(
     return response.data
 
 
-@router.get("/{reading_id}")
+@router.get("/{reading_id}", status_code=status.HTTP_200_OK)
 def get_bh1750_reading_by_id(
     reading_id: str, current_user: dict = Depends(get_current_user)
 ):
@@ -72,7 +98,7 @@ def get_bh1750_reading_by_id(
     return response.data[0]
 
 
-@router.delete("/{reading_id}")
+@router.delete("/{reading_id}", status_code=status.HTTP_200_OK)
 def delete_bh1750_reading(
     reading_id: str, current_user: dict = Depends(get_current_user)
 ):
@@ -87,22 +113,3 @@ def delete_bh1750_reading(
     if not response.data:
         raise HTTPException(status_code=404, detail="Reading not found.")
     return {"message": "Reading deleted successfully."}
-
-
-@router.get("/plant/{plant_id}")
-def get_bh1750_by_plant(
-    plant_id: str,
-    page: int = 1,
-    limit: int = 10,
-    current_user: dict = Depends(get_current_user),
-):
-    start = (page - 1) * limit
-    res = (
-        supabase.table("bh1750_sensor")
-        .select("*", count="exact")
-        .eq("plant_id", plant_id)
-        .order("created_at", desc=True)
-        .range(start, start + limit - 1)
-        .execute()
-    )
-    return {"data": res.data, "total": res.count, "page": page, "limit": limit}
