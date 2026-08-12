@@ -1,12 +1,17 @@
 import React, { useState } from "react";
 import LoginScreen from "./screens/LoginScreen";
 import DashboardScreen from "./screens/DashboardScreen";
-import SensorsScreen from "./screens/SensorsScreen";
+import UsersScreen from "./screens/UsersScreen";
+import PlantsScreen from "./screens/PlantsScreen";
+import PlantDetailsScreen from "./screens/PlantDetailsScreen";
 
 export default function App() {
   const [token, setToken] = useState(localStorage.getItem("admin_token") || null);
   const [user, setUser] = useState(JSON.parse(localStorage.getItem("admin_user") || "null"));
   const [activeTab, setActiveTab] = useState("dashboard");
+
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [selectedPlant, setSelectedPlant] = useState(null);
 
   const handleLoginSuccess = (newToken, newUser) => {
     setToken(newToken);
@@ -18,6 +23,18 @@ export default function App() {
     localStorage.removeItem("admin_user");
     setToken(null);
     setUser(null);
+    setSelectedUser(null);
+    setSelectedPlant(null);
+  };
+
+  const handleSelectUser = (u) => {
+    setSelectedUser(u);
+    setActiveTab("plants");
+  };
+
+  const handleSelectPlant = (p) => {
+    setSelectedPlant(p);
+    setActiveTab("plant_details");
   };
 
   if (!token || !user) {
@@ -35,31 +52,29 @@ export default function App() {
           <p className="text-xs text-[#ecfdf5]/80">Admin Management Portal</p>
         </div>
 
-        {/* Tab Links */}
+        {/* Navigation Tabs */}
         <nav className="flex items-center space-x-2 bg-[#047857] p-1 rounded-lg">
           <button
             onClick={() => setActiveTab("dashboard")}
-            className={`px-4 py-2 text-sm font-semibold rounded-md transition ${
-              activeTab === "dashboard"
-                ? "bg-white text-[#059669] shadow-sm"
-                : "text-white hover:bg-white/10"
-            }`}
+            className={`px-4 py-2 text-sm font-semibold rounded-md transition ${activeTab === "dashboard"
+              ? "bg-white text-[#059669] shadow-sm"
+              : "text-white hover:bg-white/10"
+              }`}
           >
             Dashboard
           </button>
           <button
-            onClick={() => setActiveTab("sensors")}
-            className={`px-4 py-2 text-sm font-semibold rounded-md transition ${
-              activeTab === "sensors"
-                ? "bg-white text-[#059669] shadow-sm"
-                : "text-white hover:bg-white/10"
-            }`}
+            onClick={() => setActiveTab("users")}
+            className={`px-4 py-2 text-sm font-semibold rounded-md transition ${activeTab === "users"
+              ? "bg-white text-[#059669] shadow-sm"
+              : "text-white hover:bg-white/10"
+              }`}
           >
-            Sensors
+            Users Directory
           </button>
         </nav>
 
-        {/* User Info & Logout */}
+        {/* User Profile & Logout */}
         <div className="flex items-center space-x-4">
           <span className="text-sm">
             Welcome, <strong>{user.first_name} {user.last_name}</strong>
@@ -73,10 +88,28 @@ export default function App() {
         </div>
       </header>
 
-      {/* Main Content Area */}
+      {/* Main Content View */}
       <main className="max-w-6xl mx-auto p-8">
-        {activeTab === "dashboard" && <DashboardScreen user={user} />}
-        {activeTab === "sensors" && <SensorsScreen />}
+        {activeTab === "dashboard" && (
+          <DashboardScreen user={user} onSelectUser={handleSelectUser} />
+        )}
+        {activeTab === "users" && (
+          <UsersScreen onSelectUser={handleSelectUser} />
+        )}
+        {activeTab === "plants" && selectedUser && (
+          <PlantsScreen
+            selectedUser={selectedUser}
+            onSelectPlant={handleSelectPlant}
+            onBack={() => setActiveTab("users")}
+          />
+        )}
+        {activeTab === "plant_details" && selectedPlant && (
+          <PlantDetailsScreen
+            selectedPlant={selectedPlant}
+            selectedUser={selectedUser}
+            onBack={() => setActiveTab("plants")}
+          />
+        )}
       </main>
     </div>
   );

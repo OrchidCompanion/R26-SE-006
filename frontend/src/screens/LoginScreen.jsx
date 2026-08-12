@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -7,6 +7,34 @@ export default function LoginScreen({ onLoginSuccess }) {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Health check state
+  const [serverStatus, setServerStatus] = useState("checking");
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const checkServerHealth = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/health`);
+        if (res.ok) {
+          if (isMounted) setServerStatus("connected");
+        } else {
+          if (isMounted) setServerStatus("error");
+        }
+      } catch (err) {
+        if (isMounted) setServerStatus("error");
+      }
+    };
+
+    checkServerHealth();
+    const interval = setInterval(checkServerHealth, 10000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -42,9 +70,9 @@ export default function LoginScreen({ onLoginSuccess }) {
   };
 
   return (
-    <div className="min-h-screen bg-[#059669] flex flex-col justify-between items-center p-12">
+    <div className="relative min-h-screen bg-[#059669] flex flex-col justify-between items-center p-8 sm:p-12">
       {/* Header */}
-      <div className="text-center mt-10">
+      <div className="text-center mt-6">
         <h1 className="text-white text-4xl sm:text-5xl font-extrabold tracking-tight">
           Orchid<span className="text-[#ecfdf5]">Companion</span>
         </h1>
@@ -54,7 +82,7 @@ export default function LoginScreen({ onLoginSuccess }) {
       </div>
 
       {/* Login Card */}
-      <div className="bg-white rounded-2xl p-8 w-full max-w-md shadow-2xl">
+      <div className="bg-white rounded-2xl p-8 w-full max-w-md shadow-2xl my-auto">
         <h2 className="text-[#1f2937] text-2xl font-bold mb-6 text-center">
           Admin Login
         </h2>
@@ -96,7 +124,7 @@ export default function LoginScreen({ onLoginSuccess }) {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || serverStatus === "checking"}
             className="w-full bg-[#059669] hover:bg-[#047857] text-white font-bold py-3 rounded-lg transition duration-200 disabled:opacity-70 disabled:cursor-not-allowed shadow-md mt-2"
           >
             {loading ? "Authenticating..." : "Sign In"}
@@ -105,10 +133,32 @@ export default function LoginScreen({ onLoginSuccess }) {
       </div>
 
       {/* Footer */}
-      <div className="text-center">
+      <div className="text-center mt-6">
         <p className="text-[#ecfdf5] text-xs tracking-widest uppercase opacity-80">
           R26-SE-006
         </p>
+      </div>
+
+      {/* Server Health Status Badge (Bottom Right) */}
+      <div className="fixed bottom-4 right-4 bg-white/95 backdrop-blur px-4 py-2 rounded-full shadow-lg border border-gray-200 flex items-center space-x-2 text-xs font-semibold">
+        {serverStatus === "checking" && (
+          <>
+            <span className="w-2.5 h-2.5 bg-amber-400 rounded-full animate-ping"></span>
+            <span className="text-amber-700">Waking Server...</span>
+          </>
+        )}
+        {serverStatus === "connected" && (
+          <>
+            <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full"></span>
+            <span className="text-emerald-700">Connected</span>
+          </>
+        )}
+        {serverStatus === "error" && (
+          <>
+            <span className="w-2.5 h-2.5 bg-rose-500 rounded-full"></span>
+            <span className="text-rose-700">Server Offline</span>
+          </>
+        )}
       </div>
     </div>
   );
