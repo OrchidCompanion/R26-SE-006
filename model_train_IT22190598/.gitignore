@@ -1,110 +1,39 @@
-YOLO26/test/images/
-YOLO26/test/labels/
-YOLO26/train/images/
-YOLO26/train/labels/
-YOLO26/valid/images/
-YOLO26/valid/labels/
+# dependencies
+node_modules/
 
-Yolo26New/test/images/
-Yolo26New/test/labels/
-Yolo26New/train/images/
-Yolo26New/train/labels/
-Yolo26New/valid/images/
-Yolo26New/valid/labels/
-
-YOLOv8/test/images/
-YOLOv8/test/labels/
-YOLOv8/train/images/
-YOLOv8/train/labels/
-YOLOv8/valid/images/
-YOLOv8/valid/labels/
-
-YOLOv11/test/images/
-YOLOv11/test/labels/
-YOLOv11/train/images/
-YOLOv11/train/labels/
-YOLOv11/valid/images/
-YOLOv11/valid/labels/
-
-
-
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
+# Expo
+.expo/
 dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-pip-wheel-metadata/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
+web-build/
+expo-env.d.ts
 
-# Virtual environments
-venv/
-ENV/
-env/
-.venv
+# Native
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
+# Metro
+.metro-health-check*
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS
 .DS_Store
+*.pem
 
-# Jupyter Notebook
-.ipynb_checkpoints/
-*.ipynb_checkpoints
+# local env files
+.env*.local
 
-# Models and weights
-*.pt
-*.pth
-*.onnx
-*.weights
-yolo*.pt
-best.pt
-last.pt
+# typescript
+*.tsbuildinfo
 
-# Large datasets
-coco128/
-coco/
-VOCdevkit/
-*.zip
-*.tar
-*.tar.gz
-
-# YOLO outputs
-runs/
-results/
-predictions/
-output/
-logs/
-
-# System files
-Thumbs.db
-.DS_Store
-.AppleDouble
-.LSOverride
-
-# Environment
-.env
-.env.local
-
-# Cache
-*.cache
-.cache/
+# generated native folders
+/ios
+/android

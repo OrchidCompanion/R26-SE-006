@@ -11,9 +11,11 @@ from utils.auth import (
     get_current_user,
 )
 
+
 class RoleEnum(str, Enum):
     admin = "admin"
     user = "user"
+
 
 # Schemas
 class UserRegister(BaseModel):
@@ -23,16 +25,20 @@ class UserRegister(BaseModel):
     password: str
     role: RoleEnum = RoleEnum.user
 
+
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
+
 
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: dict
 
+
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
+
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 def register_user(user: UserRegister):
@@ -126,3 +132,63 @@ def get_current_user_profile(current_user: dict = Depends(get_current_user)):
     if not response.data:
         raise HTTPException(status_code=404, detail="User not found.")
     return response.data[0]
+
+
+@router.get("/users")
+def get_all_users(current_user: dict = Depends(get_current_user)):
+    """Admin: Fetch all non-admin active users."""
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required.")
+
+    res = (
+        supabase.table("users")
+        .select("user_id, first_name, last_name, email, role, created_at")
+        .eq("role", "user")
+        .is_("deleted_at", "null")
+        .order("created_at", desc=True)
+        .execute()
+    )
+    return res.data
+
+
+@router.put("/users/{user_id}")
+def update_user_by_admin(
+    user_id: str, data: dict, current_user: dict = Depends(get_current_user)
+):
+    """Admin: Update user details."""
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required.")
+
+    update_fields = {
+        k: v for k, v in data.items() if k in ["first_name", "last_name", "email"]
+    }
+    res = (
+        supabase.table("users")
+        .update(update_fields)
+        .eq("user_id", user_id)
+        .is_("deleted_at", "null")
+        .execute()
+    )
+    if not res.data:
+        raise HTTPException(status_code=404, detail="User not found.")
+    return res.data[0]
+
+
+@router.delete("/users/{user_id}")
+def soft_delete_user_by_admin(
+    user_id: str, current_user: dict = Depends(get_current_user)
+):
+    """Admin: Soft delete user."""
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required.")
+
+    res = (
+        supabase.table("users")
+        .update({"deleted_at": datetime.now(timezone.utc).isoformat()})
+        .eq("user_id", user_id)
+        .is_("deleted_at", "null")
+        .execute()
+    )
+    if not res.data:
+        raise HTTPException(status_code=404, detail="User not found.")
+    return {"message": "User deleted successfully."}
