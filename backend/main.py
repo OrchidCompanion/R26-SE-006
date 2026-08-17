@@ -42,6 +42,11 @@ app.include_router(disease.router)
 app.include_router(fertilizer.router)
 
 
+@app.get("/", tags=["Running"])
+def health_check():
+    """Public health check endpoint."""
+    return {"status": "Backend is running", "timestamp": datetime.now(timezone.utc).isoformat()}
+
 @app.get("/api/health", tags=["Health Check"])
 def health_check():
     """Public health check endpoint."""
