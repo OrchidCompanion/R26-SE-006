@@ -7,8 +7,6 @@ export default function LoginScreen({ onLoginSuccess }) {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
-  // Health check state
   const [serverStatus, setServerStatus] = useState("checking");
 
   useEffect(() => {
@@ -22,13 +20,13 @@ export default function LoginScreen({ onLoginSuccess }) {
         } else {
           if (isMounted) setServerStatus("error");
         }
-      } catch (err) {
+      } catch {
         if (isMounted) setServerStatus("error");
       }
     };
 
     checkServerHealth();
-    const interval = setInterval(checkServerHealth, 10000);
+    const interval = setInterval(checkServerHealth, 5000);
 
     return () => {
       isMounted = false;
@@ -71,6 +69,26 @@ export default function LoginScreen({ onLoginSuccess }) {
 
   return (
     <div className="relative min-h-screen bg-[#059669] flex flex-col justify-between items-center p-8 sm:p-12">
+      {/* Full Screen Loading Animation Overlay */}
+      {serverStatus === "checking" && (
+        <div className="fixed inset-0 z-50 bg-[#047857]/95 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center">
+          <div className="relative flex items-center justify-center mb-6">
+            <div className="w-20 h-20 border-4 border-emerald-200 border-t-white rounded-full animate-spin"></div>
+            <span className="absolute text-2xl">🌸</span>
+          </div>
+          <h2 className="text-white text-2xl sm:text-3xl font-extrabold tracking-tight">
+            Waking OrchidCompanion Server...
+          </h2>
+          <p className="text-emerald-100 text-sm mt-2 max-w-sm">
+            Spinning up backend microservices and database link. Please wait a moment.
+          </p>
+          <div className="mt-6 flex items-center space-x-2 text-xs text-emerald-200">
+            <span className="w-2.5 h-2.5 bg-amber-300 rounded-full animate-ping"></span>
+            <span>Establishing secure cloud handshake</span>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="text-center mt-6">
         <h1 className="text-white text-4xl sm:text-5xl font-extrabold tracking-tight">
@@ -139,27 +157,13 @@ export default function LoginScreen({ onLoginSuccess }) {
         </p>
       </div>
 
-      {/* Server Health Status Badge (Bottom Right) */}
-      <div className="fixed bottom-4 right-4 bg-white/95 backdrop-blur px-4 py-2 rounded-full shadow-lg border border-gray-200 flex items-center space-x-2 text-xs font-semibold">
-        {serverStatus === "checking" && (
-          <>
-            <span className="w-2.5 h-2.5 bg-amber-400 rounded-full animate-ping"></span>
-            <span className="text-amber-700">Waking Server...</span>
-          </>
-        )}
-        {serverStatus === "connected" && (
-          <>
-            <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full"></span>
-            <span className="text-emerald-700">Connected</span>
-          </>
-        )}
-        {serverStatus === "error" && (
-          <>
-            <span className="w-2.5 h-2.5 bg-rose-500 rounded-full"></span>
-            <span className="text-rose-700">Server Offline</span>
-          </>
-        )}
-      </div>
+      {/* Status indicator */}
+      {serverStatus === "error" && (
+        <div className="fixed bottom-4 right-4 bg-rose-50 border border-rose-200 text-rose-700 px-4 py-2 rounded-full shadow-lg text-xs font-semibold flex items-center space-x-2">
+          <span className="w-2.5 h-2.5 bg-rose-500 rounded-full"></span>
+          <span>Backend Unavailable</span>
+        </div>
+      )}
     </div>
   );
 }
