@@ -1,9 +1,10 @@
 import React, { useState } from "react";
 import LoginScreen from "./screens/LoginScreen";
 import DashboardScreen from "./screens/DashboardScreen";
-import UsersScreen from "./screens/UsersScreen";
 import PlantsScreen from "./screens/PlantsScreen";
 import PlantDetailsScreen from "./screens/PlantDetailsScreen";
+import IdentifySpecies from "./screens/IdentifySpecies";
+import AnalayseLocation from "./screens/AnalayseLocation";
 
 export default function App() {
   const [token, setToken] = useState(localStorage.getItem("admin_token") || null);
@@ -43,36 +44,20 @@ export default function App() {
 
   return (
     <div className="bg-[#f9fafb] min-h-screen text-[#1f2937]">
-      {/* Admin Navigation Bar */}
       <header className="bg-[#059669] text-white px-8 py-4 flex flex-col md:flex-row justify-between items-center shadow-md gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-wide">
+          <h1
+            onClick={() => {
+              setSelectedUser(null);
+              setSelectedPlant(null);
+              setActiveTab("dashboard");
+            }}
+            className="text-2xl font-extrabold tracking-wide cursor-pointer"
+          >
             Orchid<span className="text-[#ecfdf5]">Companion</span>
           </h1>
           <p className="text-xs text-[#ecfdf5]/80">Admin Management Portal</p>
         </div>
-
-        {/* Navigation Tabs */}
-        <nav className="flex items-center space-x-2 bg-[#047857] p-1 rounded-lg">
-          <button
-            onClick={() => setActiveTab("dashboard")}
-            className={`px-4 py-2 text-sm font-semibold rounded-md transition ${activeTab === "dashboard"
-              ? "bg-white text-[#059669] shadow-sm"
-              : "text-white hover:bg-white/10"
-              }`}
-          >
-            Dashboard
-          </button>
-          <button
-            onClick={() => setActiveTab("users")}
-            className={`px-4 py-2 text-sm font-semibold rounded-md transition ${activeTab === "users"
-              ? "bg-white text-[#059669] shadow-sm"
-              : "text-white hover:bg-white/10"
-              }`}
-          >
-            Users Directory
-          </button>
-        </nav>
 
         {/* User Profile & Logout */}
         <div className="flex items-center space-x-4">
@@ -91,16 +76,18 @@ export default function App() {
       {/* Main Content View */}
       <main className="max-w-6xl mx-auto p-8">
         {activeTab === "dashboard" && (
-          <DashboardScreen user={user} onSelectUser={handleSelectUser} />
-        )}
-        {activeTab === "users" && (
-          <UsersScreen onSelectUser={handleSelectUser} />
+          <DashboardScreen
+            user={user}
+            onSelectUser={handleSelectUser}
+            onNavigateToIdentifySpecies={() => setActiveTab("identify_species")}
+            onNavigateToAnalyseLocation={() => setActiveTab("analyse_location")}
+          />
         )}
         {activeTab === "plants" && selectedUser && (
           <PlantsScreen
             selectedUser={selectedUser}
             onSelectPlant={handleSelectPlant}
-            onBack={() => setActiveTab("users")}
+            onBack={() => setActiveTab("dashboard")}
           />
         )}
         {activeTab === "plant_details" && selectedPlant && (
@@ -109,6 +96,12 @@ export default function App() {
             selectedUser={selectedUser}
             onBack={() => setActiveTab("plants")}
           />
+        )}
+        {activeTab === "identify_species" && (
+          <IdentifySpecies onBack={() => setActiveTab("dashboard")} />
+        )}
+        {activeTab === "analyse_location" && (
+          <AnalayseLocation onBack={() => setActiveTab("dashboard")} />
         )}
       </main>
     </div>
