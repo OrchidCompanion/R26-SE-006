@@ -274,7 +274,7 @@ export default function AnalayseLocation({ onBack }) {
             ← Back to Dashboard
           </button>
           <h2 className="text-[#1f2937] text-2xl font-extrabold flex items-center gap-2">
-            <span>📡</span> Orchid Location Environmental Analysis
+            Orchid Location Environmental Analysis
           </h2>
           <p className="text-gray-500 text-sm">
             Read live DHT11 & BH1750 microclimate readings to verify location suitability.
@@ -286,8 +286,7 @@ export default function AnalayseLocation({ onBack }) {
             onClick={() => setShowAddModuleModal(true)}
             className="px-4 py-2.5 bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center space-x-1.5 shrink-0"
           >
-            <span>⚡</span>
-            <span>+ Register New ESP32 MAC</span>
+            <span>Register New Sensor Module</span>
           </button>
         )}
       </div>
@@ -364,7 +363,7 @@ export default function AnalayseLocation({ onBack }) {
             disabled={checkingStatus}
             className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-sm disabled:opacity-50"
           >
-            {checkingStatus ? "Pinging Module..." : "⚡ Check Sensor Status"}
+            {checkingStatus ? "Pinging Module..." : "Check Sensor Status"}
           </button>
         </div>
       )}
@@ -428,7 +427,7 @@ export default function AnalayseLocation({ onBack }) {
                 disabled={analyzing}
                 className="w-full bg-[#059669] hover:bg-[#047857] text-white font-bold py-2.5 rounded-lg shadow-md transition disabled:opacity-50"
               >
-                {analyzing ? `Sampling (${countdown}s remaining)...` : "🌿 Analyse Location"}
+                {analyzing ? `Sampling (${countdown}s remaining)...` : "Analyse Location"}
               </button>
             </div>
           </div>
@@ -495,8 +494,8 @@ export default function AnalayseLocation({ onBack }) {
               }`}
           >
             {isLocationIdeal
-              ? "🌿 Location is OPTIMAL for Dendrobium Orchids!"
-              : "⚠️ Location Requires Environmental Adjustment"}
+              ? "Location is OPTIMAL for Dendrobium Orchids!"
+              : "Location Requires Environmental Adjustment"}
           </div>
 
           <div className="overflow-x-auto rounded-xl border border-gray-200">
@@ -609,7 +608,7 @@ export default function AnalayseLocation({ onBack }) {
                 <input
                   type="text"
                   required
-                  placeholder="e.g., 34:85:18:ab:cd:ef or 348518abcdef"
+                  placeholder="e.g. 348518abcdef"
                   value={newMacAddress}
                   onChange={(e) => setNewMacAddress(e.target.value)}
                   className="w-full px-3 py-2 text-sm border font-mono rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"

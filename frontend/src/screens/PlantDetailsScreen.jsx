@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import AnalyseDisease from "./AnalyseDisease";
+import AnalyseFertilizer from "./AnalyseFertilizer";
+import PredictBlooming from "./PredictBlooming";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -126,6 +128,32 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
     );
   }
 
+  if (currentView === "analyse_fertilizer") {
+    return (
+      <AnalyseFertilizer
+        selectedPlant={selectedPlant}
+        selectedUser={selectedUser}
+        onBack={() => {
+          setCurrentView("details");
+          fetchOutputData();
+        }}
+      />
+    );
+  }
+
+  if (currentView === "predict_blooming") {
+    return (
+      <PredictBlooming
+        selectedPlant={selectedPlant}
+        selectedUser={selectedUser}
+        onBack={() => {
+          setCurrentView("details");
+          fetchOutputData();
+        }}
+      />
+    );
+  }
+
   const sensorTotalPages = Math.ceil(sensorTotal / LIMIT) || 1;
   const outputTotalPages = Math.ceil(outputTotal / LIMIT) || 1;
 
@@ -156,13 +184,13 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
             Analyse Disease
           </button>
           <button
-            onClick={() => alert("Fertilizer Analysis module coming soon.")}
+            onClick={() => setCurrentView("analyse_fertilizer")}
             className="px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-lg shadow-xs transition"
           >
             Analyse Fertilizer
           </button>
           <button
-            onClick={() => alert("Bloom Prediction module coming soon.")}
+            onClick={() => setCurrentView("predict_blooming")}
             className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-lg shadow-xs transition"
           >
             Predict Blooming

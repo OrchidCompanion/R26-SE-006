@@ -165,7 +165,7 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onBack }) {
             onClick={() => setShowAddLocationModal(true)}
             className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-sm transition"
           >
-            + Add Location Zone
+            Add Location
           </button>
           <button
             onClick={() => {
@@ -174,7 +174,7 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onBack }) {
             }}
             className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-lg shadow-sm transition"
           >
-            + Add Orchid Plant
+            Add Orchid Plant
           </button>
         </div>
       </div>
@@ -224,7 +224,6 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onBack }) {
                   ) : (
                     <div>
                       <div className="flex items-center space-x-2">
-                        <span className="text-lg">📍</span>
                         <h3 className="font-bold text-gray-800 text-base">
                           {loc.location_name}
                         </h3>
@@ -255,16 +254,6 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onBack }) {
                       className="text-xs text-rose-600 hover:underline font-semibold"
                     >
                       Delete
-                    </button>
-                    <span className="text-gray-300">•</span>
-                    <button
-                      onClick={() => {
-                        setTargetLocationId(loc.location_id);
-                        setShowAddPlantModal(true);
-                      }}
-                      className="text-xs text-emerald-600 hover:underline font-bold"
-                    >
-                      + Add Plant
                     </button>
                   </div>
                 </div>

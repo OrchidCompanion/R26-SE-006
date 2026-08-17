@@ -86,22 +86,19 @@ export default function DashboardScreen({
           onClick={onNavigateToIdentifySpecies}
           className="flex items-center space-x-2 px-5 py-3 bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold rounded-xl shadow-md transition transform hover:-translate-y-0.5 text-sm"
         >
-          <span className="text-lg">🌸</span>
           <span>Identify Orchid Species</span>
         </button>
         <button
           onClick={onNavigateToAnalyseLocation}
           className="flex items-center space-x-2 px-5 py-3 bg-linear-to-r from-teal-600 to-cyan-700 hover:from-teal-700 hover:to-cyan-800 text-white font-bold rounded-xl shadow-md transition transform hover:-translate-y-0.5 text-sm"
         >
-          <span className="text-lg">📡</span>
           <span>Analyse Location</span>
         </button>
         <button
           onClick={() => setShowAddUserModal(true)}
-          className="flex items-center space-x-2 px-5 py-3 bg-linear-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-bold rounded-xl shadow-md transition transform hover:-translate-y-0.5 text-sm"
+          className="flex items-center space-x-2 px-5 py-3 bg-linear-to-r from-indigo-400 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-bold rounded-xl shadow-md transition transform hover:-translate-y-0.5 text-sm"
         >
-          <span className="text-lg">👤</span>
-          <span>+ Add User</span>
+          <span>Add User</span>
         </button>
       </div>
 
@@ -136,7 +133,7 @@ export default function DashboardScreen({
           <h2 className="text-[#1f2937] text-xl font-bold">Select User to Inspect</h2>
         </div>
         <p className="text-gray-500 text-sm mb-4">
-          Click on any user below to inspect their locations, plants, and sensor telemetry.
+          Click on any user below to inspect their locations and plants.
         </p>
 
         {loading ? (
@@ -156,10 +153,11 @@ export default function DashboardScreen({
                 </h3>
                 <p className="text-sm text-gray-500 truncate">{u.email}</p>
                 <div className="mt-3 flex justify-between items-center text-xs">
-                  <span className="text-emerald-600 font-semibold">View Locations & Plants →</span>
                   <span className="text-gray-400">
                     Joined {new Date(u.created_at).toLocaleDateString()}
                   </span>
+                  <span className="text-emerald-600 font-semibold">View More</span>
+                  
                 </div>
               </div>
             ))}

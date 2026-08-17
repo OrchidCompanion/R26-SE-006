@@ -65,7 +65,7 @@ export default function IdentifySpecies({ onBack }) {
           ← Back to Dashboard
         </button>
         <h2 className="text-[#1f2937] text-2xl font-extrabold flex items-center gap-2">
-          <span>🌸</span> Orchid Species Identification
+          Orchid Species Identification
         </h2>
         <p className="text-gray-500 text-sm">
           Upload an orchid flower image to detect whether it is Dendrobium, Oncidium, or Phalaenopsis.
@@ -73,7 +73,7 @@ export default function IdentifySpecies({ onBack }) {
       </div>
 
       <div className="max-w-2xl mx-auto space-y-4">
-        <div className="border-2 border-dashed border-emerald-300 bg-emerald-50/40 p-8 rounded-xl text-center">
+        <div className="border-2 border-dashed border-emerald-300 bg-emerald-50/40 px-8 py-14 rounded-xl text-center">
           <input
             type="file"
             id="speciesImageInput"
@@ -85,7 +85,6 @@ export default function IdentifySpecies({ onBack }) {
             htmlFor="speciesImageInput"
             className="cursor-pointer flex flex-col items-center justify-center space-y-2"
           >
-            <span className="text-4xl">📸</span>
             <span className="text-sm font-bold text-emerald-700">
               Click or drag orchid flower image to upload
             </span>
@@ -115,7 +114,7 @@ export default function IdentifySpecies({ onBack }) {
           disabled={detecting || !selectedFile}
           className="w-full bg-[#059669] hover:bg-[#047857] text-white font-bold py-3 rounded-xl transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {detecting ? "Running Species Classifier..." : "🔍 Detect Species"}
+          {detecting ? "Running Species Classifier..." : "Detect Species"}
         </button>
       </div>
 

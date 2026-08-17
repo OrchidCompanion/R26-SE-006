@@ -73,19 +73,14 @@ export default function LoginScreen({ onLoginSuccess }) {
       {serverStatus === "checking" && (
         <div className="fixed inset-0 z-50 bg-[#047857]/95 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center">
           <div className="relative flex items-center justify-center mb-6">
-            <div className="w-20 h-20 border-4 border-emerald-200 border-t-white rounded-full animate-spin"></div>
-            <span className="absolute text-2xl">🌸</span>
+            <div className="w-20 h-20 border-8 border-emerald-400 border-t-white rounded-full animate-spin"></div>
           </div>
           <h2 className="text-white text-2xl sm:text-3xl font-extrabold tracking-tight">
-            Waking OrchidCompanion Server...
+            Connecting to Server...
           </h2>
-          <p className="text-emerald-100 text-sm mt-2 max-w-sm">
-            Spinning up backend microservices and database link. Please wait a moment.
+          <p className="text-emerald-100 text-sm mt-2 max-w-lg">
+            Server is connecting and establishing database link. Please wait a moment.
           </p>
-          <div className="mt-6 flex items-center space-x-2 text-xs text-emerald-200">
-            <span className="w-2.5 h-2.5 bg-amber-300 rounded-full animate-ping"></span>
-            <span>Establishing secure cloud handshake</span>
-          </div>
         </div>
       )}
 
@@ -121,7 +116,7 @@ export default function LoginScreen({ onLoginSuccess }) {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="admin@orchidcompanion.com"
+              placeholder="email@sample.com"
               className="w-full px-3 py-2 rounded-lg border border-[#e5e7eb] focus:outline-none focus:ring-2 focus:ring-[#059669] text-base"
             />
           </div>
@@ -135,7 +130,7 @@ export default function LoginScreen({ onLoginSuccess }) {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
+              placeholder=""
               className="w-full px-3 py-2 rounded-lg border border-[#e5e7eb] focus:outline-none focus:ring-2 focus:ring-[#059669] text-base"
             />
           </div>
