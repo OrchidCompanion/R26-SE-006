@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from routers import (
     auth,
     plants,
+    locations,
     sensors,
     dht11,
     bh1750,
@@ -31,6 +32,7 @@ app.add_middleware(
 # Routers
 app.include_router(auth.router)
 app.include_router(plants.router)
+app.include_router(locations.router)
 app.include_router(sensors.router)
 app.include_router(dht11.router)
 app.include_router(bh1750.router)
@@ -39,6 +41,11 @@ app.include_router(bloom.router)
 app.include_router(disease.router)
 app.include_router(fertilizer.router)
 
+
+@app.get("/", tags=["Running"])
+def health_check():
+    """Public health check endpoint."""
+    return {"status": "Backend is running", "timestamp": datetime.now(timezone.utc).isoformat()}
 
 @app.get("/api/health", tags=["Health Check"])
 def health_check():
