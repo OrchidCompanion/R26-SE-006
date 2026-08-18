@@ -122,7 +122,7 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left Column: Image Upload */}
         <div className="space-y-4">
-          <div className="border-2 border-dashed border-purple-300 bg-purple-50/40 p-6 rounded-xl text-center">
+          <div className="border-2 border-dashed border-purple-300 bg-purple-50/40 py-14 px-6 rounded-xl text-center">
             <input
               type="file"
               id="bloomImageInput"
@@ -134,7 +134,6 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
               htmlFor="bloomImageInput"
               className="cursor-pointer flex flex-col items-center justify-center space-y-2"
             >
-              <span className="text-4xl">🌸</span>
               <span className="text-sm font-bold text-purple-800">
                 Click or drag orchid bud/spike image
               </span>
@@ -164,7 +163,7 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
             disabled={analyzing || !selectedFile}
             className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded-xl transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {analyzing ? "Estimating Bloom Timeline..." : "🌸 Run Bloom Prediction"}
+            {analyzing ? "Estimating Bloom Timeline..." : "Run Bloom Prediction"}
           </button>
         </div>
 

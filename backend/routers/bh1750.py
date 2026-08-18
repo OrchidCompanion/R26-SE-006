@@ -8,8 +8,9 @@ from utils.auth import get_current_user
 
 class BH1750Create(BaseModel):
     lux: float
-    plant_id: str
+    location_id: str
     module_id: str
+    time_slot: Optional[str] = "custom"
 
 
 router = APIRouter(prefix="/api/sensors/bh1750", tags=["BH1750 Light Sensor"])
@@ -19,13 +20,14 @@ router = APIRouter(prefix="/api/sensors/bh1750", tags=["BH1750 Light Sensor"])
 def create_bh1750_reading(
     reading: BH1750Create, current_user: dict = Depends(get_current_user)
 ):
-    """Log a new light intensity (lux) reading."""
+    """Log a new light reading into bh1750_environment_history."""
     response = (
-        supabase.table("bh1750_sensor")
+        supabase.table("bh1750_environment_history")
         .insert(
             {
                 "lux": reading.lux,
-                "plant_id": reading.plant_id,
+                "time_slot": reading.time_slot,
+                "location_id": reading.location_id,
                 "module_id": reading.module_id,
                 "user_id": current_user["user_id"],
             }
@@ -46,70 +48,33 @@ def get_bh1750_readings_by_plant(
     limit: int = 10,
     current_user: dict = Depends(get_current_user),
 ):
-    """Fetch BH1750 light readings for a specific plant with pagination."""
+    """Fetch BH1750 light readings via the plant's assigned location."""
+    plant_res = (
+        supabase.table("plants")
+        .select("location_id")
+        .eq("plant_id", plant_id)
+        .execute()
+    )
+
+    if not plant_res.data or not plant_res.data[0].get("location_id"):
+        return {"data": [], "total": 0, "page": page, "limit": limit}
+
+    location_id = plant_res.data[0]["location_id"]
     start = (page - 1) * limit
     end = start + limit - 1
+
     response = (
-        supabase.table("bh1750_sensor")
+        supabase.table("bh1750_environment_history")
         .select("*", count="exact")
-        .eq("plant_id", plant_id)
+        .eq("location_id", location_id)
         .order("created_at", desc=True)
         .range(start, end)
         .execute()
     )
+
     return {
         "data": response.data,
         "total": response.count if response.count is not None else len(response.data),
         "page": page,
         "limit": limit,
     }
-
-
-@router.get("", status_code=status.HTTP_200_OK)
-def get_all_bh1750_readings(
-    current_user: dict = Depends(get_current_user), limit: int = 50
-):
-    """View recent light readings."""
-    response = (
-        supabase.table("bh1750_sensor")
-        .select("*")
-        .eq("user_id", current_user["user_id"])
-        .order("created_at", desc=True)
-        .limit(limit)
-        .execute()
-    )
-    return response.data
-
-
-@router.get("/{reading_id}", status_code=status.HTTP_200_OK)
-def get_bh1750_reading_by_id(
-    reading_id: str, current_user: dict = Depends(get_current_user)
-):
-    """Get reading by ID."""
-    response = (
-        supabase.table("bh1750_sensor")
-        .select("*")
-        .eq("reading_id", reading_id)
-        .eq("user_id", current_user["user_id"])
-        .execute()
-    )
-    if not response.data:
-        raise HTTPException(status_code=404, detail="Reading not found.")
-    return response.data[0]
-
-
-@router.delete("/{reading_id}", status_code=status.HTTP_200_OK)
-def delete_bh1750_reading(
-    reading_id: str, current_user: dict = Depends(get_current_user)
-):
-    """Delete a light reading entry."""
-    response = (
-        supabase.table("bh1750_sensor")
-        .delete()
-        .eq("reading_id", reading_id)
-        .eq("user_id", current_user["user_id"])
-        .execute()
-    )
-    if not response.data:
-        raise HTTPException(status_code=404, detail="Reading not found.")
-    return {"message": "Reading deleted successfully."}

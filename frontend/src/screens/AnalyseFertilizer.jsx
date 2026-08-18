@@ -74,7 +74,7 @@ export default function AnalyseFertilizer({ selectedPlant, selectedUser, onBack 
 
       {/* Image Upload Area */}
       <div className="max-w-2xl mx-auto space-y-4">
-        <div className="border-2 border-dashed border-amber-300 bg-amber-50/40 p-8 rounded-xl text-center">
+        <div className="border-2 border-dashed border-amber-300 bg-amber-50/40 py-14 px-8 rounded-xl text-center">
           <input
             type="file"
             id="fertilizerImageInput"
@@ -86,7 +86,6 @@ export default function AnalyseFertilizer({ selectedPlant, selectedUser, onBack 
             htmlFor="fertilizerImageInput"
             className="cursor-pointer flex flex-col items-center justify-center space-y-2"
           >
-            <span className="text-4xl">🧪</span>
             <span className="text-sm font-bold text-amber-800">
               Click or drag plant image to upload
             </span>
@@ -116,7 +115,7 @@ export default function AnalyseFertilizer({ selectedPlant, selectedUser, onBack 
           disabled={analyzing || !selectedFile}
           className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 rounded-xl transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {analyzing ? "Analyzing Fertilizer Requirements..." : "🌾 Run Fertilizer Analysis"}
+          {analyzing ? "Analyzing Fertilizer Requirements..." : "Run Fertilizer Analysis"}
         </button>
       </div>
 
@@ -124,7 +123,7 @@ export default function AnalyseFertilizer({ selectedPlant, selectedUser, onBack 
       {analysisResult && (
         <div className="border-t pt-6 space-y-6 animate-fade-in max-w-2xl mx-auto">
           <h3 className="text-lg font-bold text-gray-800">Recommendation Verdict</h3>
-          <div className="p-4 rounded-xl text-center text-white font-extrabold text-lg shadow-sm bg-gradient-to-r from-amber-600 to-yellow-600">
+          <div className="p-4 rounded-xl text-center text-white font-extrabold text-lg shadow-sm bg-linear-to-r from-amber-600 to-yellow-600">
             {analysisResult.recommendation_msg || "Fertilizer Assessment Complete"}
           </div>
 
