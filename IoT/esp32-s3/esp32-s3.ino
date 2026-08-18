@@ -1,4 +1,5 @@
 #include <WiFi.h>
+#include <WiFiMulti.h>
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 #include <BH1750.h>
@@ -6,82 +7,59 @@
 #include <WebSocketsClient.h>
 #include <ArduinoJson.h>
 
-// PIN DEFINITIONS
-// Onboard WS2812 RGB LED
-#define RGB_PIN          48
+// PIN DEFINITIONS & HARDWARE CONFIG
+#define RGB_PIN 48
+#define LCD_SDA_PIN 1
+#define LCD_SCL_PIN 2
+#define BH1750_SDA_PIN 9
+#define BH1750_SCL_PIN 8
+#define DHTPIN 5
+#define DHTTYPE DHT11
 
-// I2C Bus
-#define LCD_SDA_PIN      1
-#define LCD_SCL_PIN      2
-
-// I2C Bus 1
-#define BH1750_SDA_PIN   9
-#define BH1750_SCL_PIN   8
-
-// DHT11 Temperature & Humidity Sensor
-#define DHTPIN           5
-#define DHTTYPE          DHT11
-
-
-// WI-FI CONFIGURATION
-const char* WIFI_SSID     = "Dialog 4G 096";
-const char* WIFI_PASSWORD = "B6582be1";
-
-// Laptop IPv4 address
-const char* WS_HOST       = "192.168.8.181";
-const int   WS_PORT       = 8000;
+// FASTAPI RENDER BACKEND CONFIGURATION
+const char* WS_HOST = "r26-se-006.onrender.com";
+const int WS_PORT = 443;
 
 // OBJECTS & GLOBAL INSTANCES
-
-// LCD on address 0x27 (16 cols x 4 rows)
 LiquidCrystal_I2C lcd(0x27, 16, 4);
-
-// Second I2C Bus instance for BH1750
 TwoWire I2C_BH1750 = TwoWire(1);
 BH1750 lightMeter;
-
 DHT dht(DHTPIN, DHTTYPE);
 WebSocketsClient webSocket;
+WiFiMulti wifiMulti;
 
 String macAddress = "";
 String wsPath = "";
 bool isWsConnected = false;
 bool isBh1750Ready = false;
 
-
 // RGB LED CONTROLLER
-void setRGB(uint8_t r, uint8_t g, uint8_t b) {
-  neopixelWrite(RGB_PIN, r, g, b);
-}
-
-void setRGB_Red()     { setRGB(255, 0, 0); }     // Power ON / Booting
-void setRGB_Yellow()  { setRGB(255, 180, 0); }   // Searching Wi-Fi
-void setRGB_Green()   { setRGB(0, 255, 0); }     // Wi-Fi Connected & Idle
-void setRGB_Blue()    { setRGB(0, 100, 255); }   // Processing Command
-void setRGB_Violet()  { setRGB(180, 0, 255); }   // Submitting / Transmitting
-
+void setRGB(uint8_t r, uint8_t g, uint8_t b) { neopixelWrite(RGB_PIN, r, g, b); }
+void setRGB_Red()    { setRGB(255, 0, 0); }
+void setRGB_Yellow() { setRGB(255, 180, 0); }
+void setRGB_Green()  { setRGB(0, 255, 0); }
+void setRGB_Blue()   { setRGB(0, 100, 255); }
+void setRGB_Violet() { setRGB(180, 0, 255); }
 
 // LCD UI HELPER FUNCTIONS
 void showIdleScreen() {
   lcd.clear();
-  lcd.setCursor(0, 0);
-  lcd.print("WiFi: ");
-  lcd.print(WiFi.SSID().substring(0, 10));
 
+  // Wi-Fi SSID
+  lcd.setCursor(0, 0);
+  lcd.print(WiFi.SSID().substring(0, 16));
+
+  // IP Address
   lcd.setCursor(0, 1);
-  lcd.print("IP:");
   lcd.print(WiFi.localIP().toString());
 
+  // MAC Address
   lcd.setCursor(0, 2);
-  lcd.print("MAC: ");
   lcd.print(macAddress);
 
+  // WebSocket Connection Status
   lcd.setCursor(0, 3);
-  if (isWsConnected) {
-    lcd.print("WS: CONNECTED");
-  } else {
-    lcd.print("WS: DISCONNECTED");
-  }
+  lcd.print(isWsConnected ? "WS ONLINE" : "WS OFFLINE");
 }
 
 String getFormattedMacAddress() {
@@ -93,7 +71,7 @@ String getFormattedMacAddress() {
 }
 
 // SENSOR READING ROUTINES
-bool readDHT11(float &temp, float &hum) {
+bool readDHT11(float& temp, float& hum) {
   hum = dht.readHumidity();
   temp = dht.readTemperature();
   if (isnan(hum) || isnan(temp)) {
@@ -104,16 +82,17 @@ bool readDHT11(float &temp, float &hum) {
 }
 
 float readBH1750() {
-  if (!isBh1750Ready) return -1.0;
+  if (!isBh1750Ready) return 280.0;
   float lux = lightMeter.readLightLevel();
   if (lux < 0) {
-    Serial.println("[BH1750] Read error!");
+    Serial.println("[BH1750] Read error, fallback used!");
+    return 280.0;
   }
   return lux;
 }
 
 // WEBSOCKET COMMAND HANDLER
-void handleIncomingCommand(uint8_t * payload) {
+void handleIncomingCommand(uint8_t* payload) {
   StaticJsonDocument<256> doc;
   DeserializationError error = deserializeJson(doc, payload);
 
@@ -156,7 +135,7 @@ void handleIncomingCommand(uint8_t * payload) {
 
     String responseString;
     serializeJson(responseDoc, responseString);
-    
+
     setRGB_Violet();
     webSocket.sendTXT(responseString);
     Serial.println("[WS] Sent health_check response: " + responseString);
@@ -166,11 +145,10 @@ void handleIncomingCommand(uint8_t * payload) {
     showIdleScreen();
   }
 
-  //Read Live Sensors (On Demand)
+  // Read Live Sensors
   else if (strcmp(action, "read_sensors") == 0) {
     setRGB_Blue();
 
-    // Notify on LCD
     lcd.clear();
     lcd.setCursor(0, 0);
     lcd.print("CMD: READ SENSORS");
@@ -182,14 +160,11 @@ void handleIncomingCommand(uint8_t * payload) {
     bool dht_status = readDHT11(temp, hum);
     delay(500);
 
-    // Read BH1750
     lcd.setCursor(0, 2);
     lcd.print("Reading BH1750...");
     float lux = readBH1750();
-    if (lux < 0.0) lux = 0.0;
     delay(500);
 
-    // Show Captured Values
     lcd.clear();
     lcd.setCursor(0, 0);
     lcd.printf("T:%.1fC H:%.1f%%", temp, hum);
@@ -226,7 +201,7 @@ void handleIncomingCommand(uint8_t * payload) {
 }
 
 // WEBSOCKET EVENT CALLBACK
-void webSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
+void webSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
   switch (type) {
     case WStype_DISCONNECTED:
       isWsConnected = false;
@@ -254,17 +229,14 @@ void webSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
   }
 }
 
-
-
 // SETUP & LOOP
 void setup() {
   Serial.begin(115200);
   delay(500);
 
-  // Power ON State -> RGB RED
   setRGB_Red();
 
-  // Initialize LCD on Wire (GPIO 1 SDA, GPIO 2 SCL)
+  // Initialize LCD
   Wire.begin(LCD_SDA_PIN, LCD_SCL_PIN);
   lcd.init();
   lcd.backlight();
@@ -281,8 +253,6 @@ void setup() {
 
   // Initialize BH1750
   I2C_BH1750.begin(BH1750_SDA_PIN, BH1750_SCL_PIN);
-  
-  // Try default address 0x23 first, then alternate address 0x5C
   if (lightMeter.begin(BH1750::CONTINUOUS_HIGH_RES_MODE, 0x23, &I2C_BH1750)) {
     isBh1750Ready = true;
     Serial.println("[BH1750] Sensor Ready on 0x23!");
@@ -291,45 +261,43 @@ void setup() {
     Serial.println("[BH1750] Sensor Ready on 0x5C!");
   } else {
     isBh1750Ready = false;
-    Serial.println("[BH1750] Sensor not found on I2C bus (Fallback active).");
+    Serial.println("[BH1750] Sensor not found, fallback enabled.");
   }
 
   // Initialize DHT11
   dht.begin();
 
-  // Wi-Fi Connecting State -> RGB YELLOW
+  // Multi-AP Wi-Fi Setup
   setRGB_Yellow();
   lcd.clear();
   lcd.setCursor(0, 0);
   lcd.print("CONNECTING WIFI:");
-  lcd.setCursor(0, 1);
-  lcd.print(WIFI_SSID);
 
   WiFi.mode(WIFI_STA);
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  wifiMulti.addAP("Galaxy A20s5650", "123456");
+  wifiMulti.addAP("Dialog 4G 096", "123456");
 
   int dots = 0;
-  while (WiFi.status() != WL_CONNECTED) {
+  while (wifiMulti.run() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
-    lcd.setCursor(dots % 16, 2);
+    lcd.setCursor(dots % 16, 1);
     lcd.print(".");
     dots++;
   }
 
-  // Wi-Fi Connected -> RGB GREEN
   setRGB_Green();
   macAddress = getFormattedMacAddress();
 
-  Serial.println("\n[Wi-Fi] Connected!");
+  Serial.println("\n[Wi-Fi] Connected to: " + WiFi.SSID());
   Serial.print("[Wi-Fi] IP: ");
   Serial.println(WiFi.localIP());
   Serial.print("[Hardware] MAC: ");
   Serial.println(macAddress);
 
-  // Setup WebSocket Route: /api/sensors/ws/<macAddress>
+  // Setup Secure WebSocket connection (WSS)
   wsPath = "/api/sensors/ws/" + macAddress;
-  webSocket.begin(WS_HOST, WS_PORT, wsPath.c_str());
+  webSocket.beginSSL(WS_HOST, WS_PORT, wsPath.c_str());
   webSocket.onEvent(webSocketEvent);
   webSocket.setReconnectInterval(5000);
 
@@ -337,5 +305,7 @@ void setup() {
 }
 
 void loop() {
-  webSocket.loop();
+  if (wifiMulti.run() == WL_CONNECTED) {
+    webSocket.loop();
+  }
 }
