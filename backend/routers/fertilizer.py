@@ -124,3 +124,30 @@ def soft_delete_fertilizer_req(
         raise HTTPException(status_code=404, detail="Record not found.")
 
     return {"message": "Fertilizer record soft deleted successfully."}
+
+
+@router.get("/plant/{plant_id}", status_code=status.HTTP_200_OK)
+def get_fertilizer_reqs_by_plant(
+    plant_id: str,
+    page: int = 1,
+    limit: int = 10,
+    current_user: dict = Depends(get_current_user),
+):
+    """Fetch fertilizer schedule records for a specific plant with pagination."""
+    start = (page - 1) * limit
+    end = start + limit - 1
+    response = (
+        supabase.table("fertilizer_requirements")
+        .select("*", count="exact")
+        .eq("plant_id", plant_id)
+        .is_("deleted_at", "null")
+        .order("created_at", desc=True)
+        .range(start, end)
+        .execute()
+    )
+    return {
+        "data": response.data,
+        "total": response.count if response.count is not None else len(response.data),
+        "page": page,
+        "limit": limit,
+    }

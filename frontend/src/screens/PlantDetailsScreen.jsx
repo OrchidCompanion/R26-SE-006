@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from "react";
 import AnalyseDisease from "./AnalyseDisease";
+import AnalyseFertilizer from "./AnalyseFertilizer";
+import PredictBlooming from "./PredictBlooming";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack }) {
-  const [currentView, setCurrentView] = useState("details"); // 'details' | 'analyse_disease'
+  const [currentView, setCurrentView] = useState("details"); // 'details' | 'analyse_disease' | 'analyse_fertilizer' | 'predict_blooming'
 
   const [sensorTab, setSensorTab] = useState("dht11"); // 'dht11' | 'bh1750' | 'npk'
   const [sensorData, setSensorData] = useState([]);
@@ -58,7 +60,7 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
         const responseData = await res.json();
         if (responseData.data && Array.isArray(responseData.data)) {
           setSensorData(responseData.data);
-          setSensorTotal(responseData.total || responseData.data.length);
+          setSensorTotal(responseData.total ?? responseData.data.length);
         } else if (Array.isArray(responseData)) {
           setSensorData(responseData);
           setSensorTotal(responseData.length);
@@ -96,7 +98,7 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
         const responseData = await res.json();
         if (responseData.data && Array.isArray(responseData.data)) {
           setOutputData(responseData.data);
-          setOutputTotal(responseData.total || responseData.data.length);
+          setOutputTotal(responseData.total ?? responseData.data.length);
         } else if (Array.isArray(responseData)) {
           setOutputData(responseData);
           setOutputTotal(responseData.length);
@@ -126,6 +128,32 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
     );
   }
 
+  if (currentView === "analyse_fertilizer") {
+    return (
+      <AnalyseFertilizer
+        selectedPlant={selectedPlant}
+        selectedUser={selectedUser}
+        onBack={() => {
+          setCurrentView("details");
+          fetchOutputData();
+        }}
+      />
+    );
+  }
+
+  if (currentView === "predict_blooming") {
+    return (
+      <PredictBlooming
+        selectedPlant={selectedPlant}
+        selectedUser={selectedUser}
+        onBack={() => {
+          setCurrentView("details");
+          fetchOutputData();
+        }}
+      />
+    );
+  }
+
   const sensorTotalPages = Math.ceil(sensorTotal / LIMIT) || 1;
   const outputTotalPages = Math.ceil(outputTotal / LIMIT) || 1;
 
@@ -142,8 +170,8 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
           </button>
           <h2 className="text-[#1f2937] text-2xl font-extrabold">{selectedPlant.plant_name}</h2>
           <div className="flex flex-wrap space-x-4 text-xs text-gray-500 mt-1">
-            <span>Species: <strong className="text-gray-700">{selectedPlant.plant_species}</strong></span>
-            <span>Location: <strong className="text-gray-700">{selectedPlant.plant_location}</strong></span>
+            <span>Species: <strong className="text-gray-700">{selectedPlant.plant_species || "N/A"}</strong></span>
+            <span>Location: <strong className="text-gray-700">{selectedPlant.plant_location || selectedPlant.locations?.location_name || "Unassigned"}</strong></span>
             <span>Owner: <strong className="text-gray-700">{selectedUser.first_name} {selectedUser.last_name}</strong></span>
           </div>
         </div>
@@ -156,13 +184,13 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
             Analyse Disease
           </button>
           <button
-            onClick={() => alert("Fertilizer Analysis module coming soon.")}
+            onClick={() => setCurrentView("analyse_fertilizer")}
             className="px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-lg shadow-xs transition"
           >
             Analyse Fertilizer
           </button>
           <button
-            onClick={() => alert("Bloom Prediction module coming soon.")}
+            onClick={() => setCurrentView("predict_blooming")}
             className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-lg shadow-xs transition"
           >
             Predict Blooming
@@ -170,6 +198,7 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
         </div>
       </div>
 
+      {/* 1. Real-Time Hardware Sensor Telemetry */}
       <div className="border border-gray-200 rounded-xl p-4 bg-gray-50/50 space-y-4">
         <h3 className="font-bold text-gray-800 text-base">1. Real-Time Hardware Sensor Telemetry</h3>
 
@@ -184,8 +213,8 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
               key={tab.id}
               onClick={() => setSensorTab(tab.id)}
               className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${sensorTab === tab.id
-                ? "bg-[#059669] text-white"
-                : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-100"
+                  ? "bg-[#059669] text-white"
+                  : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-100"
                 }`}
             >
               {tab.label}
@@ -207,6 +236,7 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
                     <>
                       <th className="px-4 py-3">Temperature (°C)</th>
                       <th className="px-4 py-3">Humidity (%)</th>
+                      <th className="px-4 py-3">Time Slot</th>
                       <th className="px-4 py-3">Module ID</th>
                       <th className="px-4 py-3">Timestamp</th>
                     </>
@@ -214,6 +244,7 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
                   {sensorTab === "bh1750" && (
                     <>
                       <th className="px-4 py-3">Light Level (Lux)</th>
+                      <th className="px-4 py-3">Time Slot</th>
                       <th className="px-4 py-3">Module ID</th>
                       <th className="px-4 py-3">Timestamp</th>
                     </>
@@ -223,6 +254,7 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
                       <th className="px-4 py-3">Nitrogen (N)</th>
                       <th className="px-4 py-3">Phosphorus (P)</th>
                       <th className="px-4 py-3">Potassium (K)</th>
+                      <th className="px-4 py-3">Module ID</th>
                       <th className="px-4 py-3">Timestamp</th>
                     </>
                   )}
@@ -233,15 +265,17 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
                   <tr key={idx} className="hover:bg-slate-50">
                     {sensorTab === "dht11" && (
                       <>
-                        <td className="px-4 py-3 font-semibold">{row.temperature} °C</td>
-                        <td className="px-4 py-3">{row.humidity} %</td>
+                        <td className="px-4 py-3 font-semibold text-rose-600">{row.temperature} °C</td>
+                        <td className="px-4 py-3 font-semibold text-sky-600">{row.humidity} %</td>
+                        <td className="px-4 py-3 text-xs capitalize text-gray-600">{row.time_slot || "custom"}</td>
                         <td className="px-4 py-3 text-xs text-gray-500">{row.module_id || "N/A"}</td>
                         <td className="px-4 py-3 text-xs text-gray-500">{new Date(row.created_at).toLocaleString()}</td>
                       </>
                     )}
                     {sensorTab === "bh1750" && (
                       <>
-                        <td className="px-4 py-3 font-semibold">{row.lux_lx || row.lux} Lux</td>
+                        <td className="px-4 py-3 font-semibold text-amber-600">{row.lux} Lux</td>
+                        <td className="px-4 py-3 text-xs capitalize text-gray-600">{row.time_slot || "custom"}</td>
                         <td className="px-4 py-3 text-xs text-gray-500">{row.module_id || "N/A"}</td>
                         <td className="px-4 py-3 text-xs text-gray-500">{new Date(row.created_at).toLocaleString()}</td>
                       </>
@@ -251,6 +285,7 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
                         <td className="px-4 py-3 font-semibold text-emerald-700">{row.nitrogen_n} mg/kg</td>
                         <td className="px-4 py-3 font-semibold text-amber-700">{row.phosphorus_p} mg/kg</td>
                         <td className="px-4 py-3 font-semibold text-rose-700">{row.potassium_k} mg/kg</td>
+                        <td className="px-4 py-3 text-xs text-gray-500">{row.module_id || "N/A"}</td>
                         <td className="px-4 py-3 text-xs text-gray-500">{new Date(row.created_at).toLocaleString()}</td>
                       </>
                     )}
@@ -284,6 +319,7 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
         </div>
       </div>
 
+      {/* 2. Diagnostic & Algorithmic System Outputs */}
       <div className="border border-gray-200 rounded-xl p-4 bg-gray-50/50 space-y-4">
         <h3 className="font-bold text-gray-800 text-base">2. Diagnostic & Algorithmic System Outputs</h3>
 
@@ -298,8 +334,8 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
               key={tab.id}
               onClick={() => setOutputTab(tab.id)}
               className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${outputTab === tab.id
-                ? "bg-[#059669] text-white"
-                : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-100"
+                  ? "bg-[#059669] text-white"
+                  : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-100"
                 }`}
             >
               {tab.label}
@@ -351,8 +387,8 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
                         <td className="px-4 py-3">
                           <span
                             className={`px-2 py-1 rounded text-xs font-bold ${row.verdict === "HEALTHY"
-                              ? "bg-emerald-100 text-emerald-800"
-                              : "bg-rose-100 text-rose-800"
+                                ? "bg-emerald-100 text-emerald-800"
+                                : "bg-rose-100 text-rose-800"
                               }`}
                           >
                             {row.verdict}
@@ -385,8 +421,14 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
                     )}
                     {outputTab === "bloom" && (
                       <>
-                        <td className="px-4 py-3 font-semibold">{row.bloom_status || row.prediction}</td>
-                        <td className="px-4 py-3 text-xs">{row.status || "Completed"}</td>
+                        <td className="px-4 py-3 font-semibold">
+                          {row.weeks ? `${row.weeks} Weeks` : (row.bloom_status || row.prediction || "N/A")}
+                        </td>
+                        <td className="px-4 py-3 text-xs">
+                          <span className="px-2 py-0.5 bg-purple-100 text-purple-800 rounded font-semibold text-xs">
+                            {row.status || "Predicted"}
+                          </span>
+                        </td>
                         <td className="px-4 py-3 text-xs text-gray-500">{new Date(row.created_at).toLocaleString()}</td>
                       </>
                     )}
@@ -397,7 +439,6 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
           </div>
         )}
 
-        {/* Output Pagination Controls */}
         <div className="flex justify-between items-center pt-2 text-xs">
           <span className="text-gray-500">
             Page <strong>{outputPage}</strong> of <strong>{outputTotalPages}</strong> ({outputTotal} items)

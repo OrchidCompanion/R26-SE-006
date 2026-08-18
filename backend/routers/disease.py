@@ -136,7 +136,10 @@ async def analyze_leaf_and_npk(
         b64_img = base64.b64encode(buffer.tobytes()).decode("utf-8")
 
         plant_query = (
-            supabase.table("plant").select("user_id").eq("plant_id", plant_id).execute()
+            supabase.table("plants")
+            .select("user_id")
+            .eq("plant_id", plant_id)
+            .execute()
         )
         owner_id = (
             plant_query.data[0]["user_id"]
@@ -145,7 +148,7 @@ async def analyze_leaf_and_npk(
         )
 
         npk_query = (
-            supabase.table("npk_sensor")
+            supabase.table("npk_history")
             .select("*")
             .eq("plant_id", plant_id)
             .order("created_at", desc=True)
