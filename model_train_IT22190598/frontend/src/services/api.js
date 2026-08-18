@@ -194,3 +194,15 @@ export async function fetchPredictionHistory() {
   }
 }
 
+export async function clearPredictionHistory() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/supabase/clear-history`, {
+      method: "POST",
+    });
+    return await res.json();
+  } catch (err) {
+    console.error("Failed to clear history in Supabase", err);
+    return null;
+  }
+}
+

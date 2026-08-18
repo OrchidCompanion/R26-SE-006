@@ -239,6 +239,28 @@ async def fetch_prediction_history_from_supabase(
 
     async with httpx.AsyncClient(timeout=10.0) as client:
         res = await client.get(endpoint, headers=headers)
-        if res.status_code != 200:
+        if res.status_code != 200 or not isinstance(res.json(), list):
             return []
         return res.json()
+
+async def clear_prediction_history_in_supabase(
+    supabase_url: str,
+    supabase_key: str
+) -> bool:
+    """
+    Clears all prediction history records from Supabase database table 'prediction_history'.
+    """
+    if not supabase_url or not supabase_key:
+        return False
+
+    clean_url = supabase_url.rstrip('/')
+    endpoint = f"{clean_url}/rest/v1/prediction_history?id=neq.00000000-0000-0000-0000-000000000000"
+    headers = {
+        "apikey": supabase_key,
+        "Authorization": f"Bearer {supabase_key}",
+        "Content-Type": "application/json"
+    }
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        res = await client.delete(endpoint, headers=headers)
+        return res.status_code in [200, 204]

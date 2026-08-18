@@ -82,8 +82,9 @@ async def predict_bloom(
     """
     Complete end-to-end prediction workflow:
     3 Images -> Model 01 (Stage) -> Model 02 (Timeline) -> Estimated Flowering Date.
-    Also accepts optional manual/IoT sensor data as JSON string in Form field 'sensor_data'.
+    Also automatically persists prediction record to Supabase database table 'prediction_history'.
     """
+    from datetime import datetime
     try:
         content1 = await image1.read()
         content2 = await image2.read()
@@ -95,18 +96,45 @@ async def predict_bloom(
             (image3.filename or "image3.jpg", content3)
         ]
 
+        plant_id = None
+        module_id = None
         sensor_input_obj: Optional[Model02SensorInput] = None
         if sensor_data:
             try:
                 data_dict = json.loads(sensor_data)
-                # Ignore current_stage in data_dict as it will be filled by Model 01
+                plant_id = data_dict.get("plant_id")
+                module_id = data_dict.get("module_id")
                 data_dict["current_stage"] = "Seedling"  # placeholder for schema validation
                 sensor_input_obj = Model02SensorInput(**data_dict)
             except Exception as pe:
                 print(f"[Warning] Failed to parse sensor_data JSON: {pe}")
 
         bloom_svc = get_bloom_prediction_service()
-        return bloom_svc.predict_full_bloom_workflow(image_tuples, sensor_input_obj)
+        bloom_result = bloom_svc.predict_full_bloom_workflow(image_tuples, sensor_input_obj)
+
+        # Automatically save prediction record directly to Supabase DB
+        try:
+            from app.config import settings
+            from app.services.supabase_service import save_prediction_history_to_supabase
+
+            db_record = {
+                "plant_id": plant_id or "029282a6-ecbe-441f-84c0-ce107f6470d9",
+                "module_id": module_id or "8f4c51d4-81df-491c-8c14-744fd4ae7f14",
+                "current_stage": bloom_result.current_stage,
+                "estimated_flowering_date": bloom_result.estimated_flowering_date,
+                "flowering_date_range_display": bloom_result.flowering_date_range_display,
+                "total_days_to_flowering": bloom_result.total_days_to_flowering,
+                "display_total_days": bloom_result.display_total_days,
+                "confidence": bloom_result.model01_result.overall_confidence if bloom_result.model01_result else 0.95,
+                "timeline": [t.dict() for t in bloom_result.timeline] if bloom_result.timeline else [],
+                "sensor_summary": bloom_result.sensor_summary.dict() if bloom_result.sensor_summary else {},
+                "created_at": datetime.now().isoformat()
+            }
+            await save_prediction_history_to_supabase(settings.SUPABASE_URL, settings.SUPABASE_KEY, db_record)
+        except Exception as dbe:
+            print(f"[Warning] Failed to save prediction to Supabase DB: {dbe}")
+
+        return bloom_result
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Bloom prediction error: {str(e)}")
@@ -244,3 +272,17 @@ async def fetch_prediction_history_endpoint():
 
     sb_records = await fetch_prediction_history_from_supabase(supabase_url, supabase_key)
     return {"status": "success", "history": sb_records, "source": "supabase"}
+
+@router.post("/supabase/clear-history", status_code=status.HTTP_200_OK)
+async def clear_prediction_history_endpoint():
+    """
+    Clears all prediction history records exclusively from Supabase table 'prediction_history'.
+    """
+    from app.config import settings
+    from app.services.supabase_service import clear_prediction_history_in_supabase
+
+    supabase_url = settings.SUPABASE_URL
+    supabase_key = settings.SUPABASE_KEY
+
+    cleared = await clear_prediction_history_in_supabase(supabase_url, supabase_key)
+    return {"status": "success", "cleared_in_supabase": cleared}

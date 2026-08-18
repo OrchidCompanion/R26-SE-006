@@ -4,7 +4,7 @@ import DashboardPage from './pages/DashboardPage';
 import PredictPage from './pages/PredictPage';
 import ModelInfoPage from './pages/ModelInfoPage';
 import HistoryPage from './pages/HistoryPage';
-import { checkHealth, savePredictionHistory, fetchPredictionHistory } from './services/api';
+import { checkHealth, savePredictionHistory, fetchPredictionHistory, clearPredictionHistory } from './services/api';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -48,6 +48,9 @@ export default function App() {
   const handleClearHistory = () => {
     setHistory([]);
     setLastPrediction(null);
+    clearPredictionHistory().catch(err => {
+      console.warn("Failed to clear prediction history in Supabase", err);
+    });
   };
 
   return (
