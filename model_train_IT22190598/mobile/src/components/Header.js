@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(236, 72, 153, 0.3)',
     alignItems: 'center',
-    justify: 'center',
+    justifyContent: 'center',
   },
   title: {
     color: '#f8fafc',

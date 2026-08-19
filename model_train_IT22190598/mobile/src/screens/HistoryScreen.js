@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, RefreshControl } from 'react-native';
 import { History, Trash2, Calendar, Clock, RefreshCw } from 'lucide-react-native';
 import StageBadge from '../components/StageBadge';
 import { fetchPredictionHistory, clearPredictionHistory } from '../services/api';
@@ -7,6 +7,7 @@ import { fetchPredictionHistory, clearPredictionHistory } from '../services/api'
 export default function HistoryScreen() {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const loadHistory = async () => {
     setLoading(true);
@@ -17,6 +18,18 @@ export default function HistoryScreen() {
       console.error("Failed to load history", e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      const data = await fetchPredictionHistory();
+      setRecords(data || []);
+    } catch (e) {
+      console.error("Failed to refresh history", e);
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -45,7 +58,13 @@ export default function HistoryScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#ec4899" />
+      }
+    >
       <View style={styles.headerRow}>
         <View style={{ flex: 1 }}>
           <View style={styles.titleRow}>
@@ -69,7 +88,7 @@ export default function HistoryScreen() {
         </TouchableOpacity>
       )}
 
-      {loading ? (
+      {loading && !refreshing ? (
         <View style={styles.centerContainer}>
           <ActivityIndicator color="#ec4899" size="large" />
         </View>
@@ -78,8 +97,13 @@ export default function HistoryScreen() {
           <History size={40} color="#475569" style={{ marginBottom: 10 }} />
           <Text style={styles.emptyTitle}>No History Records Found</Text>
           <Text style={styles.emptySub}>
-            Run your first Dendrobium bloom prediction to start building your cloud log.
+            Run your first Dendrobium bloom prediction to save records to Supabase, or tap below to check server.
           </Text>
+
+          <TouchableOpacity style={styles.reloadSupabaseBtn} onPress={loadHistory}>
+            <RefreshCw size={14} color="#ffffff" />
+            <Text style={styles.reloadSupabaseBtnText}>Fetch Supabase Records</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <View style={styles.list}>
@@ -171,7 +195,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
-    padding: 30,
+    padding: 24,
     alignItems: 'center',
   },
   emptyTitle: {
@@ -184,6 +208,21 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     fontSize: 12,
     textAlign: 'center',
+    marginBottom: 16,
+  },
+  reloadSupabaseBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#38bdf8',
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  reloadSupabaseBtnText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '700',
   },
   list: {
     gap: 10,

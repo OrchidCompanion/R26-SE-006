@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, SafeAreaView, StatusBar } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, StatusBar } from 'react-native';
+import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
 import { Home, Sparkles, History, Info } from 'lucide-react-native';
 
 import Header from './src/components/Header';
@@ -37,8 +38,9 @@ export default function App() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0b131e" />
+    <SafeAreaProvider>
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor="#0b131e" />
 
       {/* Header with Server Host Config */}
       <Header apiStatus={apiStatus} setApiStatus={setApiStatus} />
@@ -55,7 +57,7 @@ export default function App() {
           <PredictScreen onSavePrediction={handleSavePrediction} />
         )}
         {activeTab === 'history' && (
-          <HistoryScreen />
+          <HistoryScreen key="history_screen" />
         )}
         {activeTab === 'info' && (
           <ModelInfoScreen />
@@ -105,7 +107,8 @@ export default function App() {
         </TouchableOpacity>
       </View>
     </SafeAreaView>
-  );
+  </SafeAreaProvider>
+);
 }
 
 const styles = StyleSheet.create({

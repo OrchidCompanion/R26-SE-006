@@ -4,13 +4,7 @@
     "slug": "dendrobium-bloom-prediction-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#0b131e"
-    },
     "assetBundlePatterns": [
       "**/*"
     ],
@@ -18,13 +12,7 @@
       "supportsTablet": true
     },
     "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0b131e"
-      }
-    },
-    "web": {
-      "favicon": "./assets/favicon.png"
+      "backgroundColor": "#0b131e"
     }
   }
 }
