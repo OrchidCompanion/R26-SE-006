@@ -26,8 +26,11 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
   const [sensorStatus, setSensorStatus] = useState(null);
 
   const [activeReadingSlot, setActiveReadingSlot] = useState(null);
-  const [readingResults, setReadingResults] = useState({});
+  const [submittingSlot, setSubmittingSlot] = useState(null);
+  const [stagedReadings, setStagedReadings] = useState({});
+  const [submittedSlots, setSubmittedSlots] = useState({});
   const [actionError, setActionError] = useState("");
+  const [actionSuccess, setActionSuccess] = useState("");
 
   const [selectedImage, setSelectedImage] = useState(null);
   const LIMIT = 10;
@@ -77,6 +80,7 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
     setCheckingStatus(true);
     setSensorStatus(null);
     setActionError("");
+    setActionSuccess("");
 
     try {
       const token = localStorage.getItem("admin_token");
@@ -92,7 +96,6 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
           online: false,
           dht11: false,
           bh1750: false,
-          npk: false,
           msg: "Device did not respond.",
         });
       }
@@ -101,7 +104,6 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
         online: false,
         dht11: false,
         bh1750: false,
-        npk: false,
         msg: "Failed to connect to sensor module.",
       });
     } finally {
@@ -109,7 +111,7 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
     }
   };
 
-  const handleReadEnvironmentData = async (timeSlot) => {
+  const handleCheckEnvironmentData = async (timeSlot) => {
     if (!selectedModuleId) {
       setActionError("Please select a sensor module.");
       return;
@@ -117,23 +119,57 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
     const slotKey = `env_${timeSlot}`;
     setActiveReadingSlot(slotKey);
     setActionError("");
+    setActionSuccess("");
 
     try {
       const token = localStorage.getItem("admin_token");
-
-      const readRes = await fetch(
+      const res = await fetch(
         `${API_BASE_URL}/sensors/modules/${selectedModuleId}/read-ambient`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      if (!readRes.ok) throw new Error("Sensor module read failed.");
-      const data = await readRes.json();
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.detail || "Failed to read environment sensors.");
+      }
 
-      const temp = Number(data.temperature);
-      const hum = Number(data.humidity);
-      const lux = Number(data.lux);
+      const data = await res.json();
+      setStagedReadings((prev) => ({
+        ...prev,
+        [slotKey]: {
+          temperature: Number(data.temperature),
+          humidity: Number(data.humidity),
+          lux: Number(data.lux),
+          timestamp: new Date().toLocaleTimeString(),
+        },
+      }));
+    } catch (err) {
+      console.error(err);
+      setActionError(err.message || `Error checking environment data for ${timeSlot}.`);
+    } finally {
+      setActiveReadingSlot(null);
+    }
+  };
 
-      await Promise.all([
+  const handleSubmitEnvironmentData = async (timeSlot) => {
+    const slotKey = `env_${timeSlot}`;
+    const reading = stagedReadings[slotKey];
+
+    if (!reading) return;
+
+    if (!selectedPlant.location_id) {
+      setActionError("Cannot submit: This plant has no assigned location zone.");
+      return;
+    }
+
+    setSubmittingSlot(slotKey);
+    setActionError("");
+    setActionSuccess("");
+
+    try {
+      const token = localStorage.getItem("admin_token");
+
+      const [dhtRes, bhRes] = await Promise.all([
         fetch(`${API_BASE_URL}/sensors/dht11`, {
           method: "POST",
           headers: {
@@ -141,11 +177,10 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            temperature: temp,
-            humidity: hum,
+            temperature: reading.temperature,
+            humidity: reading.humidity,
             time_slot: timeSlot,
             location_id: selectedPlant.location_id,
-            user_id: selectedUser.user_id,
             module_id: selectedModuleId,
           }),
         }),
@@ -156,81 +191,32 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            lux: lux,
+            lux: reading.lux,
             time_slot: timeSlot,
             location_id: selectedPlant.location_id,
-            user_id: selectedUser.user_id,
             module_id: selectedModuleId,
           }),
         }),
       ]);
 
-      setReadingResults((prev) => ({
-        ...prev,
-        [slotKey]: { temp, hum, lux, timestamp: new Date().toLocaleTimeString() },
-      }));
+      if (!dhtRes.ok || !bhRes.ok) {
+        throw new Error("Failed to submit readings to environment history.");
+      }
 
+      setSubmittedSlots((prev) => ({ ...prev, [slotKey]: true }));
+      setActionSuccess(`Successfully submitted ${timeSlot} environment reading to history.`);
       fetchSensorData();
     } catch (err) {
       console.error(err);
-      setActionError(`Error reading environment data for ${timeSlot}.`);
+      setActionError(err.message || `Failed to submit ${timeSlot} reading.`);
     } finally {
-      setActiveReadingSlot(null);
+      setSubmittingSlot(null);
     }
   };
 
-  const handleReadNPKData = async (timeSlot) => {
-    if (!selectedModuleId) {
-      setActionError("Please select a sensor module.");
-      return;
-    }
-    const slotKey = `npk_${timeSlot}`;
-    setActiveReadingSlot(slotKey);
-    setActionError("");
-
-    try {
-      const token = localStorage.getItem("admin_token");
-
-      const readRes = await fetch(
-        `${API_BASE_URL}/sensors/modules/${selectedModuleId}/read-npk`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      if (!readRes.ok) throw new Error("NPK sensor read failed.");
-      const data = await readRes.json();
-
-      const n = Number(data.nitrogen_n ?? data.nitrogen ?? 0);
-      const p = Number(data.phosphorus_p ?? data.phosphorus ?? 0);
-      const k = Number(data.potassium_k ?? data.potassium ?? 0);
-
-      await fetch(`${API_BASE_URL}/sensors/npk`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          nitrogen_n: n,
-          phosphorus_p: p,
-          potassium_k: k,
-          plant_id: selectedPlant.plant_id,
-          user_id: selectedUser.user_id,
-          module_id: selectedModuleId,
-        }),
-      });
-
-      setReadingResults((prev) => ({
-        ...prev,
-        [slotKey]: { n, p, k, timestamp: new Date().toLocaleTimeString() },
-      }));
-
-      fetchSensorData();
-    } catch (err) {
-      console.error(err);
-      setActionError(`Error reading NPK data for ${timeSlot}.`);
-    } finally {
-      setActiveReadingSlot(null);
-    }
+  const handleCheckNPKData = (timeSlot) => {
+    setActionSuccess("");
+    setActionError(`Error: NPK sensor probe not detected or communication error for ${timeSlot} slot.`);
   };
 
   const fetchSensorData = async () => {
@@ -400,7 +386,7 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
               Daily Environment & Soil NPK Readings
             </h3>
             <p className="text-xs text-gray-500">
-              Collect 3 daily readings (Morning, Afternoon, Evening) for environment and soil NPK.
+              Collect 3 daily readings (Morning, Afternoon, Evening) from the hardware sensor module.
             </p>
           </div>
 
@@ -436,10 +422,16 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
           </div>
         )}
 
+        {actionSuccess && (
+          <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-700 text-xs font-medium">
+            {actionSuccess}
+          </div>
+        )}
+
         {sensorStatus && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-center text-xs">
             <div className="p-2 bg-white rounded-lg border">
-              <span className="text-gray-400 block text-[10px] uppercase font-bold">Module</span>
+              <span className="text-gray-400 block text-[10px] uppercase font-bold">Module Link</span>
               <span className={`font-bold ${sensorStatus.online ? "text-emerald-600" : "text-rose-600"}`}>
                 {sensorStatus.online ? "Online" : "Offline"}
               </span>
@@ -456,17 +448,11 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
                 {sensorStatus.bh1750 ? "Ready" : "Error"}
               </span>
             </div>
-            <div className="p-2 bg-white rounded-lg border">
-              <span className="text-gray-400 block text-[10px] uppercase font-bold">NPK Probe</span>
-              <span className="font-bold text-emerald-600">
-                Ready
-              </span>
-            </div>
           </div>
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          {/* Environment Data */}
+          {/* Environment Data Card */}
           <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
             <div className="flex items-center justify-between border-b pb-2">
               <h4 className="font-bold text-gray-800 text-sm">
@@ -480,46 +466,61 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
             <div className="space-y-2.5">
               {["morning", "afternoon", "evening"].map((slot) => {
                 const key = `env_${slot}`;
-                const res = readingResults[key];
-                const isLoading = activeReadingSlot === key;
+                const reading = stagedReadings[key];
+                const isChecking = activeReadingSlot === key;
+                const isSubmitting = submittingSlot === key;
+                const isSubmitted = submittedSlots[key];
 
                 return (
                   <div
                     key={slot}
-                    className="p-3 bg-gray-50 border border-gray-200 rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2"
+                    className="p-3 bg-gray-50 border border-gray-200 rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
                   >
                     <div>
                       <span className="capitalize font-bold text-xs text-gray-700 block">
                         {slot} Reading
                       </span>
-                      {res ? (
+                      {reading ? (
                         <div className="text-[11px] font-semibold text-gray-600 space-x-2 mt-0.5">
-                          <span className="text-rose-600">{res.temp} °C</span>
+                          <span className="text-rose-600">{reading.temperature} °C</span>
                           <span>•</span>
-                          <span className="text-sky-600">{res.hum} %</span>
+                          <span className="text-sky-600">{reading.humidity} %</span>
                           <span>•</span>
-                          <span className="text-amber-600">{res.lux} Lux</span>
-                          <span className="text-gray-400 text-[10px]">({res.timestamp})</span>
+                          <span className="text-amber-600">{reading.lux} Lux</span>
+                          <span className="text-gray-400 text-[10px]">({reading.timestamp})</span>
                         </div>
                       ) : (
-                        <span className="text-[11px] text-gray-400">No reading recorded.</span>
+                        <span className="text-[11px] text-gray-400">Click Check to sample.</span>
                       )}
                     </div>
 
-                    <button
-                      onClick={() => handleReadEnvironmentData(slot)}
-                      disabled={isLoading}
-                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-xs transition disabled:opacity-50 shrink-0"
-                    >
-                      {isLoading ? "Reading..." : "Check"}
-                    </button>
+                    <div className="flex items-center space-x-2 shrink-0">
+                      <button
+                        onClick={() => handleCheckEnvironmentData(slot)}
+                        disabled={isChecking || isSubmitting}
+                        className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700 font-bold text-xs rounded-lg transition disabled:opacity-50"
+                      >
+                        {isChecking ? "Reading..." : "Check"}
+                      </button>
+
+                      <button
+                        onClick={() => handleSubmitEnvironmentData(slot)}
+                        disabled={!reading || isSubmitting || isChecking}
+                        className={`px-3 py-1.5 font-bold text-xs rounded-lg shadow-xs transition disabled:opacity-40 text-white ${isSubmitted
+                            ? "bg-slate-700 hover:bg-slate-800"
+                            : "bg-emerald-600 hover:bg-emerald-700"
+                          }`}
+                      >
+                        {isSubmitting ? "Saving..." : isSubmitted ? "Resubmit" : "Submit"}
+                      </button>
+                    </div>
                   </div>
                 );
               })}
             </div>
           </div>
 
-          {/* NPK Data */}
+          {/* NPK Data Card */}
           <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
             <div className="flex items-center justify-between border-b pb-2">
               <h4 className="font-bold text-gray-800 text-sm">
@@ -531,44 +532,34 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
             </div>
 
             <div className="space-y-2.5">
-              {["morning", "afternoon", "evening"].map((slot) => {
-                const key = `npk_${slot}`;
-                const res = readingResults[key];
-                const isLoading = activeReadingSlot === key;
+              {["morning", "afternoon", "evening"].map((slot) => (
+                <div
+                  key={slot}
+                  className="p-3 bg-gray-50 border border-gray-200 rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
+                >
+                  <div>
+                    <span className="capitalize font-bold text-xs text-gray-700 block">
+                      {slot} Reading
+                    </span>
+                    <span className="text-[11px] text-gray-400">Click Check to sample.</span>
+                  </div>
 
-                return (
-                  <div
-                    key={slot}
-                    className="p-3 bg-gray-50 border border-gray-200 rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2"
-                  >
-                    <div>
-                      <span className="capitalize font-bold text-xs text-gray-700 block">
-                        {slot} Reading
-                      </span>
-                      {res ? (
-                        <div className="text-[11px] font-semibold text-gray-600 space-x-2 mt-0.5">
-                          <span className="text-emerald-700">N: {res.n}</span>
-                          <span>•</span>
-                          <span className="text-amber-700">P: {res.p}</span>
-                          <span>•</span>
-                          <span className="text-rose-700">K: {res.k}</span>
-                          <span className="text-gray-400 text-[10px]">({res.timestamp})</span>
-                        </div>
-                      ) : (
-                        <span className="text-[11px] text-gray-400">No reading recorded.</span>
-                      )}
-                    </div>
-
+                  <div className="flex items-center space-x-2 shrink-0">
                     <button
-                      onClick={() => handleReadNPKData(slot)}
-                      disabled={isLoading}
-                      className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-lg shadow-xs transition disabled:opacity-50 shrink-0"
+                      onClick={() => handleCheckNPKData(slot)}
+                      className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700 font-bold text-xs rounded-lg transition"
                     >
-                      {isLoading ? "Reading..." : "Check"}
+                      Check
+                    </button>
+                    <button
+                      disabled
+                      className="px-3 py-1.5 bg-teal-600 text-white font-bold text-xs rounded-lg opacity-40 cursor-not-allowed"
+                    >
+                      Submit
                     </button>
                   </div>
-                );
-              })}
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -587,11 +578,10 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
             <button
               key={tab.id}
               onClick={() => setSensorTab(tab.id)}
-              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
-                sensorTab === tab.id
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${sensorTab === tab.id
                   ? "bg-[#059669] text-white"
                   : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-100"
-              }`}
+                }`}
             >
               {tab.label}
             </button>
@@ -707,11 +697,10 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
             <button
               key={tab.id}
               onClick={() => setOutputTab(tab.id)}
-              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
-                outputTab === tab.id
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${outputTab === tab.id
                   ? "bg-[#059669] text-white"
                   : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-100"
-              }`}
+                }`}
             >
               {tab.label}
             </button>
@@ -760,11 +749,10 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
                       <>
                         <td className="px-4 py-3">
                           <span
-                            className={`px-2 py-1 rounded text-xs font-bold ${
-                              row.verdict === "HEALTHY"
+                            className={`px-2 py-1 rounded text-xs font-bold ${row.verdict === "HEALTHY"
                                 ? "bg-emerald-100 text-emerald-800"
                                 : "bg-rose-100 text-rose-800"
-                            }`}
+                              }`}
                           >
                             {row.verdict}
                           </span>

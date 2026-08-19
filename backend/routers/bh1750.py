@@ -20,7 +20,7 @@ router = APIRouter(prefix="/api/sensors/bh1750", tags=["BH1750 Light Sensor"])
 def create_bh1750_reading(
     reading: BH1750Create, current_user: dict = Depends(get_current_user)
 ):
-    """Log a new light reading into bh1750_environment_history."""
+    """Log a new light lux reading into bh1750_environment_history."""
     response = (
         supabase.table("bh1750_environment_history")
         .insert(
@@ -36,7 +36,7 @@ def create_bh1750_reading(
     )
 
     if not response.data:
-        raise HTTPException(status_code=500, detail="Failed to log reading.")
+        raise HTTPException(status_code=500, detail="Failed to log BH1750 reading.")
 
     return response.data[0]
 
@@ -48,7 +48,7 @@ def get_bh1750_readings_by_plant(
     limit: int = 10,
     current_user: dict = Depends(get_current_user),
 ):
-    """Fetch BH1750 light readings via the plant's assigned location."""
+    """Fetch BH1750 light readings associated with the plant's location."""
     plant_res = (
         supabase.table("plants")
         .select("location_id")
