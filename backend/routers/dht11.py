@@ -21,7 +21,7 @@ router = APIRouter(prefix="/api/sensors/dht11", tags=["DHT11 Sensor"])
 def create_dht11_reading(
     reading: DHT11Create, current_user: dict = Depends(get_current_user)
 ):
-    """Log a new temperature/humidity reading into environment history."""
+    """Log a new temperature and humidity reading into dht11_environment_history."""
     response = (
         supabase.table("dht11_environment_history")
         .insert(
@@ -38,7 +38,7 @@ def create_dht11_reading(
     )
 
     if not response.data:
-        raise HTTPException(status_code=500, detail="Failed to log reading.")
+        raise HTTPException(status_code=500, detail="Failed to log DHT11 reading.")
 
     return response.data[0]
 
@@ -50,7 +50,7 @@ def get_dht11_readings_by_plant(
     limit: int = 10,
     current_user: dict = Depends(get_current_user),
 ):
-    """Fetch DHT11 readings via the plant's assigned location."""
+    """Fetch DHT11 readings associated with the plant's location."""
     plant_res = (
         supabase.table("plants")
         .select("location_id")
