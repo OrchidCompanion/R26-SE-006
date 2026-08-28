@@ -11,17 +11,19 @@ def find_model_file(filename: str) -> str:
     """Search candidate locations for model files."""
     candidates = [
         MODULE_DIR / "models" / filename,
+        BACKEND_DIR / "app" / "models" / filename,
+        BACKEND_DIR / "models" / filename,
         IT_DIR / "models" / filename,
         IT_DIR / filename,
         WORKSPACE_ROOT / filename,
-        Path(r"f:\desktop\SE4050-DL-Lab-2\R26-SE-006") / filename,
+        Path(r"C:\Users\SN Gamalath\Downloads") / filename,
     ]
     for candidate in candidates:
         if candidate.exists():
             return str(candidate)
     return str(MODULE_DIR / "models" / filename)
 
-MODEL01_PATH = os.getenv("MODEL01_PATH", find_model_file("best.pt"))
+MODEL01_PATH = os.getenv("MODEL01_PATH", find_model_file("checkpoint_best_total.pth"))
 MODEL02_PATH = os.getenv("MODEL02_PATH", find_model_file("gradient_boosting_experiment.joblib"))
 
 # Sensitive Supabase Credentials loaded from .env
@@ -53,15 +55,18 @@ NEXT_STAGE_MAP = {
     "Flowering": None
 }
 
-# YOLO Class Index Mapping
-# YOLO best.pt names: {0: 'Bud_formation', 1: 'Flowering', 2: 'Mature_Cane', 3: 'Seedling', 4: 'Vegetative'}
-YOLO_CLASS_MAP = {
+# Blooming Stage Class Index Mapping (matches checkpoint_best_total.pth RF-DETR classes)
+# Class names: ['Bud_formation', 'Flowering', 'Mature_Pseudobulb', 'Seedling', 'Vegetative']
+STAGE_CLASS_MAP = {
     0: "Bud_formation",
     1: "Flowering",
-    2: "Mature_Pseudobulb",  # Map Mature_Cane to Mature_Pseudobulb
+    2: "Mature_Pseudobulb",
     3: "Seedling",
     4: "Vegetative"
 }
+
+# Alias for backwards compatibility
+YOLO_CLASS_MAP = STAGE_CLASS_MAP
 
 # Model 02 Exact Feature Order (15 features expected by trained pipeline)
 MODEL02_FEATURE_ORDER = [

@@ -88,7 +88,7 @@ export default function App() {
       }}>
         <div>Dendrobium Orchid Bloom Prediction System &copy; 2026</div>
         <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-          Powered by Ultralytics YOLOv8 (best.pt) & Scikit-Learn Gradient Boosting (gradient_boosting_experiment.joblib)
+          Powered by RF-DETR (checkpoint_best_total.pth) & Scikit-Learn Gradient Boosting (gradient_boosting_experiment.joblib)
         </div>
       </footer>
     </div>
