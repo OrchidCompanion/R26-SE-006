@@ -1,5 +1,7 @@
 fastapi>=0.100.0
 uvicorn>=0.20.0
+rfdetr>=1.9.4
+opencv-python>=4.8.0
 ultralytics>=8.0.0
 torch>=2.0.0
 torchvision>=0.15.0

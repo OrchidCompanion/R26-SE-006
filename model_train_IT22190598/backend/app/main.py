@@ -22,7 +22,7 @@ async def lifespan(app: FastAPI):
     print("  DENDROBIUM BLOOM PREDICTION SYSTEM — STARTING SERVER")
     print("=" * 60)
     try:
-        print("[Startup] Initializing Model 01 (best.pt)...")
+        print("[Startup] Initializing Model 01 (checkpoint_best_total.pth)...")
         get_model01_service()
         print("[Startup] Initializing Model 02 (gradient_boosting_experiment.joblib)...")
         get_model02_service()

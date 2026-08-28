@@ -35,11 +35,11 @@ export default function ModelInfoPage() {
             <tbody>
               <tr style={{ borderBottom: '1px solid var(--border-card)' }}>
                 <td style={{ padding: '0.6rem 0', color: 'var(--text-muted)', fontWeight: 600 }}>Algorithm</td>
-                <td style={{ padding: '0.6rem 0', fontWeight: 700, textAlign: 'right' }}>YOLOv8</td>
+                <td style={{ padding: '0.6rem 0', fontWeight: 700, textAlign: 'right' }}>RF-DETR (RFDETRSmall)</td>
               </tr>
               <tr style={{ borderBottom: '1px solid var(--border-card)' }}>
                 <td style={{ padding: '0.6rem 0', color: 'var(--text-muted)', fontWeight: 600 }}>Model File</td>
-                <td style={{ padding: '0.6rem 0', fontWeight: 700, textAlign: 'right', fontFamily: 'monospace', color: '#38bdf8' }}>best.pt</td>
+                <td style={{ padding: '0.6rem 0', fontWeight: 700, textAlign: 'right', fontFamily: 'monospace', color: '#38bdf8' }}>checkpoint_best_total.pth</td>
               </tr>
               <tr style={{ borderBottom: '1px solid var(--border-card)' }}>
                 <td style={{ padding: '0.6rem 0', color: 'var(--text-muted)', fontWeight: 600 }}>Purpose</td>
@@ -118,7 +118,7 @@ export default function ModelInfoPage() {
           <ShieldCheck size={20} color="var(--emerald-primary)" /> Model Security & Governance
         </h4>
         <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.6 }}>
-          Model weights (<code>best.pt</code> and <code>gradient_boosting_experiment.joblib</code>) are securely loaded once into server memory at API startup. Model endpoints validate all input payloads to ensure research integrity and prevent model file exposure.
+          Model weights (<code>checkpoint_best_total.pth</code> and <code>gradient_boosting_experiment.joblib</code>) are securely loaded once into server memory at API startup. Model endpoints validate all input payloads to ensure research integrity and prevent model file exposure.
         </p>
       </div>
     </div>

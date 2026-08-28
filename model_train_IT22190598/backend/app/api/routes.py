@@ -39,7 +39,7 @@ async def detect_stage(
     image3: UploadFile = File(...)
 ):
     """
-    Process three orchid images through Model 01 (YOLOv8 best.pt)
+    Process three orchid images through Model 01 (RF-DETR checkpoint_best_total.pth)
     and return individual image predictions + confidence-weighted majority blooming stage.
     """
     try:
