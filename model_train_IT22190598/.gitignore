@@ -1,0 +1,98 @@
+# ============================================================
+# Python / ML
+# ============================================================
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+*__pycache__*
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# ML model files
+# Keep model files tracked
+!*.pt
+!*.joblib
+!best.pt
+!gradient_boosting_experiment.joblib
+
+
+# ============================================================
+# Node.js / Frontend
+# ============================================================
+
+node_modules/
+frontend/node_modules/
+
+# Frontend build outputs
+frontend/dist/
+dist/
+web-build/
+
+# Expo
+.expo/
+expo-env.d.ts
+
+
+# ============================================================
+# Native / Mobile
+# ============================================================
+
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Generated native folders
+/ios
+/android
+
+
+# ============================================================
+# Metro / Debug
+# ============================================================
+
+.metro-health-check*
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+
+# ============================================================
+# IDE / OS
+# ============================================================
+
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+
+# ============================================================
+# Environment / Local files
+# ============================================================
+
+.env*.local
+
+
+# ============================================================
+# TypeScript
+# ============================================================
+
+*.tsbuildinfo
+
+*.pth
+*
