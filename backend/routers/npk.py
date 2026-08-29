@@ -1,8 +1,36 @@
-from fastapi import APIRouter, HTTPException, status, Depends
+from typing import Optional, Dict, Any
+from fastapi import (
+    APIRouter,
+    HTTPException,
+    status,
+    Depends,
+)
 from pydantic import BaseModel
 
 from database import supabase
 from utils.auth import get_current_user
+
+
+# In-memory store for the latest sensor readings (global fallback & per-plant)
+latest_reading: Dict[str, Optional[Any]] = {
+    "nitrogen": None,
+    "phosphorous": None,
+    "potassium": None,
+    "device_id": None,
+    "plant_id": None,
+    "user_id": None,
+}
+
+latest_readings_by_plant: Dict[str, dict] = {}
+
+
+class NPKReading(BaseModel):
+    nitrogen: float
+    phosphorous: float
+    potassium: float
+    device_id: Optional[str] = "esp32-npk-01"
+    plant_id: Optional[str] = None
+    user_id: Optional[str] = None
 
 
 class NPKCreate(BaseModel):
@@ -13,14 +41,200 @@ class NPKCreate(BaseModel):
     module_id: str
 
 
-router = APIRouter(prefix="/api/sensors/npk", tags=["NPK Soil Sensor"])
+router = APIRouter(
+    prefix="/api/sensors/npk",
+    tags=["NPK Soil Sensor"],
+)
 
 
-@router.post("", status_code=status.HTTP_201_CREATED)
-def create_npk_reading(
-    reading: NPKCreate, current_user: dict = Depends(get_current_user)
+def get_latest_npk_data(
+    plant_id: Optional[str] = None,
+    user_id: Optional[str] = None
+) -> dict:
+    """
+    Helper to fetch the latest NPK reading.
+    Checks Supabase DB first if plant_id is given, then falls back to in-memory store.
+    """
+    if plant_id:
+        latest_reading["plant_id"] = plant_id
+        if user_id:
+            latest_reading["user_id"] = user_id
+
+        try:
+            query = supabase.table("npk_history").select("*").eq("plant_id", plant_id)
+            if user_id:
+                query = query.eq("user_id", user_id)
+            response = query.order("created_at", desc=True).limit(1).execute()
+            if response.data:
+                rec = response.data[0]
+                return {
+                    "nitrogen": float(rec.get("nitrogen_n", 0.0)),
+                    "phosphorous": float(rec.get("phosphorus_p", 0.0)),
+                    "potassium": float(rec.get("potassium_k", 0.0)),
+                    "device_id": rec.get("module_id") or "esp32-npk-01",
+                    "plant_id": plant_id,
+                    "user_id": rec.get("user_id") or user_id,
+                }
+        except Exception as e:
+            print(f"[NPK Router] DB fetch error for plant {plant_id}: {e}")
+
+    # Check plant-specific in-memory store
+    if plant_id and plant_id in latest_readings_by_plant:
+        return latest_readings_by_plant[plant_id]
+
+    # Check global in-memory store
+    if latest_reading["nitrogen"] is not None:
+        return {
+            "nitrogen": float(latest_reading["nitrogen"]),
+            "phosphorous": float(latest_reading["phosphorous"]),
+            "potassium": float(latest_reading["potassium"]),
+            "device_id": latest_reading.get("device_id") or "esp32-npk-01",
+            "plant_id": latest_reading.get("plant_id") or plant_id,
+            "user_id": latest_reading.get("user_id") or user_id,
+        }
+
+    # Default baseline reading
+    return {
+        "nitrogen": 0.0,
+        "phosphorous": 0.0,
+        "potassium": 0.0,
+        "device_id": "no-sensor-reading",
+        "plant_id": plant_id,
+        "user_id": user_id,
+    }
+
+
+# =========================================================
+# RECEIVE LIVE NPK READING (ESP32 / SENSOR POST)
+# =========================================================
+
+@router.post(
+    "/npk-reading",
+    status_code=status.HTTP_200_OK
+)
+@router.post(
+    "/reading",
+    status_code=status.HTTP_200_OK
+)
+def receive_npk_reading(
+    reading: NPKReading,
+    plant_id: Optional[str] = None,
 ):
-    """Log a new soil NPK reading into npk_history."""
+    """
+    ESP32 / Sensor posts live NPK readings here.
+    Updates the in-memory store and logs to npk_history if plant_id or user_id is present.
+    """
+    data = reading.model_dump() if hasattr(reading, "model_dump") else reading.dict()
+
+    target_plant_id = plant_id or data.get("plant_id") or latest_reading.get("plant_id")
+    target_user_id = data.get("user_id") or latest_reading.get("user_id")
+    device_id = data.get("device_id") or "esp32-npk-01"
+    valid_module_id = device_id
+
+    # If plant_id or user_id is not in payload, attempt automatic lookup from plants and sensor_module tables
+    if not target_user_id or not target_plant_id:
+        try:
+            plant_res = supabase.table("plants").select("plant_id, user_id").is_("deleted_at", "null").order("created_at", desc=True).limit(1).execute()
+            if plant_res.data:
+                target_plant_id = target_plant_id or plant_res.data[0].get("plant_id")
+                target_user_id = target_user_id or plant_res.data[0].get("user_id")
+
+            mod_res = supabase.table("sensor_module").select("module_id").limit(1).execute()
+            if mod_res.data:
+                valid_module_id = mod_res.data[0].get("module_id")
+        except Exception as e:
+            print(f"[NPK Router] Auto plant lookup notice: {e}")
+
+
+    latest_reading.update({
+        "nitrogen": data["nitrogen"],
+        "phosphorous": data["phosphorous"],
+        "potassium": data["potassium"],
+        "device_id": device_id,
+        "plant_id": target_plant_id,
+        "user_id": target_user_id,
+    })
+
+    if target_plant_id:
+        latest_readings_by_plant[target_plant_id] = {
+            "nitrogen": data["nitrogen"],
+            "phosphorous": data["phosphorous"],
+            "potassium": data["potassium"],
+            "device_id": device_id,
+            "plant_id": target_plant_id,
+            "user_id": target_user_id,
+        }
+
+        # Log reading into database
+        try:
+            # Ensure module_id exists in sensor_module table
+            effective_module_id = device_id
+            try:
+                supabase.table("sensor_module").upsert({
+                    "module_id": device_id,
+                    "device_name": "ESP32 NPK Sensor",
+                    "user_id": target_user_id,
+                    "is_active": True,
+                }).execute()
+            except Exception:
+                effective_module_id = valid_module_id
+
+            payload = {
+                "nitrogen_n": data["nitrogen"],
+                "phosphorus_p": data["phosphorous"],
+                "potassium_k": data["potassium"],
+                "plant_id": target_plant_id,
+                "module_id": effective_module_id,
+            }
+            if target_user_id:
+                payload["user_id"] = target_user_id
+
+            res = supabase.table("npk_history").insert(payload).execute()
+            print(f"[NPK Router] Successfully logged NPK reading to database: {res.data}")
+        except Exception as e:
+            print(f"[NPK Router] Database insert error: {e}")
+
+    print(f"Received NPK reading: {data}")
+    return {"status": "ok", "received": data, "saved_to_db": bool(target_plant_id)}
+
+
+
+
+# =========================================================
+# FETCH LATEST NPK READING
+# =========================================================
+
+@router.get(
+    "/npk-reading/latest",
+    status_code=status.HTTP_200_OK
+)
+@router.get(
+    "/latest",
+    status_code=status.HTTP_200_OK
+)
+def get_latest_reading(plant_id: Optional[str] = None):
+    """
+    Fetch the most recent NPK reading (in-memory or plant-specific).
+    """
+    return get_latest_npk_data(plant_id=plant_id)
+
+
+# =========================================================
+# CREATE NPK READING (AUTHENTICATED USER / MANUAL ENTRY)
+# =========================================================
+
+@router.post(
+    "",
+    status_code=status.HTTP_201_CREATED
+)
+def create_npk_reading(
+    reading: NPKCreate,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Store an NPK sensor reading for a specific plant.
+    """
+
     response = (
         supabase.table("npk_history")
         .insert(
@@ -37,34 +251,160 @@ def create_npk_reading(
     )
 
     if not response.data:
-        raise HTTPException(status_code=500, detail="Failed to log NPK reading.")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to log reading.",
+        )
+
+    # Also update in-memory cache
+    latest_reading.update({
+        "nitrogen": reading.nitrogen_n,
+        "phosphorous": reading.phosphorus_p,
+        "potassium": reading.potassium_k,
+        "device_id": reading.module_id,
+        "plant_id": reading.plant_id,
+        "user_id": current_user["user_id"],
+    })
+    latest_readings_by_plant[reading.plant_id] = {
+        "nitrogen": reading.nitrogen_n,
+        "phosphorous": reading.phosphorus_p,
+        "potassium": reading.potassium_k,
+        "device_id": reading.module_id,
+        "plant_id": reading.plant_id,
+        "user_id": current_user["user_id"],
+    }
 
     return response.data[0]
 
 
-@router.get("/plant/{plant_id}", status_code=status.HTTP_200_OK)
+# =========================================================
+# GET LATEST NPK FOR A SPECIFIC PLANT
+# =========================================================
+
+@router.get(
+    "/plant/{plant_id}/latest",
+    status_code=status.HTTP_200_OK
+)
+def get_latest_npk_reading(
+    plant_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Get the latest NPK reading for a specific plant
+    belonging to the authenticated user.
+    """
+    return get_latest_npk_data(plant_id=plant_id, user_id=current_user["user_id"])
+
+
+# =========================================================
+# GET NPK HISTORY FOR A SPECIFIC PLANT
+# =========================================================
+
+@router.get(
+    "/plant/{plant_id}",
+    status_code=status.HTTP_200_OK
+)
 def get_npk_readings_by_plant(
     plant_id: str,
     page: int = 1,
-    limit: int = 10,
+    limit: int = 90,
     current_user: dict = Depends(get_current_user),
 ):
-    """Fetch NPK readings associated directly with the target plant."""
+    """
+    Fetch NPK history for a specific plant belonging
+    to the authenticated user.
+    """
+
+    if page < 1:
+        raise HTTPException(
+            status_code=400,
+            detail="Page must be greater than 0.",
+        )
+
+    if limit < 1:
+        raise HTTPException(
+            status_code=400,
+            detail="Limit must be greater than 0.",
+        )
+
     start = (page - 1) * limit
     end = start + limit - 1
 
     response = (
         supabase.table("npk_history")
-        .select("*", count="exact")
-        .eq("plant_id", plant_id)
-        .order("created_at", desc=True)
-        .range(start, end)
+        .select(
+            "*",
+            count="exact"
+        )
+        .eq(
+            "plant_id",
+            plant_id
+        )
+        .eq(
+            "user_id",
+            current_user["user_id"]
+        )
+        .order(
+            "created_at",
+            desc=True
+        )
+        .range(
+            start,
+            end
+        )
         .execute()
     )
 
     return {
         "data": response.data,
-        "total": response.count if response.count is not None else len(response.data),
+        "total": (
+            response.count
+            if response.count is not None
+            else len(response.data)
+        ),
         "page": page,
         "limit": limit,
     }
+
+
+# =========================================================
+# GET ALL NPK READINGS FOR CURRENT USER
+# =========================================================
+
+@router.get(
+    "",
+    status_code=status.HTTP_200_OK
+)
+def get_all_npk_readings(
+    limit: int = 50,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    View recent NPK history records belonging to
+    the authenticated user.
+
+    This endpoint is user-scoped, but not plant-scoped.
+    """
+
+    if limit < 1:
+        raise HTTPException(
+            status_code=400,
+            detail="Limit must be greater than 0.",
+        )
+
+    response = (
+        supabase.table("npk_history")
+        .select("*")
+        .eq(
+            "user_id",
+            current_user["user_id"]
+        )
+        .order(
+            "created_at",
+            desc=True
+        )
+        .limit(limit)
+        .execute()
+    )
+
+    return response.data
