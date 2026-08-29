@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -7,16 +7,24 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onBack }) {
   const [plants, setPlants] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Sensor Hardware & Reading State
+  // Sensor Hardware & Selection State
   const [modules, setModules] = useState([]);
   const [selectedModuleId, setSelectedModuleId] = useState("");
   const [checkingStatus, setCheckingStatus] = useState(false);
   const [sensorStatus, setSensorStatus] = useState(null);
-  const [activeReadingSlot, setActiveReadingSlot] = useState(null); // `${location_id}_${slot}`
-  const [readingResults, setReadingResults] = useState({});
   const [actionError, setActionError] = useState("");
 
-  // Modals
+  // Sampling State (1-minute burst read: 3 samples)
+  const [samplingSlotKey, setSamplingSlotKey] = useState(null); // `${location_id}_${slot}`
+  const [countdown, setCountdown] = useState(60);
+  const [burstReadings, setBurstReadings] = useState([]);
+  const timerRef = useRef(null);
+
+  // Staged Averages Ready for Submission: { [slotKey]: { temp, hum, lux, samplesCount, timestamp, submitted } }
+  const [stagedReadings, setStagedReadings] = useState({});
+  const [submittingSlotKey, setSubmittingSlotKey] = useState(null);
+
+  // Modals & CRUD State
   const [showAddLocationModal, setShowAddLocationModal] = useState(false);
   const [newLocationName, setNewLocationName] = useState("");
   const [newLocationDesc, setNewLocationDesc] = useState("");
@@ -37,6 +45,9 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onBack }) {
       loadUserData();
       fetchUserModules(selectedUser.user_id);
     }
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
   }, [selectedUser]);
 
   const loadUserData = async () => {
@@ -114,29 +125,103 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onBack }) {
     }
   };
 
-  const handleReadEnvironmentData = async (locationId, timeSlot) => {
+  // Trigger 1-minute 3-sample burst read
+  const handleStartBurstSampling = (locationId, timeSlot) => {
     if (!selectedModuleId) {
       setActionError("Please select a sensor module before reading telemetry.");
       return;
     }
+
     const slotKey = `${locationId}_${timeSlot}`;
-    setActiveReadingSlot(slotKey);
+    setSamplingSlotKey(slotKey);
+    setCountdown(60);
+    setBurstReadings([]);
+    setActionError("");
+
+    let secondsLeft = 60;
+    const collected = [];
+
+    const fetchSingleSample = async () => {
+      try {
+        const token = localStorage.getItem("admin_token");
+        const res = await fetch(
+          `${API_BASE_URL}/sensors/modules/${selectedModuleId}/read-ambient`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (res.ok) {
+          const data = await res.json();
+          return {
+            temp: Number(data.temperature),
+            hum: Number(data.humidity),
+            lux: Number(data.lux),
+          };
+        }
+      } catch (err) {
+        console.warn("Telemetry burst sample read failure:", err);
+      }
+      return null;
+    };
+
+    if (timerRef.current) clearInterval(timerRef.current);
+
+    timerRef.current = setInterval(async () => {
+      secondsLeft -= 1;
+      setCountdown(secondsLeft);
+
+      // Collect sample at 40s, 20s, and 0s
+      if (secondsLeft === 40 || secondsLeft === 20 || secondsLeft === 0) {
+        const sample = await fetchSingleSample();
+        if (sample) {
+          sample.sampleIndex = collected.length + 1;
+          collected.push(sample);
+          setBurstReadings([...collected]);
+        }
+      }
+
+      if (secondsLeft <= 0) {
+        clearInterval(timerRef.current);
+        setSamplingSlotKey(null);
+
+        if (collected.length > 0) {
+          const avgTemp = Number(
+            (collected.reduce((acc, r) => acc + r.temp, 0) / collected.length).toFixed(1)
+          );
+          const avgHum = Number(
+            (collected.reduce((acc, r) => acc + r.hum, 0) / collected.length).toFixed(1)
+          );
+          const avgLux = Number(
+            (collected.reduce((acc, r) => acc + r.lux, 0) / collected.length).toFixed(0)
+          );
+
+          setStagedReadings((prev) => ({
+            ...prev,
+            [slotKey]: {
+              temp: avgTemp,
+              hum: avgHum,
+              lux: avgLux,
+              samplesCount: collected.length,
+              timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+              submitted: false,
+            },
+          }));
+        } else {
+          setActionError(`Failed to obtain valid telemetry samples for ${timeSlot}.`);
+        }
+      }
+    }, 1000);
+  };
+
+  // Submit staged average reading to database
+  const handleSubmitReading = async (locationId, timeSlot) => {
+    const slotKey = `${locationId}_${timeSlot}`;
+    const reading = stagedReadings[slotKey];
+    if (!reading) return;
+
+    setSubmittingSlotKey(slotKey);
     setActionError("");
 
     try {
       const token = localStorage.getItem("admin_token");
-      const readRes = await fetch(
-        `${API_BASE_URL}/sensors/modules/${selectedModuleId}/read-ambient`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      if (!readRes.ok) throw new Error("Sensor module ambient read failed.");
-      const data = await readRes.json();
-
-      const temp = Number(data.temperature);
-      const hum = Number(data.humidity);
-      const lux = Number(data.lux);
-
       await Promise.all([
         fetch(`${API_BASE_URL}/sensors/dht11`, {
           method: "POST",
@@ -145,8 +230,8 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onBack }) {
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            temperature: temp,
-            humidity: hum,
+            temperature: reading.temp,
+            humidity: reading.hum,
             time_slot: timeSlot,
             location_id: locationId,
             module_id: selectedModuleId,
@@ -159,7 +244,7 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onBack }) {
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            lux: lux,
+            lux: reading.lux,
             time_slot: timeSlot,
             location_id: locationId,
             module_id: selectedModuleId,
@@ -167,15 +252,15 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onBack }) {
         }),
       ]);
 
-      setReadingResults((prev) => ({
+      setStagedReadings((prev) => ({
         ...prev,
-        [slotKey]: { temp, hum, lux, timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) },
+        [slotKey]: { ...prev[slotKey], submitted: true },
       }));
     } catch (err) {
-      console.error(err);
-      setActionError(`Error logging environment readings for ${timeSlot}.`);
+      console.error("Error submitting reading:", err);
+      setActionError(`Failed to save ${timeSlot} reading to the database.`);
     } finally {
-      setActiveReadingSlot(null);
+      setSubmittingSlotKey(null);
     }
   };
 
@@ -325,7 +410,7 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onBack }) {
               <h3 className="font-bold text-gray-800 text-sm">IoT Ambient Hardware Configuration</h3>
             </div>
             <p className="text-xs text-gray-500 mt-0.5">
-              Select module used for ambient location telemetry sampling.
+              Select module used for ambient location telemetry sampling (DHT11 & BH1750).
             </p>
           </div>
 
@@ -483,69 +568,102 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onBack }) {
 
                 {/* Zone Body: 2 Columns */}
                 <div className="p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                  {/* Left Column: Ambient Telemetry */}
+                  {/* Left Column: Ambient Telemetry Sampling & Submit */}
                   <div className="lg:col-span-5 bg-gray-50/70 border border-gray-200/80 rounded-xl p-4 space-y-3.5">
                     <div className="flex justify-between items-center border-b border-gray-200/80 pb-2.5">
                       <div>
                         <h4 className="font-bold text-gray-800 text-xs uppercase tracking-wider">
                           Zone Ambient Telemetry
                         </h4>
-                        <p className="text-[11px] text-gray-400">Allocated to all plants in this zone</p>
+                        <p className="text-[11px] text-gray-400">1-min average (3 samples) per time slot</p>
                       </div>
                       <span className="text-[10px] uppercase font-bold text-emerald-700 bg-emerald-100/60 px-2 py-0.5 rounded">
                         DHT11 & BH1750
                       </span>
                     </div>
 
-                    <div className="space-y-2.5">
+                    <div className="space-y-3">
                       {["morning", "afternoon", "evening"].map((slot) => {
                         const slotKey = `${loc.location_id}_${slot}`;
-                        const res = readingResults[slotKey];
-                        const isLoading = activeReadingSlot === slotKey;
+                        const isSampling = samplingSlotKey === slotKey;
+                        const staged = stagedReadings[slotKey];
+                        const isSubmitting = submittingSlotKey === slotKey;
 
                         return (
                           <div
                             key={slot}
-                            className="bg-white border border-gray-200/80 rounded-xl p-3 flex items-center justify-between gap-3 shadow-2xs"
+                            className="bg-white border border-gray-200/80 rounded-xl p-3.5 space-y-2.5 shadow-2xs"
                           >
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-1.5">
-                                <span className="capitalize font-extrabold text-xs text-gray-800">
-                                  {slot}
-                                </span>
-                                {res && (
-                                  <span className="text-[10px] text-gray-400">
-                                    • {res.timestamp}
-                                  </span>
-                                )}
-                              </div>
+                            <div className="flex items-center justify-between">
+                              <span className="capitalize font-extrabold text-xs text-gray-800">
+                                {slot} Time Slot
+                              </span>
 
-                              {res ? (
-                                <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-semibold">
-                                  <span className="px-1.5 py-0.5 bg-rose-50 text-rose-600 rounded">
-                                    {res.temp}°C
-                                  </span>
-                                  <span className="px-1.5 py-0.5 bg-sky-50 text-sky-600 rounded">
-                                    {res.hum}% RH
-                                  </span>
-                                  <span className="px-1.5 py-0.5 bg-amber-50 text-amber-700 rounded">
-                                    {res.lux} Lux
-                                  </span>
-                                </div>
-                              ) : (
-                                <span className="text-[11px] text-gray-400 italic block">
-                                  No telemetry recorded yet
+                              {staged && staged.submitted && (
+                                <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-full">
+                                  Saved to DB
                                 </span>
                               )}
                             </div>
 
-                            <button
-                              onClick={() => handleReadEnvironmentData(loc.location_id, slot)}
-                              disabled={isLoading}
-                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-2xs transition disabled:opacity-50 shrink-0"
-                            >
-                              {isLoading ? "Reading..." : "Check"}
-                            </button>
+                            {/* Sampling Countdown Progress Bar */}
+                            {isSampling ? (
+                              <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg space-y-1.5">
+                                <div className="flex justify-between text-[11px] font-bold text-emerald-800">
+                                  <span>Collecting burst samples ({burstReadings.length}/3)...</span>
+                                  <span>{countdown}s remaining</span>
+                                </div>
+                                <div className="w-full bg-emerald-200 rounded-full h-1.5 overflow-hidden">
+                                  <div
+                                    className="bg-emerald-600 h-full transition-all duration-1000"
+                                    style={{ width: `${((60 - countdown) / 60) * 100}%` }}
+                                  ></div>
+                                </div>
+                              </div>
+                            ) : staged ? (
+                              /* Averaged Result Display */
+                              <div className="space-y-1.5">
+                                <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-semibold">
+                                  <span className="px-2 py-1 bg-rose-50 text-rose-600 rounded-md">
+                                    {staged.temp}°C
+                                  </span>
+                                  <span className="px-2 py-1 bg-sky-50 text-sky-600 rounded-md">
+                                    {staged.hum}% RH
+                                  </span>
+                                  <span className="px-2 py-1 bg-amber-50 text-amber-700 rounded-md">
+                                    {staged.lux} Lux
+                                  </span>
+                                </div>
+                                <span className="text-[10px] text-gray-400 block">
+                                  Computed average from {staged.samplesCount} samples at {staged.timestamp}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-[11px] text-gray-400 italic block">
+                                No telemetry sampled for this slot yet.
+                              </span>
+                            )}
+
+                            {/* Action Buttons: Check & Submit */}
+                            <div className="flex gap-2 pt-1">
+                              <button
+                                onClick={() => handleStartBurstSampling(loc.location_id, slot)}
+                                disabled={Boolean(samplingSlotKey)}
+                                className="flex-1 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-lg transition disabled:opacity-50"
+                              >
+                                {isSampling ? "Sampling (60s)..." : staged ? "Re-Check (1 Min)" : "Check (1 Min)"}
+                              </button>
+
+                              {staged && !staged.submitted && (
+                                <button
+                                  onClick={() => handleSubmitReading(loc.location_id, slot)}
+                                  disabled={isSubmitting || Boolean(samplingSlotKey)}
+                                  className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-2xs transition disabled:opacity-50"
+                                >
+                                  {isSubmitting ? "Saving..." : "Submit Reading"}
+                                </button>
+                              )}
+                            </div>
                           </div>
                         );
                       })}
