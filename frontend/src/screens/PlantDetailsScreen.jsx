@@ -9,14 +9,14 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
   const [currentView, setCurrentView] = useState("details");
 
   // Telemetry Tab & Pagination State
-  const [sensorTab, setSensorTab] = useState("dht11"); // 'dht11' | 'bh1750' | 'npk'
+  const [sensorTab, setSensorTab] = useState("npk"); // 'dht11' | 'bh1750' | 'npk'
   const [sensorData, setSensorData] = useState([]);
   const [sensorTotal, setSensorTotal] = useState(0);
   const [sensorPage, setSensorPage] = useState(1);
   const [loadingSensors, setLoadingSensors] = useState(false);
 
   // Diagnostic Tab & Pagination State
-  const [outputTab, setOutputTab] = useState("disease"); // 'disease' | 'fertilizer' | 'bloom'
+  const [outputTab, setOutputTab] = useState("fertilizer"); // 'disease' | 'fertilizer' | 'bloom'
   const [outputData, setOutputData] = useState([]);
   const [outputTotal, setOutputTotal] = useState(0);
   const [outputPage, setOutputPage] = useState(1);
@@ -66,7 +66,9 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
         const data = await res.json();
         setModules(data);
         if (data.length > 0) {
-          setSelectedModuleId(data[0].module_id);
+          // Preselect NPK module if found, else default to first
+          const npkMod = data.find((m) => m.module_id === "441bf68cbc78" || m.device_name?.toLowerCase().includes("npk"));
+          setSelectedModuleId(npkMod ? npkMod.module_id : data[0].module_id);
         }
       }
     } catch (err) {
@@ -92,16 +94,12 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
       } else {
         setSensorStatus({
           online: false,
-          dht11: false,
-          bh1750: false,
           msg: "Device did not respond.",
         });
       }
     } catch {
       setSensorStatus({
         online: false,
-        dht11: false,
-        bh1750: false,
         msg: "Failed to connect to sensor module.",
       });
     } finally {
@@ -125,7 +123,11 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      if (!readRes.ok) throw new Error("NPK sensor read failed.");
+      if (!readRes.ok) {
+        const errorData = await readRes.json().catch(() => ({}));
+        throw new Error(errorData.detail || "NPK sensor read failed.");
+      }
+
       const data = await readRes.json();
 
       const n = Number(data.nitrogen_n ?? data.nitrogen ?? 0);
@@ -153,10 +155,12 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
         [slotKey]: { n, p, k, timestamp: new Date().toLocaleTimeString() },
       }));
 
-      fetchSensorData();
+      if (sensorTab === "npk") {
+        fetchSensorData();
+      }
     } catch (err) {
       console.error(err);
-      setActionError(`Error reading NPK data for ${timeSlot}.`);
+      setActionError(err.message || `Error reading NPK data for ${timeSlot}.`);
     } finally {
       setActiveReadingSlot(null);
     }
@@ -329,35 +333,53 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
               Daily Plant Soil NPK Sampling
             </h3>
             <p className="text-xs text-gray-500">
-              Measure Nitrogen (N), Phosphorus (P), and Potassium (K) levels for this specific orchid pot.
+              Trigger instant live NPK readings from the connected ESP32-S3 node over WebSockets.
             </p>
           </div>
 
-          <div className="flex items-center gap-2 w-full md:w-auto">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full md:w-auto">
             <select
               value={selectedModuleId}
               onChange={(e) => {
                 setSelectedModuleId(e.target.value);
                 setSensorStatus(null);
               }}
-              className="text-xs bg-white border border-gray-300 rounded-lg px-3 py-2 font-medium focus:ring-2 focus:ring-teal-500 focus:outline-none"
+              className="text-xs bg-white border border-gray-300 rounded-lg px-3 py-2 font-medium focus:ring-2 focus:ring-teal-500 focus:outline-none w-full sm:w-auto"
             >
               <option value="">-- Select NPK Module --</option>
               {modules.map((m) => (
                 <option key={m.module_id} value={m.module_id}>
-                  {m.device_name} ({m.module_id})
+                  {m.device_name} ({m.module_id}) {m.is_online ? "🟢 Online" : "🔴 Offline"}
                 </option>
               ))}
             </select>
             <button
               onClick={handleCheckSensorStatus}
               disabled={checkingStatus || !selectedModuleId}
-              className="px-3 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-lg transition disabled:opacity-50 shrink-0"
+              className="px-3 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-lg transition disabled:opacity-50 shrink-0 w-full sm:w-auto"
             >
               {checkingStatus ? "Checking..." : "Check Status"}
             </button>
           </div>
         </div>
+
+        {/* Status Indicator Banner */}
+        {sensorStatus && (
+          <div
+            className={`p-3 rounded-lg text-xs font-medium flex items-center justify-between ${sensorStatus.online
+                ? "bg-emerald-50 border border-emerald-200 text-emerald-800"
+                : "bg-rose-50 border border-rose-200 text-rose-800"
+              }`}
+          >
+            <span>
+              <strong>Module Status:</strong> {sensorStatus.online ? "Online & Ready" : "Disconnected / Offline"} (
+              {sensorStatus.msg})
+            </span>
+            <span className="text-[11px] font-semibold uppercase tracking-wider">
+              {sensorStatus.device || "Node"}
+            </span>
+          </div>
+        )}
 
         {actionError && (
           <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 text-xs font-medium">
@@ -375,7 +397,7 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
             return (
               <div
                 key={slot}
-                className="p-3.5 bg-white border border-gray-200 rounded-xl flex flex-col justify-between space-y-3"
+                className="p-3.5 bg-white border border-gray-200 rounded-xl flex flex-col justify-between space-y-3 shadow-xs"
               >
                 <div className="flex items-center justify-between">
                   <span className="capitalize font-bold text-xs text-gray-800">
@@ -417,18 +439,17 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
         {/* Sensor Tabs */}
         <div className="flex space-x-2 border-b border-gray-200 pb-2">
           {[
+            { id: "npk", label: "NPK Soil Sensor" },
             { id: "dht11", label: "DHT11 Temp/Humidity" },
             { id: "bh1750", label: "BH1750 Light" },
-            { id: "npk", label: "NPK Soil Sensor" },
           ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => setSensorTab(tab.id)}
-              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
-                sensorTab === tab.id
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${sensorTab === tab.id
                   ? "bg-[#059669] text-white"
                   : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-100"
-              }`}
+                }`}
             >
               {tab.label}
             </button>
@@ -547,11 +568,10 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
             <button
               key={tab.id}
               onClick={() => setOutputTab(tab.id)}
-              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
-                outputTab === tab.id
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${outputTab === tab.id
                   ? "bg-[#059669] text-white"
                   : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-100"
-              }`}
+                }`}
             >
               {tab.label}
             </button>
@@ -600,11 +620,10 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
                       <>
                         <td className="px-4 py-3">
                           <span
-                            className={`px-2 py-1 rounded text-xs font-bold ${
-                              row.verdict === "HEALTHY"
+                            className={`px-2 py-1 rounded text-xs font-bold ${row.verdict === "HEALTHY"
                                 ? "bg-emerald-100 text-emerald-800"
                                 : "bg-rose-100 text-rose-800"
-                            }`}
+                              }`}
                           >
                             {row.verdict}
                           </span>
