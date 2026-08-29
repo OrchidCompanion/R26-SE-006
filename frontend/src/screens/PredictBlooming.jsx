@@ -196,7 +196,7 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
     setError("");
 
     try {
-      const token = localStorage.getItem("admin_token");
+      const token = localStorage.getItem("admin_token") || localStorage.getItem("token") || localStorage.getItem("access_token");
       const formData = new FormData();
       formData.append("plant_id", selectedPlant.plant_id);
       formData.append("image1", angleFiles.slot1);
@@ -212,6 +212,9 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
       const data = await res.json();
 
       if (!res.ok) {
+        if (res.status === 401) {
+          throw new Error("Your session has expired. Please sign in again to run predictions.");
+        }
         throw new Error(data.detail || "Bloom prediction analysis failed.");
       }
 
@@ -319,11 +322,10 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
               <span>🖼️</span> Multi-Angle Photo Slots
             </h3>
             <span
-              className={`text-xs font-bold px-2.5 py-1 rounded-full border ${
-                isReadyToPredict
+              className={`text-xs font-bold px-2.5 py-1 rounded-full border ${isReadyToPredict
                   ? "bg-emerald-100 text-emerald-800 border-emerald-300"
                   : "bg-amber-100 text-amber-800 border-amber-300"
-              }`}
+                }`}
             >
               {isReadyToPredict ? "All 3 Angles Uploaded ✓" : `${uploadedCount} of 3 Angles Uploaded`}
             </span>
@@ -336,11 +338,10 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
               return (
                 <div
                   key={slot.id}
-                  className={`relative rounded-xl border-2 transition-all p-3 flex flex-col justify-between min-h-[220px] ${
-                    preview
+                  className={`relative rounded-xl border-2 transition-all p-3 flex flex-col justify-between min-h-[220px] ${preview
                       ? "border-purple-400 bg-purple-50/20 shadow-xs"
                       : "border-dashed border-gray-300 bg-gray-50/60 hover:border-purple-300 hover:bg-purple-50/10"
-                  }`}
+                    }`}
                 >
                   {/* Slot Header */}
                   <div className="flex items-center justify-between mb-2">
@@ -408,11 +409,10 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
           </div>
 
           {error && (
-            <div className={`p-4 rounded-xl border text-xs font-medium space-y-2.5 ${
-              error.toLowerCase().includes("non-orchid")
+            <div className={`p-4 rounded-xl border text-xs font-medium space-y-2.5 ${error.toLowerCase().includes("non-orchid")
                 ? "bg-amber-50 text-amber-900 border-amber-300 shadow-xs"
                 : "bg-rose-50 text-rose-700 border-rose-200"
-            }`}>
+              }`}>
               <div className="flex items-start gap-2.5">
                 <span className="text-xl shrink-0">
                   {error.toLowerCase().includes("non-orchid") ? "⚠️" : "❌"}
@@ -664,30 +664,30 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
                     <div className="p-2.5 border border-rose-100 rounded-xl bg-white shadow-2xs space-y-0.5">
                       <span className="text-[10px] font-bold text-gray-400 uppercase block">30d Avg Temp</span>
                       <span className="text-sm font-black text-rose-600">
-                        {predictionResult.sensor_summary.avg_temp_c} °C
+                        {Number(predictionResult.sensor_summary.avg_temp_c).toFixed(2)} °C
                       </span>
                       <span className="text-[9px] text-gray-400 block">
-                        ({predictionResult.sensor_summary.min_temp_c}° – {predictionResult.sensor_summary.max_temp_c}°)
+                        ({Number(predictionResult.sensor_summary.min_temp_c).toFixed(2)}° – {Number(predictionResult.sensor_summary.max_temp_c).toFixed(2)}°)
                       </span>
                     </div>
 
                     <div className="p-2.5 border border-sky-100 rounded-xl bg-white shadow-2xs space-y-0.5">
                       <span className="text-[10px] font-bold text-gray-400 uppercase block">30d Avg RH</span>
                       <span className="text-sm font-black text-sky-600">
-                        {predictionResult.sensor_summary.avg_humidity_rh} %
+                        {Number(predictionResult.sensor_summary.avg_humidity_rh).toFixed(2)} %
                       </span>
                       <span className="text-[9px] text-gray-400 block">
-                        ({predictionResult.sensor_summary.min_humidity_rh}% – {predictionResult.sensor_summary.max_humidity_rh}%)
+                        ({Number(predictionResult.sensor_summary.min_humidity_rh).toFixed(2)}% – {Number(predictionResult.sensor_summary.max_humidity_rh).toFixed(2)}%)
                       </span>
                     </div>
 
                     <div className="p-2.5 border border-amber-100 rounded-xl bg-white shadow-2xs space-y-0.5">
                       <span className="text-[10px] font-bold text-gray-400 uppercase block">30d Avg Light</span>
                       <span className="text-sm font-black text-amber-600">
-                        {Number(predictionResult.sensor_summary.avg_light_lux).toLocaleString()} Lux
+                        {Number(predictionResult.sensor_summary.avg_light_lux).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Lux
                       </span>
                       <span className="text-[9px] text-gray-400 block">
-                        ({Number(predictionResult.sensor_summary.min_light_lux).toLocaleString()} – {Number(predictionResult.sensor_summary.max_light_lux).toLocaleString()})
+                        ({Number(predictionResult.sensor_summary.min_light_lux).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} – {Number(predictionResult.sensor_summary.max_light_lux).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
                       </span>
                     </div>
                   </div>
@@ -717,8 +717,8 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
                   const badgeClass = isOptimal
                     ? "bg-emerald-100 text-emerald-800 border-emerald-300"
                     : temp.status === "low"
-                    ? "bg-sky-100 text-sky-800 border-sky-300"
-                    : "bg-rose-100 text-rose-800 border-rose-300";
+                      ? "bg-sky-100 text-sky-800 border-sky-300"
+                      : "bg-rose-100 text-rose-800 border-rose-300";
 
                   return (
                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-2xs space-y-3">
@@ -752,8 +752,8 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
                   const badgeClass = isOptimal
                     ? "bg-emerald-100 text-emerald-800 border-emerald-300"
                     : hum.status === "low"
-                    ? "bg-amber-100 text-amber-800 border-amber-300"
-                    : "bg-sky-100 text-sky-800 border-sky-300";
+                      ? "bg-amber-100 text-amber-800 border-amber-300"
+                      : "bg-sky-100 text-sky-800 border-sky-300";
 
                   return (
                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-2xs space-y-3">
@@ -787,8 +787,8 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
                   const badgeClass = isOptimal
                     ? "bg-emerald-100 text-emerald-800 border-emerald-300"
                     : light.status === "low"
-                    ? "bg-amber-100 text-amber-800 border-amber-300"
-                    : "bg-rose-100 text-rose-800 border-rose-300";
+                      ? "bg-amber-100 text-amber-800 border-amber-300"
+                      : "bg-rose-100 text-rose-800 border-rose-300";
 
                   return (
                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-2xs space-y-3">

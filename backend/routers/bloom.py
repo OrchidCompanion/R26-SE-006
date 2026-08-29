@@ -586,10 +586,10 @@ def _is_valid_uuid(val: Any) -> bool:
         return False
 
 
-def _fetch_plant_sensor_telemetry(plant_id: str) -> Dict[str, Any]:
+def _fetch_plant_sensor_telemetry(plant_id: str, user: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Strictly fetch telemetry from Supabase IoT tables (dht11_environment_history & bh1750_environment_history)
-    for the plant's IoT location, computing exact 15-feature metrics for Model 02.
+    for the plant's IoT location, verifying plant validity and user authorization.
     NEVER uses manual or hardcoded fallback data.
     """
     if not _is_valid_uuid(plant_id):
@@ -598,16 +598,35 @@ def _fetch_plant_sensor_telemetry(plant_id: str) -> Dict[str, Any]:
             detail="Invalid plant ID. Please select a valid plant registered in Supabase."
         )
 
-    # Step 1: Query location_id for the plant from Supabase
-    plant_res = supabase.table("plants").select("location_id, plant_name").eq("plant_id", str(plant_id)).execute()
-    if not plant_res.data or not plant_res.data[0].get("location_id"):
+    # Step 1: Query plant record and verify plant exists in Supabase
+    plant_res = supabase.table("plants").select("plant_id, plant_name, user_id, location_id").eq("plant_id", str(plant_id)).execute()
+    if not plant_res.data:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Plant has no linked IoT monitoring location in Supabase. Please assign an active IoT location to this plant."
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Selected plant was not found in Supabase. Please select an existing plant."
         )
 
-    location_id = plant_res.data[0]["location_id"]
-    plant_name = plant_res.data[0].get("plant_name", "Orchid")
+    plant_data = plant_res.data[0]
+    plant_owner_id = plant_data.get("user_id")
+    plant_name = plant_data.get("plant_name", "Orchid")
+
+    # Verify user authorization if user dictionary is provided
+    if user and user.get("user_id"):
+        curr_user_id = str(user["user_id"])
+        user_role = str(user.get("role", "")).lower()
+        if user_role != "admin" and plant_owner_id and str(plant_owner_id) != curr_user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied: You do not have permission to predict bloom for another user's plant."
+            )
+
+    if not plant_data.get("location_id"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Plant '{plant_name}' has no linked IoT monitoring location in Supabase. Please assign an active IoT location to this plant."
+        )
+
+    location_id = plant_data["location_id"]
 
     # Step 2: Query DHT11 environment history strictly from Supabase
     dht_res = (
@@ -646,23 +665,24 @@ def _fetch_plant_sensor_telemetry(plant_id: str) -> Dict[str, Any]:
             detail=f"No BH1750 light intensity (Lux) IoT telemetry recorded in Supabase for {plant_name}. Real-time IoT sensor data is required."
         )
 
-    # Compute exact statistical features strictly from IoT device readings
+    # Compute exact statistical features strictly from IoT device readings with 2 decimal places
     return {
-        "avg_temp_c": float(np.mean(temps)),
-        "min_temp_c": float(np.min(temps)),
-        "max_temp_c": float(np.max(temps)),
-        "temp_std_c": float(np.std(temps)) if len(temps) > 1 else 0.0,
-        "avg_humidity_rh": float(np.mean(hums)),
-        "min_humidity_rh": float(np.min(hums)),
-        "max_humidity_rh": float(np.max(hums)),
-        "humidity_std_rh": float(np.std(hums)) if len(hums) > 1 else 0.0,
-        "avg_light_lux": float(np.mean(luxs)),
-        "min_light_lux": float(np.min(luxs)),
-        "max_light_lux": float(np.max(luxs)),
-        "light_std_lux": float(np.std(luxs)) if len(luxs) > 1 else 0.0,
+        "avg_temp_c": round(float(np.mean(temps)), 2),
+        "min_temp_c": round(float(np.min(temps)), 2),
+        "max_temp_c": round(float(np.max(temps)), 2),
+        "temp_std_c": round(float(np.std(temps)), 2) if len(temps) > 1 else 0.0,
+        "avg_humidity_rh": round(float(np.mean(hums)), 2),
+        "min_humidity_rh": round(float(np.min(hums)), 2),
+        "max_humidity_rh": round(float(np.max(hums)), 2),
+        "humidity_std_rh": round(float(np.std(hums)), 2) if len(hums) > 1 else 0.0,
+        "avg_light_lux": round(float(np.mean(luxs)), 2),
+        "min_light_lux": round(float(np.min(luxs)), 2),
+        "max_light_lux": round(float(np.max(luxs)), 2),
+        "light_std_lux": round(float(np.std(luxs)), 2) if len(luxs) > 1 else 0.0,
         "data_window_days": 30,
         "telemetry_samples_count": max(len(temps), len(luxs)),
         "location_id": str(location_id),
+        "plant_name": plant_name,
     }
 
 
@@ -750,7 +770,7 @@ async def predict_bloom_full_workflow(
         overall_conf = stage_scores[final_stage] / stage_counts[final_stage]
 
     # Step 2: Fetch Live Environmental Telemetry & build 15-feature input for Model 02
-    sensor_stats = _fetch_plant_sensor_telemetry(plant_id)
+    sensor_stats = _fetch_plant_sensor_telemetry(plant_id, user=current_user)
 
     now_dt = datetime.now(timezone.utc)
     month_val = now_dt.month
@@ -878,6 +898,8 @@ async def predict_bloom_full_workflow(
 
     return {
         "plant_id": plant_id,
+        "plant_name": sensor_stats.get("plant_name", "Orchid"),
+        "user_id": current_user.get("user_id"),
         "weeks": estimated_weeks,
         "current_stage": final_stage,
         "stage": final_stage,
