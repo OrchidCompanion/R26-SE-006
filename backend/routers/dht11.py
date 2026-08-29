@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Literal, Optional
 from fastapi import APIRouter, HTTPException, status, Depends
 from pydantic import BaseModel
 
@@ -11,7 +11,16 @@ class DHT11Create(BaseModel):
     humidity: float
     location_id: str
     module_id: str
-    time_slot: Optional[str] = "custom"
+    time_slot: Literal["morning", "afternoon", "evening"]
+
+
+class DHT11AssessmentCreate(BaseModel):
+    avg_temperature: float
+    avg_humidity: float
+    suitability_status: str
+    target_species: Optional[str] = "Dendrobium"
+    notes: Optional[str] = None
+    module_id: str
 
 
 router = APIRouter(prefix="/api/sensors/dht11", tags=["DHT11 Sensor"])
@@ -21,7 +30,9 @@ router = APIRouter(prefix="/api/sensors/dht11", tags=["DHT11 Sensor"])
 def create_dht11_reading(
     reading: DHT11Create, current_user: dict = Depends(get_current_user)
 ):
-    """Log a new temperature and humidity reading into dht11_environment_history."""
+    """Log a new daily temperature/humidity reading into dht11_environment_history."""
+    target_user_id = current_user["user_id"]
+
     response = (
         supabase.table("dht11_environment_history")
         .insert(
@@ -31,7 +42,7 @@ def create_dht11_reading(
                 "time_slot": reading.time_slot,
                 "location_id": reading.location_id,
                 "module_id": reading.module_id,
-                "user_id": current_user["user_id"],
+                "user_id": target_user_id,
             }
         )
         .execute()
@@ -41,6 +52,42 @@ def create_dht11_reading(
         raise HTTPException(status_code=500, detail="Failed to log DHT11 reading.")
 
     return response.data[0]
+
+
+@router.post("/assessment", status_code=status.HTTP_201_CREATED)
+def create_dht11_assessment(
+    data: DHT11AssessmentCreate, current_user: dict = Depends(get_current_user)
+):
+    """Log a 1-minute burst suitability test into dht11_suitability_assessments."""
+    target_user_id = current_user["user_id"]
+
+    response = (
+        supabase.table("dht11_suitability_assessments")
+        .insert(
+            {
+                "avg_temperature": data.avg_temperature,
+                "avg_humidity": data.avg_humidity,
+                "suitability_status": data.suitability_status,
+                "target_species": data.target_species,
+                "notes": data.notes,
+                "module_id": data.module_id,
+                "user_id": target_user_id,
+            }
+        )
+        .execute()
+    )
+
+    if not response.data:
+        raise HTTPException(
+            status_code=500, detail="Failed to log DHT11 suitability assessment."
+        )
+
+    return response.data[0]
+
+
+# ---------------------------------------------------------
+# FETCH READINGS BY PLANT (LOCATION-SCOPED)
+# ---------------------------------------------------------
 
 
 @router.get("/plant/{plant_id}", status_code=status.HTTP_200_OK)
