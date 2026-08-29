@@ -6,7 +6,7 @@ import PredictBlooming from "./PredictBlooming";
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack }) {
-  const [currentView, setCurrentView] = useState("details"); // 'details' | 'analyse_disease' | 'analyse_fertilizer' | 'predict_blooming'
+  const [currentView, setCurrentView] = useState("details");
 
   // Telemetry Tab & Pagination State
   const [sensorTab, setSensorTab] = useState("dht11"); // 'dht11' | 'bh1750' | 'npk'
@@ -22,7 +22,7 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
   const [outputPage, setOutputPage] = useState(1);
   const [loadingOutputs, setLoadingOutputs] = useState(false);
 
-  // Hardware Module & Reading State
+  // Hardware Module & Soil NPK Reading State
   const [modules, setModules] = useState([]);
   const [selectedModuleId, setSelectedModuleId] = useState("");
   const [checkingStatus, setCheckingStatus] = useState(false);
@@ -94,7 +94,6 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
           online: false,
           dht11: false,
           bh1750: false,
-          npk: false,
           msg: "Device did not respond.",
         });
       }
@@ -103,80 +102,10 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
         online: false,
         dht11: false,
         bh1750: false,
-        npk: false,
         msg: "Failed to connect to sensor module.",
       });
     } finally {
       setCheckingStatus(false);
-    }
-  };
-
-  const handleReadEnvironmentData = async (timeSlot) => {
-    if (!selectedModuleId) {
-      setActionError("Please select a sensor module.");
-      return;
-    }
-    const slotKey = `env_${timeSlot}`;
-    setActiveReadingSlot(slotKey);
-    setActionError("");
-
-    try {
-      const token = localStorage.getItem("admin_token");
-      const readRes = await fetch(
-        `${API_BASE_URL}/sensors/modules/${selectedModuleId}/read-ambient`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      if (!readRes.ok) throw new Error("Sensor module ambient read failed.");
-      const data = await readRes.json();
-
-      const temp = Number(data.temperature);
-      const hum = Number(data.humidity);
-      const lux = Number(data.lux);
-
-      await Promise.all([
-        fetch(`${API_BASE_URL}/sensors/dht11`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            temperature: temp,
-            humidity: hum,
-            time_slot: timeSlot,
-            location_id: selectedPlant.location_id,
-            user_id: selectedUser.user_id,
-            module_id: selectedModuleId,
-          }),
-        }),
-        fetch(`${API_BASE_URL}/sensors/bh1750`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            lux: lux,
-            time_slot: timeSlot,
-            location_id: selectedPlant.location_id,
-            user_id: selectedUser.user_id,
-            module_id: selectedModuleId,
-          }),
-        }),
-      ]);
-
-      setReadingResults((prev) => ({
-        ...prev,
-        [slotKey]: { temp, hum, lux, timestamp: new Date().toLocaleTimeString() },
-      }));
-
-      fetchSensorData();
-    } catch (err) {
-      console.error(err);
-      setActionError(`Error reading environment data for ${timeSlot}.`);
-    } finally {
-      setActiveReadingSlot(null);
     }
   };
 
@@ -214,8 +143,8 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
           phosphorus_p: p,
           potassium_k: k,
           plant_id: selectedPlant.plant_id,
-          user_id: selectedUser.user_id,
           module_id: selectedModuleId,
+          time_slot: timeSlot,
         }),
       });
 
@@ -353,7 +282,7 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
 
   return (
     <div className="bg-white p-6 rounded-xl border border-[#e5e7eb] shadow-sm space-y-6">
-      {/* Header */}
+      {/* Plant Header */}
       <div className="border-b pb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <button
@@ -392,15 +321,15 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
         </div>
       </div>
 
-      {/* Manual Sensor Sampling Section */}
-      <div className="border border-emerald-200 bg-emerald-50/20 rounded-xl p-5 space-y-5">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-emerald-100 pb-3">
+      {/* Spot-Check Soil NPK Sampling Box */}
+      <div className="border border-teal-200 bg-teal-50/20 rounded-xl p-5 space-y-4">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-teal-100 pb-3">
           <div>
             <h3 className="font-bold text-gray-800 text-base">
-              Daily Environment & Soil NPK Readings
+              Daily Plant Soil NPK Sampling
             </h3>
             <p className="text-xs text-gray-500">
-              Collect 3 daily readings (Morning, Afternoon, Evening) for ambient conditions and soil nutrients.
+              Measure Nitrogen (N), Phosphorus (P), and Potassium (K) levels for this specific orchid pot.
             </p>
           </div>
 
@@ -411,9 +340,9 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
                 setSelectedModuleId(e.target.value);
                 setSensorStatus(null);
               }}
-              className="text-xs bg-white border border-gray-300 rounded-lg px-3 py-2 font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+              className="text-xs bg-white border border-gray-300 rounded-lg px-3 py-2 font-medium focus:ring-2 focus:ring-teal-500 focus:outline-none"
             >
-              <option value="">-- Select Sensor Module --</option>
+              <option value="">-- Select NPK Module --</option>
               {modules.map((m) => (
                 <option key={m.module_id} value={m.module_id}>
                   {m.device_name} ({m.module_id})
@@ -423,7 +352,7 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
             <button
               onClick={handleCheckSensorStatus}
               disabled={checkingStatus || !selectedModuleId}
-              className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition disabled:opacity-50 shrink-0"
+              className="px-3 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-lg transition disabled:opacity-50 shrink-0"
             >
               {checkingStatus ? "Checking..." : "Check Status"}
             </button>
@@ -436,135 +365,48 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
           </div>
         )}
 
-        {sensorStatus && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
-            <div className="p-2 bg-white rounded-lg border border-gray-200">
-              <span className="text-gray-400 block text-[10px] uppercase font-bold">Module</span>
-              <span className={`font-bold ${sensorStatus.online ? "text-emerald-600" : "text-rose-600"}`}>
-                {sensorStatus.online ? "Online" : "Offline"}
-              </span>
-            </div>
-            <div className="p-2 bg-white rounded-lg border border-gray-200">
-              <span className="text-gray-400 block text-[10px] uppercase font-bold">DHT11 Temp/RH</span>
-              <span className={`font-bold ${sensorStatus.dht11 ? "text-emerald-600" : "text-rose-600"}`}>
-                {sensorStatus.dht11 ? "Ready" : "Error"}
-              </span>
-            </div>
-            <div className="p-2 bg-white rounded-lg border border-gray-200">
-              <span className="text-gray-400 block text-[10px] uppercase font-bold">BH1750 Lux</span>
-              <span className={`font-bold ${sensorStatus.bh1750 ? "text-emerald-600" : "text-rose-600"}`}>
-                {sensorStatus.bh1750 ? "Ready" : "Error"}
-              </span>
-            </div>
-            <div className="p-2 bg-white rounded-lg border border-gray-200">
-              <span className="text-gray-400 block text-[10px] uppercase font-bold">NPK Probe</span>
-              <span className="font-bold text-emerald-600">Ready</span>
-            </div>
-          </div>
-        )}
+        {/* NPK Time-slot Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {["morning", "afternoon", "evening"].map((slot) => {
+            const key = `npk_${slot}`;
+            const res = readingResults[key];
+            const isLoading = activeReadingSlot === key;
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          {/* Environment Sampling */}
-          <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
-            <div className="flex items-center justify-between border-b pb-2">
-              <h4 className="font-bold text-gray-800 text-sm">Get Environment Data</h4>
-              <span className="text-[10px] uppercase tracking-wider font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
-                DHT11 & BH1750
-              </span>
-            </div>
+            return (
+              <div
+                key={slot}
+                className="p-3.5 bg-white border border-gray-200 rounded-xl flex flex-col justify-between space-y-3"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="capitalize font-bold text-xs text-gray-800">
+                    {slot} Reading
+                  </span>
+                  <span className="text-[10px] uppercase font-semibold text-teal-700 bg-teal-50 px-2 py-0.5 rounded">
+                    Soil NPK
+                  </span>
+                </div>
 
-            <div className="space-y-2.5">
-              {["morning", "afternoon", "evening"].map((slot) => {
-                const key = `env_${slot}`;
-                const res = readingResults[key];
-                const isLoading = activeReadingSlot === key;
-
-                return (
-                  <div
-                    key={slot}
-                    className="p-3 bg-gray-50 border border-gray-200 rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2"
-                  >
-                    <div>
-                      <span className="capitalize font-bold text-xs text-gray-700 block">
-                        {slot} Reading
-                      </span>
-                      {res ? (
-                        <div className="text-[11px] font-semibold text-gray-600 space-x-2 mt-0.5">
-                          <span className="text-rose-600">{res.temp} °C</span>
-                          <span>•</span>
-                          <span className="text-sky-600">{res.hum} %</span>
-                          <span>•</span>
-                          <span className="text-amber-600">{res.lux} Lux</span>
-                          <span className="text-gray-400 text-[10px]">({res.timestamp})</span>
-                        </div>
-                      ) : (
-                        <span className="text-[11px] text-gray-400">No reading recorded.</span>
-                      )}
-                    </div>
-
-                    <button
-                      onClick={() => handleReadEnvironmentData(slot)}
-                      disabled={isLoading}
-                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-xs transition disabled:opacity-50 shrink-0"
-                    >
-                      {isLoading ? "Reading..." : "Check"}
-                    </button>
+                {res ? (
+                  <div className="text-xs font-semibold space-y-1">
+                    <div className="text-emerald-700">Nitrogen (N): <strong>{res.n} mg/kg</strong></div>
+                    <div className="text-amber-700">Phosphorus (P): <strong>{res.p} mg/kg</strong></div>
+                    <div className="text-rose-700">Potassium (K): <strong>{res.k} mg/kg</strong></div>
+                    <span className="text-gray-400 text-[10px] block pt-1">Logged at {res.timestamp}</span>
                   </div>
-                );
-              })}
-            </div>
-          </div>
+                ) : (
+                  <p className="text-xs text-gray-400 italic">No reading recorded for {slot}.</p>
+                )}
 
-          {/* NPK Sampling */}
-          <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
-            <div className="flex items-center justify-between border-b pb-2">
-              <h4 className="font-bold text-gray-800 text-sm">Get NPK Data</h4>
-              <span className="text-[10px] uppercase tracking-wider font-semibold text-teal-700 bg-teal-50 px-2 py-0.5 rounded">
-                NPK Probe
-              </span>
-            </div>
-
-            <div className="space-y-2.5">
-              {["morning", "afternoon", "evening"].map((slot) => {
-                const key = `npk_${slot}`;
-                const res = readingResults[key];
-                const isLoading = activeReadingSlot === key;
-
-                return (
-                  <div
-                    key={slot}
-                    className="p-3 bg-gray-50 border border-gray-200 rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2"
-                  >
-                    <div>
-                      <span className="capitalize font-bold text-xs text-gray-700 block">
-                        {slot} Reading
-                      </span>
-                      {res ? (
-                        <div className="text-[11px] font-semibold text-gray-600 space-x-2 mt-0.5">
-                          <span className="text-emerald-700">N: {res.n}</span>
-                          <span>•</span>
-                          <span className="text-amber-700">P: {res.p}</span>
-                          <span>•</span>
-                          <span className="text-rose-700">K: {res.k}</span>
-                          <span className="text-gray-400 text-[10px]">({res.timestamp})</span>
-                        </div>
-                      ) : (
-                        <span className="text-[11px] text-gray-400">No reading recorded.</span>
-                      )}
-                    </div>
-
-                    <button
-                      onClick={() => handleReadNPKData(slot)}
-                      disabled={isLoading}
-                      className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-lg shadow-xs transition disabled:opacity-50 shrink-0"
-                    >
-                      {isLoading ? "Reading..." : "Check"}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+                <button
+                  onClick={() => handleReadNPKData(slot)}
+                  disabled={isLoading}
+                  className="w-full py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-lg shadow-xs transition disabled:opacity-50"
+                >
+                  {isLoading ? "Reading Sensor..." : "Read NPK Data"}
+                </button>
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -625,6 +467,7 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
                       <th className="px-4 py-3">Nitrogen (N)</th>
                       <th className="px-4 py-3">Phosphorus (P)</th>
                       <th className="px-4 py-3">Potassium (K)</th>
+                      <th className="px-4 py-3">Time Slot</th>
                       <th className="px-4 py-3">Module ID</th>
                       <th className="px-4 py-3">Timestamp</th>
                     </>
@@ -638,7 +481,7 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
                       <>
                         <td className="px-4 py-3 font-semibold text-rose-600">{row.temperature} °C</td>
                         <td className="px-4 py-3 font-semibold text-sky-600">{row.humidity} %</td>
-                        <td className="px-4 py-3 text-xs capitalize text-gray-600">{row.time_slot || "custom"}</td>
+                        <td className="px-4 py-3 text-xs capitalize text-gray-600">{row.time_slot}</td>
                         <td className="px-4 py-3 text-xs text-gray-500">{row.module_id || "N/A"}</td>
                         <td className="px-4 py-3 text-xs text-gray-500">{new Date(row.created_at).toLocaleString()}</td>
                       </>
@@ -646,7 +489,7 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
                     {sensorTab === "bh1750" && (
                       <>
                         <td className="px-4 py-3 font-semibold text-amber-600">{row.lux} Lux</td>
-                        <td className="px-4 py-3 text-xs capitalize text-gray-600">{row.time_slot || "custom"}</td>
+                        <td className="px-4 py-3 text-xs capitalize text-gray-600">{row.time_slot}</td>
                         <td className="px-4 py-3 text-xs text-gray-500">{row.module_id || "N/A"}</td>
                         <td className="px-4 py-3 text-xs text-gray-500">{new Date(row.created_at).toLocaleString()}</td>
                       </>
@@ -656,6 +499,7 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
                         <td className="px-4 py-3 font-semibold text-emerald-700">{row.nitrogen_n} mg/kg</td>
                         <td className="px-4 py-3 font-semibold text-amber-700">{row.phosphorus_p} mg/kg</td>
                         <td className="px-4 py-3 font-semibold text-rose-700">{row.potassium_k} mg/kg</td>
+                        <td className="px-4 py-3 text-xs capitalize text-gray-600">{row.time_slot}</td>
                         <td className="px-4 py-3 text-xs text-gray-500">{row.module_id || "N/A"}</td>
                         <td className="px-4 py-3 text-xs text-gray-500">{new Date(row.created_at).toLocaleString()}</td>
                       </>
@@ -694,7 +538,6 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
       <div className="border border-gray-200 rounded-xl p-4 bg-gray-50/50 space-y-4">
         <h3 className="font-bold text-gray-800 text-base">2. Diagnostic & Algorithmic System Outputs</h3>
 
-        {/* Output Tabs */}
         <div className="flex space-x-2 border-b border-gray-200 pb-2">
           {[
             { id: "disease", label: "Disease AI Outputs" },
@@ -715,7 +558,6 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
           ))}
         </div>
 
-        {/* Output Table */}
         {loadingOutputs ? (
           <p className="text-gray-400 text-sm py-4">Loading outputs...</p>
         ) : outputData.length === 0 ? (
