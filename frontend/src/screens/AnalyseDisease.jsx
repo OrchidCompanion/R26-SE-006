@@ -174,13 +174,13 @@ export default function AnalyseDisease({ selectedPlant, selectedUser, onBack }) 
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {npkReadings.map((r, i) => (
-                    <tr key={i} className="hover:bg-gray-50">
+                    <tr key={r.reading_id || i} className="hover:bg-gray-50">
                       <td className="px-3 py-1.5 text-gray-400">{i + 1}</td>
                       <td className="px-3 py-1.5 font-semibold text-emerald-700">{r.nitrogen_n}</td>
                       <td className="px-3 py-1.5 font-semibold text-amber-700">{r.phosphorus_p}</td>
                       <td className="px-3 py-1.5 font-semibold text-rose-700">{r.potassium_k}</td>
-                      <td className="px-3 py-1.5 text-gray-400">
-                        {new Date(r.created_at).toLocaleDateString()}
+                      <td className="px-3 py-1.5 text-gray-400 whitespace-nowrap">
+                        {new Date(r.created_at).toLocaleString()}
                       </td>
                     </tr>
                   ))}
@@ -233,37 +233,86 @@ export default function AnalyseDisease({ selectedPlant, selectedUser, onBack }) 
             </div>
 
             {/* NPK Snapshot & Advice */}
-            <div className="p-4 border rounded-xl bg-gray-50 space-y-3">
-              <h4 className="font-bold text-sm text-gray-700">NPK Soil Context Snapshot</h4>
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="p-2 border rounded-lg bg-white">
-                  <span className="text-xs text-gray-500 block">Nitrogen</span>
-                  <span className="font-extrabold text-emerald-700">
-                    {analysisResult.npk?.N ?? "N/A"}
-                  </span>
-                </div>
-                <div className="p-2 border rounded-lg bg-white">
-                  <span className="text-xs text-gray-500 block">Phosphorus</span>
-                  <span className="font-extrabold text-amber-700">
-                    {analysisResult.npk?.P ?? "N/A"}
-                  </span>
-                </div>
-                <div className="p-2 border rounded-lg bg-white">
-                  <span className="text-xs text-gray-500 block">Potassium</span>
-                  <span className="font-extrabold text-rose-700">
-                    {analysisResult.npk?.K ?? "N/A"}
-                  </span>
-                </div>
-              </div>
+            <div className="p-4 border rounded-xl bg-gray-50 space-y-4">
+              <h4 className="font-bold text-sm text-gray-700">NPK Soil Context</h4>
 
               <div>
-                <h5 className="font-bold text-xs text-gray-600 mb-1">Nutrient Advice:</h5>
-                <ul className="list-disc list-inside text-xs text-gray-700 space-y-1">
+                <h5 className="font-bold text-xs text-gray-600 mb-2">Latest reading</h5>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="p-2 border rounded-lg bg-white">
+                    <span className="text-xs text-gray-500 block">Nitrogen</span>
+                    <span className="font-extrabold text-emerald-700">
+                      {analysisResult.npk?.N ?? "N/A"}
+                    </span>
+                  </div>
+                  <div className="p-2 border rounded-lg bg-white">
+                    <span className="text-xs text-gray-500 block">Phosphorus</span>
+                    <span className="font-extrabold text-amber-700">
+                      {analysisResult.npk?.P ?? "N/A"}
+                    </span>
+                  </div>
+                  <div className="p-2 border rounded-lg bg-white">
+                    <span className="text-xs text-gray-500 block">Potassium</span>
+                    <span className="font-extrabold text-rose-700">
+                      {analysisResult.npk?.K ?? "N/A"}
+                    </span>
+                  </div>
+                </div>
+                <ul className="list-disc list-inside text-xs text-gray-700 space-y-1 mt-2">
                   {analysisResult.npk_advice?.map((adv, idx) => (
                     <li key={idx}>{adv}</li>
                   ))}
                 </ul>
               </div>
+
+              {analysisResult.npk_window && (
+                <div className="pt-3 border-t">
+                  <h5 className="font-bold text-xs text-gray-600 mb-1">
+                    Last {analysisResult.npk_window.sample_size} entries
+                    {analysisResult.npk_window.skipped_all_zero
+                      ? ` (${analysisResult.npk_window.used} used, ${analysisResult.npk_window.skipped_all_zero} all-zero skipped)`
+                      : ""}
+                  </h5>
+                  <p className="text-[11px] text-gray-500 mb-2">
+                    Deficiency uses the window average; majority vote is also shown.
+                  </p>
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="p-2 border rounded-lg bg-white">
+                      <span className="text-xs text-gray-500 block">Avg N</span>
+                      <span className="font-extrabold text-emerald-700">
+                        {analysisResult.npk_window.mean?.N ?? "N/A"}
+                      </span>
+                      <span className="text-[10px] text-gray-500 block">
+                        {analysisResult.npk_window.mean_status?.N}
+                      </span>
+                    </div>
+                    <div className="p-2 border rounded-lg bg-white">
+                      <span className="text-xs text-gray-500 block">Avg P</span>
+                      <span className="font-extrabold text-amber-700">
+                        {analysisResult.npk_window.mean?.P ?? "N/A"}
+                      </span>
+                      <span className="text-[10px] text-gray-500 block">
+                        {analysisResult.npk_window.mean_status?.P}
+                      </span>
+                    </div>
+                    <div className="p-2 border rounded-lg bg-white">
+                      <span className="text-xs text-gray-500 block">Avg K</span>
+                      <span className="font-extrabold text-rose-700">
+                        {analysisResult.npk_window.mean?.K ?? "N/A"}
+                      </span>
+                      <span className="text-[10px] text-gray-500 block">
+                        {analysisResult.npk_window.mean_status?.K}
+                      </span>
+                    </div>
+                  </div>
+                  <h5 className="font-bold text-xs text-gray-600 mt-2 mb-1">90-entry advice (from averages):</h5>
+                  <ul className="list-disc list-inside text-xs text-gray-700 space-y-1">
+                    {analysisResult.npk_window.mean_advice?.map((adv, idx) => (
+                      <li key={idx}>{adv}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           </div>
 

@@ -89,49 +89,121 @@ class DiseaseRecordUpdate(BaseModel):
 router = APIRouter(prefix="/api/disease", tags=["Disease Analysis & History"])
 
 
+NPK_WINDOW_SIZE = 90
+
+
+def _classify_npk_value(val: Any, nutrient: str) -> str:
+    if val is None:
+        return "unknown"
+    try:
+        val = float(val)
+    except (TypeError, ValueError):
+        return "unknown"
+    low = NPK_THRESHOLDS[nutrient]["low"]
+    high = NPK_THRESHOLDS[nutrient]["high"]
+    if val < low:
+        return "low"
+    if val > high:
+        return "high"
+    return "ok"
+
+
+def _advice_for_status(nutrient: str, status_key: str) -> str:
+    return ADVICE_MAP.get(f"{nutrient}_{status_key}", f"{nutrient} unknown")
+
+
 def _analyze_npk(npk: Dict[str, Any]) -> tuple[Dict[str, str], List[str]]:
     status: Dict[str, str] = {}
     advice: List[str] = []
     for nutrient in ("N", "P", "K"):
-        val = npk.get(nutrient)
-        if val is None:
-            status[nutrient] = "unknown"
-            continue
-        try:
-            val = float(val)
-        except (TypeError, ValueError):
-            status[nutrient] = "unknown"
-            continue
-        low = NPK_THRESHOLDS[nutrient]["low"]
-        high = NPK_THRESHOLDS[nutrient]["high"]
-        if val < low:
-            key = f"{nutrient}_low"
-        elif val > high:
-            key = f"{nutrient}_high"
+        key = _classify_npk_value(npk.get(nutrient), nutrient)
+        status[nutrient] = key
+        if key == "unknown":
+            advice.append(f"{nutrient} unknown")
         else:
-            key = f"{nutrient}_ok"
-        status[nutrient] = key.split("_")[1]
-        advice.append(ADVICE_MAP[key])
+            advice.append(_advice_for_status(nutrient, key))
     return status, advice
 
 
-def _latest_npk_for_plant(plant_id: str) -> Dict[str, Any]:
-    response = (
-        supabase.table("npk_history")
-        .select("nitrogen_n, phosphorus_p, potassium_k, created_at")
-        .eq("plant_id", plant_id)
-        .order("created_at", desc=True)
-        .limit(1)
-        .execute()
-    )
-    if not response.data:
-        return {"N": None, "P": None, "K": None, "time": None}
-    row = response.data[0]
+def _row_to_npk(row: Dict[str, Any]) -> Dict[str, Any]:
     return {
         "N": row.get("nitrogen_n"),
         "P": row.get("phosphorus_p"),
         "K": row.get("potassium_k"),
         "time": row.get("created_at"),
+    }
+
+
+def _is_all_zero(npk: Dict[str, Any]) -> bool:
+    try:
+        return all(float(npk.get(n) or 0) == 0.0 for n in ("N", "P", "K"))
+    except (TypeError, ValueError):
+        return False
+
+
+def _analyze_npk_window(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Mean + majority low/ok/high over the last N history rows."""
+    parsed = [_row_to_npk(r) for r in rows]
+    usable = [p for p in parsed if not _is_all_zero(p)]
+    sample = usable if usable else parsed
+
+    counts = {n: {"low": 0, "ok": 0, "high": 0, "unknown": 0} for n in ("N", "P", "K")}
+    totals = {n: [] for n in ("N", "P", "K")}
+    for npk in sample:
+        for nutrient in ("N", "P", "K"):
+            key = _classify_npk_value(npk.get(nutrient), nutrient)
+            counts[nutrient][key] += 1
+            try:
+                totals[nutrient].append(float(npk[nutrient]))
+            except (TypeError, ValueError):
+                pass
+
+    mean: Dict[str, Any] = {}
+    majority: Dict[str, str] = {}
+    advice: List[str] = []
+    for nutrient in ("N", "P", "K"):
+        vals = totals[nutrient]
+        mean[nutrient] = round(sum(vals) / len(vals), 2) if vals else None
+        bucket = counts[nutrient]
+        majority[nutrient] = max(
+            ("low", "ok", "high"),
+            key=lambda k: bucket[k],
+        ) if any(bucket[k] > 0 for k in ("low", "ok", "high")) else "unknown"
+        advice.append(_advice_for_status(nutrient, majority[nutrient]))
+
+    mean_status, mean_advice = _analyze_npk(mean)
+    return {
+        "sample_size": len(parsed),
+        "used": len(usable) if usable else len(parsed),
+        "skipped_all_zero": len(parsed) - len(usable),
+        "mean": mean,
+        "mean_status": mean_status,
+        "mean_advice": mean_advice,
+        "majority_status": majority,
+        "majority_advice": advice,
+        "counts": counts,
+    }
+
+
+def _npk_history_for_plant(plant_id: str, limit: int = NPK_WINDOW_SIZE) -> Dict[str, Any]:
+    response = (
+        supabase.table("npk_history")
+        .select("nitrogen_n, phosphorus_p, potassium_k, created_at")
+        .eq("plant_id", plant_id)
+        .order("created_at", desc=True)
+        .limit(limit)
+        .execute()
+    )
+    rows = response.data or []
+    empty = {"N": None, "P": None, "K": None, "time": None}
+    latest = _row_to_npk(rows[0]) if rows else empty
+    latest_status, latest_advice = _analyze_npk(latest)
+    window = _analyze_npk_window(rows)
+    return {
+        "latest": latest,
+        "latest_status": latest_status,
+        "latest_advice": latest_advice,
+        "window": window,
     }
 
 
@@ -186,8 +258,11 @@ async def analyze_disease(
     else:
         verdict_msg = f"Leaf looks healthy ({conf_pct:.0f}% confidence)."
 
-    npk = _latest_npk_for_plant(plant_id)
-    npk_status, npk_advice = _analyze_npk(npk)
+    npk_pack = _npk_history_for_plant(plant_id)
+    npk = npk_pack["latest"]
+    npk_status = npk_pack["latest_status"]
+    npk_advice = npk_pack["latest_advice"]
+    npk_window = npk_pack["window"]
 
     plant_query = (
         supabase.table("plants")
@@ -207,7 +282,7 @@ async def analyze_disease(
         "disease_info": rec["disease_info"],
         "confidence": conf_pct,
         "treatment": rec["treatment"],
-        "npk_reading": npk,
+        "npk_reading": {"latest": npk, "window": npk_window},
         "npk_status": npk_status,
         "npk_advice": npk_advice,
         "result_image_b64": pred["result_image"],
@@ -225,6 +300,7 @@ async def analyze_disease(
         "npk": npk,
         "npk_status": npk_status,
         "npk_advice": npk_advice,
+        "npk_window": npk_window,
         "result_image": pred["result_image"],
         "ensemble": {
             "predicted_class": predicted_class,
