@@ -464,7 +464,7 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
 
         {/* Right Column: Environmental Telemetry Table (5 Cols) */}
         <div className="lg:col-span-5 border border-gray-200 rounded-xl p-4 bg-gray-50/50 flex flex-col h-[380px]">
-          <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center justify-between mb-3">
             <h3 className="font-bold text-gray-800 text-sm">
               Plant Telemetry (Last 30 Days)
             </h3>
@@ -472,9 +472,6 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
               30-Day Live Window
             </span>
           </div>
-          <p className="text-xs text-gray-500 mb-3">
-            Synchronized DHT11 (Temp/RH) and BH1750 (Lux) readings from the past 30 days fed into Model 02.
-          </p>
 
           {loadingTelemetry ? (
             <div className="flex-1 flex items-center justify-center text-xs text-gray-400">
@@ -698,18 +695,19 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
 
           {/* Recommended Environmental & Placement Advice */}
           {predictionResult.environment_evaluation && (
-            <div className="p-5 border border-purple-200 rounded-2xl bg-gradient-to-br from-purple-50/50 via-white to-indigo-50/40 space-y-4 shadow-xs">
-              <div className="border-b border-purple-100 pb-3">
-                <h4 className="font-extrabold text-base text-gray-900 flex items-center gap-2">
-                  <span>🌿</span> Recommended Environmental & Placement Advice
+            <div className="p-5 md:p-6 border border-purple-200/90 rounded-2xl bg-gradient-to-br from-purple-50/60 via-white to-indigo-50/40 space-y-4 shadow-xs">
+              <div className="border-b border-purple-100 pb-3 flex flex-wrap items-center justify-between gap-2">
+                <h4 className="font-extrabold text-sm md:text-base text-gray-900 flex items-center gap-2">
+                  <span className="text-lg">🌿</span>
+                  <span>Environmental Factor Recommendations for Dendrobium Flowering Development</span>
                 </h4>
-                <p className="text-xs text-gray-600 mt-1">
-                  Optimal environmental parameters for Dendrobium orchids (25–30°C, 70–75% RH, and 16,000–32,000 Lux).
-                </p>
+                <span className="text-[11px] font-bold text-purple-700 bg-purple-100/80 px-2.5 py-0.5 rounded-full border border-purple-200">
+                  Microclimate Optimization
+                </span>
               </div>
 
               {/* 3 Telemetry Status Indicator Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
                 {/* Temperature Card */}
                 {(() => {
                   const temp = predictionResult.environment_evaluation.temperature;
@@ -721,7 +719,7 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
                       : "bg-rose-100 text-rose-800 border-rose-300";
 
                   return (
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-2xs space-y-3">
+                    <div className="bg-white p-4 rounded-xl border border-gray-200/80 shadow-2xs space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-extrabold text-gray-800 flex items-center gap-1.5">
                           <span>🌡️</span> Temperature
@@ -731,13 +729,13 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
                         </span>
                       </div>
 
-                      <div className="flex items-baseline justify-between bg-gray-50 p-2.5 rounded-lg border border-gray-100">
+                      <div className="flex items-baseline justify-between bg-gray-50/90 p-2.5 rounded-lg border border-gray-100">
                         <div>
-                          <span className="text-[10px] text-gray-400 block uppercase font-bold">30-Day Measured Avg</span>
-                          <span className="text-lg font-black text-rose-600">{temp.value} °C</span>
+                          <span className="text-[10px] text-gray-400 block uppercase font-bold tracking-wide">30-Day Measured</span>
+                          <span className="text-base font-black text-rose-600">{Number(temp.value).toFixed(2)} °C</span>
                         </div>
                         <div className="text-right">
-                          <span className="text-[10px] text-gray-400 block uppercase font-bold">Target Range</span>
+                          <span className="text-[10px] text-gray-400 block uppercase font-bold tracking-wide">Target Range</span>
                           <span className="text-xs font-extrabold text-gray-700">{temp.target}</span>
                         </div>
                       </div>
@@ -756,7 +754,7 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
                       : "bg-sky-100 text-sky-800 border-sky-300";
 
                   return (
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-2xs space-y-3">
+                    <div className="bg-white p-4 rounded-xl border border-gray-200/80 shadow-2xs space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-extrabold text-gray-800 flex items-center gap-1.5">
                           <span>💧</span> Humidity (RH)
@@ -766,13 +764,13 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
                         </span>
                       </div>
 
-                      <div className="flex items-baseline justify-between bg-gray-50 p-2.5 rounded-lg border border-gray-100">
+                      <div className="flex items-baseline justify-between bg-gray-50/90 p-2.5 rounded-lg border border-gray-100">
                         <div>
-                          <span className="text-[10px] text-gray-400 block uppercase font-bold">30-Day Measured Avg</span>
-                          <span className="text-lg font-black text-sky-600">{hum.value} %</span>
+                          <span className="text-[10px] text-gray-400 block uppercase font-bold tracking-wide">30-Day Measured</span>
+                          <span className="text-base font-black text-sky-600">{Number(hum.value).toFixed(2)} %</span>
                         </div>
                         <div className="text-right">
-                          <span className="text-[10px] text-gray-400 block uppercase font-bold">Target Range</span>
+                          <span className="text-[10px] text-gray-400 block uppercase font-bold tracking-wide">Target Range</span>
                           <span className="text-xs font-extrabold text-gray-700">{hum.target}</span>
                         </div>
                       </div>
@@ -791,7 +789,7 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
                       : "bg-rose-100 text-rose-800 border-rose-300";
 
                   return (
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-2xs space-y-3">
+                    <div className="bg-white p-4 rounded-xl border border-gray-200/80 shadow-2xs space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-extrabold text-gray-800 flex items-center gap-1.5">
                           <span>☀️</span> Light Intensity
@@ -801,13 +799,15 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
                         </span>
                       </div>
 
-                      <div className="flex items-baseline justify-between bg-gray-50 p-2.5 rounded-lg border border-gray-100">
+                      <div className="flex items-baseline justify-between bg-gray-50/90 p-2.5 rounded-lg border border-gray-100">
                         <div>
-                          <span className="text-[10px] text-gray-400 block uppercase font-bold">30-Day Measured Avg</span>
-                          <span className="text-lg font-black text-amber-600">{Number(light.value).toLocaleString()} Lux</span>
+                          <span className="text-[10px] text-gray-400 block uppercase font-bold tracking-wide">30-Day Measured</span>
+                          <span className="text-base font-black text-amber-600">
+                            {Number(light.value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Lux
+                          </span>
                         </div>
                         <div className="text-right">
-                          <span className="text-[10px] text-gray-400 block uppercase font-bold">Target Range</span>
+                          <span className="text-[10px] text-gray-400 block uppercase font-bold tracking-wide">Target Range</span>
                           <span className="text-xs font-extrabold text-gray-700">{light.target}</span>
                         </div>
                       </div>
@@ -818,13 +818,13 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
 
               {/* ONE Single Dedicated Recommendation Box (Exact 3-Variable Synthesis) */}
               <div className="bg-gradient-to-r from-purple-900 via-indigo-900 to-purple-950 text-white p-5 rounded-2xl shadow-sm border border-purple-800 space-y-2">
-                <div className="border-b border-purple-800/80 pb-2.5">
+                <div className="border-b border-purple-800/80 pb-2.5 flex items-center justify-between">
                   <h5 className="font-extrabold text-sm text-purple-100 flex items-center gap-2">
                     <span className="text-base">🌿</span>
-                    <span>Environmental & Placement Advice</span>
+                    <span>Actionable Climate & Placement Strategy</span>
                   </h5>
                 </div>
-                <p className="text-sm text-purple-100 leading-relaxed font-medium pt-1 flex items-start gap-2.5">
+                <p className="text-sm text-purple-100 leading-relaxed font-normal pt-1 flex items-start gap-2.5">
                   <span className="text-emerald-400 font-black text-base leading-none mt-0.5">✓</span>
                   <span>{predictionResult.environment_evaluation.recommendation}</span>
                 </p>

@@ -331,19 +331,19 @@ def evaluate_environmental_conditions(
         "light_status": light_status_str,
         "recommendation": recommendation,
         "temperature": {
-            "value": round(temp, 1),
+            "value": round(temp, 2),
             "target": "25–30 °C",
             "status": temp_status_code,
             "status_label": temp_labels.get(temp_status_code, "Optimal"),
         },
         "humidity": {
-            "value": round(humidity, 1),
+            "value": round(humidity, 2),
             "target": "70–75 %",
             "status": hum_status_code,
             "status_label": hum_labels.get(hum_status_code, "Optimal"),
         },
         "light": {
-            "value": round(light, 0),
+            "value": round(light, 2),
             "target": "16,000–32,000 Lux",
             "status": light_status_code,
             "status_label": light_labels.get(light_status_code, "Optimal"),
@@ -628,18 +628,40 @@ def _fetch_plant_sensor_telemetry(plant_id: str, user: Optional[Dict[str, Any]] 
 
     location_id = plant_data["location_id"]
 
-    # Step 2: Query DHT11 environment history strictly from Supabase
+    # 30-day lookback cutoff
+    cutoff_30d = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+
+    # Step 2: Query DHT11 environment history strictly for the last 30 days
     dht_res = (
         supabase.table("dht11_environment_history")
         .select("temperature, humidity, created_at")
         .eq("location_id", location_id)
+        .gte("created_at", cutoff_30d)
         .order("created_at", desc=True)
-        .limit(200)
         .execute()
     )
 
     temps = [float(r["temperature"]) for r in (dht_res.data or []) if r.get("temperature") is not None]
     hums = [float(r["humidity"]) for r in (dht_res.data or []) if r.get("humidity") is not None]
+
+    # If no readings within last 30 calendar days, bound strictly to the latest 30-day active IoT window
+    if not temps or not hums:
+        fallback_dht = (
+            supabase.table("dht11_environment_history")
+            .select("temperature, humidity, created_at")
+            .eq("location_id", location_id)
+            .order("created_at", desc=True)
+            .limit(200)
+            .execute()
+        )
+        if fallback_dht.data:
+            latest_iso = fallback_dht.data[0].get("created_at", "")
+            if latest_iso:
+                latest_dt = datetime.fromisoformat(latest_iso.replace("Z", "+00:00"))
+                window_30d_cutoff = (latest_dt - timedelta(days=30)).isoformat()
+                active_readings = [r for r in fallback_dht.data if r.get("created_at") and r["created_at"] >= window_30d_cutoff]
+                temps = [float(r["temperature"]) for r in active_readings if r.get("temperature") is not None]
+                hums = [float(r["humidity"]) for r in active_readings if r.get("humidity") is not None]
 
     if not temps or not hums:
         raise HTTPException(
@@ -647,17 +669,35 @@ def _fetch_plant_sensor_telemetry(plant_id: str, user: Optional[Dict[str, Any]] 
             detail=f"No DHT11 temperature and humidity IoT telemetry recorded in Supabase for {plant_name}. Real-time IoT sensor data is required."
         )
 
-    # Step 3: Query BH1750 environment history strictly from Supabase
+    # Step 3: Query BH1750 environment history strictly for the last 30 days
     bh_res = (
         supabase.table("bh1750_environment_history")
         .select("lux, created_at")
         .eq("location_id", location_id)
+        .gte("created_at", cutoff_30d)
         .order("created_at", desc=True)
-        .limit(200)
         .execute()
     )
 
     luxs = [float(r["lux"]) for r in (bh_res.data or []) if r.get("lux") is not None]
+
+    # If no readings within last 30 calendar days, bound strictly to the latest 30-day active IoT window
+    if not luxs:
+        fallback_bh = (
+            supabase.table("bh1750_environment_history")
+            .select("lux, created_at")
+            .eq("location_id", location_id)
+            .order("created_at", desc=True)
+            .limit(200)
+            .execute()
+        )
+        if fallback_bh.data:
+            latest_iso = fallback_bh.data[0].get("created_at", "")
+            if latest_iso:
+                latest_dt = datetime.fromisoformat(latest_iso.replace("Z", "+00:00"))
+                window_30d_cutoff = (latest_dt - timedelta(days=30)).isoformat()
+                active_readings = [r for r in fallback_bh.data if r.get("created_at") and r["created_at"] >= window_30d_cutoff]
+                luxs = [float(r["lux"]) for r in active_readings if r.get("lux") is not None]
 
     if not luxs:
         raise HTTPException(
