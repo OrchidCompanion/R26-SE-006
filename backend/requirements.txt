@@ -8,3 +8,7 @@ python-jose[cryptography]>=3.3.0
 bcrypt>=4.0.1
 python-multipart>=0.0.9
 ultralytics
+numpy>=1.26.0,<2.0.0
+opencv-python-headless
+pillow
+keras>=3.0.0

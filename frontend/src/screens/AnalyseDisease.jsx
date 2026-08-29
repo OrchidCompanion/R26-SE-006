@@ -143,7 +143,7 @@ export default function AnalyseDisease({ selectedPlant, selectedUser, onBack }) 
             disabled={analyzing || !selectedFile}
             className="w-full bg-[#059669] hover:bg-[#047857] text-white font-bold py-3 rounded-xl transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {analyzing ? "Running ONNX AI Analysis..." : "Run Disease Analysis"}
+            {analyzing ? "Running YOLO + MobileNetV2 + CNN ensemble..." : "Run Disease Analysis"}
           </button>
         </div>
 
@@ -266,6 +266,40 @@ export default function AnalyseDisease({ selectedPlant, selectedUser, onBack }) 
               </div>
             </div>
           </div>
+
+          {analysisResult.ensemble && (
+            <div className="p-4 border rounded-xl bg-gray-50">
+              <h4 className="font-bold text-sm text-gray-700 mb-2">Ensemble votes</h4>
+              <p className="text-xs text-gray-500 mb-3">
+                YOLO locates the spot; MobileNetV2 and CNN classify the crop; weighted average is the final class.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                <div className="p-3 bg-white rounded-lg border">
+                  <p className="font-bold text-gray-600">YOLO</p>
+                  <p className="font-semibold mt-1">
+                    {analysisResult.ensemble.yolo?.class_name || "no box"}{" "}
+                    {analysisResult.ensemble.yolo?.confidence
+                      ? `(${Math.round(analysisResult.ensemble.yolo.confidence * 100)}%)`
+                      : ""}
+                  </p>
+                </div>
+                <div className="p-3 bg-white rounded-lg border">
+                  <p className="font-bold text-gray-600">MobileNetV2</p>
+                  <p className="font-semibold mt-1">
+                    {analysisResult.ensemble.mobilenet?.class_name} (
+                    {Math.round((analysisResult.ensemble.mobilenet?.confidence || 0) * 100)}%)
+                  </p>
+                </div>
+                <div className="p-3 bg-white rounded-lg border">
+                  <p className="font-bold text-gray-600">CNN</p>
+                  <p className="font-semibold mt-1">
+                    {analysisResult.ensemble.cnn?.class_name} (
+                    {Math.round((analysisResult.ensemble.cnn?.confidence || 0) * 100)}%)
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Annotated Result Image */}
           {analysisResult.result_image && (
