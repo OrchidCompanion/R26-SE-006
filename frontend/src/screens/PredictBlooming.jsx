@@ -39,6 +39,20 @@ const STAGE_CONFIG = {
     badge: "bg-rose-600",
     desc: "Full floral anthesis with vibrant, fully opened orchid blossoms.",
   },
+  Invalid: {
+    bg: "bg-rose-50",
+    border: "border-rose-300",
+    text: "text-rose-800",
+    badge: "bg-rose-600",
+    desc: "Identified as 'Invalid' — Non-orchid image detected. Please upload a clear photo of your Dendrobium orchid.",
+  },
+  "Non-Orchid": {
+    bg: "bg-rose-50",
+    border: "border-rose-300",
+    text: "text-rose-800",
+    badge: "bg-rose-600",
+    desc: "Non-orchid image or document detected. Please upload a genuine Dendrobium orchid photo.",
+  },
 };
 
 const ANGLE_SLOTS = [
@@ -80,6 +94,12 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
     slot2: null,
     slot3: null,
   });
+  const [invalidSlots, setInvalidSlots] = useState({
+    slot1: false,
+    slot2: false,
+    slot3: false,
+  });
+  const [invalidAngleInfo, setInvalidAngleInfo] = useState([]);
 
   const [telemetryReadings, setTelemetryReadings] = useState([]);
   const [loadingTelemetry, setLoadingTelemetry] = useState(true);
@@ -166,17 +186,21 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
 
     setAngleFiles((prev) => ({ ...prev, [slotId]: file }));
     setAnglePreviews((prev) => ({ ...prev, [slotId]: URL.createObjectURL(file) }));
+    setInvalidSlots((prev) => ({ ...prev, [slotId]: false }));
     setError("");
   };
 
   const handleRemoveSlotFile = (slotId) => {
     setAngleFiles((prev) => ({ ...prev, [slotId]: null }));
     setAnglePreviews((prev) => ({ ...prev, [slotId]: null }));
+    setInvalidSlots((prev) => ({ ...prev, [slotId]: false }));
   };
 
   const handleResetScan = () => {
     setAngleFiles({ slot1: null, slot2: null, slot3: null });
     setAnglePreviews({ slot1: null, slot2: null, slot3: null });
+    setInvalidSlots({ slot1: false, slot2: false, slot3: false });
+    setInvalidAngleInfo([]);
     setPredictionResult(null);
     setError("");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -194,6 +218,8 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
 
     setAnalyzing(true);
     setError("");
+    setInvalidSlots({ slot1: false, slot2: false, slot3: false });
+    setInvalidAngleInfo([]);
 
     try {
       const token = localStorage.getItem("admin_token") || localStorage.getItem("token") || localStorage.getItem("access_token");
@@ -215,7 +241,47 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
         if (res.status === 401) {
           throw new Error("Your session has expired. Please sign in again to run predictions.");
         }
-        throw new Error(data.detail || "Bloom prediction analysis failed.");
+        const errDetail = data.detail || "Bloom prediction analysis failed.";
+        
+        // Parse if non-orchid / "Invalid" detected in specific angles
+        const isNonOrchid =
+          errDetail.toLowerCase().includes("non-orchid") ||
+          errDetail.toLowerCase().includes("not an orchid") ||
+          errDetail.toLowerCase().includes("invalid");
+
+        if (isNonOrchid) {
+          const newInvalidSlots = { slot1: false, slot2: false, slot3: false };
+          const details = [];
+
+          const hasAngle1 = /angle\s*1/i.test(errDetail) || /frontal/i.test(errDetail);
+          const hasAngle2 = /angle\s*2/i.test(errDetail) || /lateral profile 1/i.test(errDetail);
+          const hasAngle3 = /angle\s*3/i.test(errDetail) || /lateral profile 2/i.test(errDetail);
+
+          if (hasAngle1) {
+            newInvalidSlots.slot1 = true;
+            details.push("Angle 1 (Frontal View)");
+          }
+          if (hasAngle2) {
+            newInvalidSlots.slot2 = true;
+            details.push("Angle 2 (Lateral Profile 1)");
+          }
+          if (hasAngle3) {
+            newInvalidSlots.slot3 = true;
+            details.push("Angle 3 (Lateral Profile 2)");
+          }
+
+          if (!hasAngle1 && !hasAngle2 && !hasAngle3) {
+            newInvalidSlots.slot1 = true;
+            newInvalidSlots.slot2 = true;
+            newInvalidSlots.slot3 = true;
+            details.push("Uploaded Images");
+          }
+
+          setInvalidSlots(newInvalidSlots);
+          setInvalidAngleInfo(details);
+        }
+
+        throw new Error(errDetail);
       }
 
       setPredictionResult(data);
@@ -335,38 +401,74 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {ANGLE_SLOTS.map((slot) => {
               const preview = anglePreviews[slot.id];
+              const isSlotInvalid = invalidSlots[slot.id];
+
               return (
                 <div
                   key={slot.id}
-                  className={`relative rounded-xl border-2 transition-all p-3 flex flex-col justify-between min-h-[220px] ${preview
-                      ? "border-purple-400 bg-purple-50/20 shadow-xs"
-                      : "border-dashed border-gray-300 bg-gray-50/60 hover:border-purple-300 hover:bg-purple-50/10"
-                    }`}
+                  className={`relative rounded-xl border-2 transition-all p-3 flex flex-col justify-between min-h-[220px] ${
+                    isSlotInvalid
+                      ? "border-rose-500 bg-rose-50/50 shadow-md ring-2 ring-rose-300/50"
+                      : preview
+                        ? "border-purple-400 bg-purple-50/20 shadow-xs"
+                        : "border-dashed border-gray-300 bg-gray-50/60 hover:border-purple-300 hover:bg-purple-50/10"
+                  }`}
                 >
                   {/* Slot Header */}
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-extrabold text-gray-900">{slot.title}</span>
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-800">
-                      {slot.tag}
-                    </span>
+                    {isSlotInvalid ? (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 border border-rose-300 animate-pulse">
+                        ⚠️ Invalid (Not Orchid)
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-800">
+                        {slot.tag}
+                      </span>
+                    )}
                   </div>
 
                   {/* Slot Body: Preview or Upload Box */}
                   {preview ? (
-                    <div className="relative group rounded-lg overflow-hidden border border-purple-200 bg-white aspect-4/3 my-auto shadow-2xs">
-                      <img
-                        src={preview}
-                        alt={slot.title}
-                        className="w-full h-full object-cover"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveSlotFile(slot.id)}
-                        className="absolute top-1.5 right-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shadow cursor-pointer transition"
-                        title="Remove this photo"
-                      >
-                        ✕
-                      </button>
+                    <div className="space-y-2 my-auto">
+                      <div className="relative group rounded-lg overflow-hidden border border-purple-200 bg-white aspect-4/3 shadow-2xs">
+                        <img
+                          src={preview}
+                          alt={slot.title}
+                          className="w-full h-full object-cover"
+                        />
+                        {isSlotInvalid && (
+                          <div className="absolute top-1.5 left-1.5 bg-rose-600 text-white text-[10px] font-black px-2 py-0.5 rounded shadow">
+                             Non-Orchid
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSlotFile(slot.id)}
+                          className="absolute top-1.5 right-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shadow cursor-pointer transition"
+                          title="Remove this photo"
+                        >
+                          ✕
+                        </button>
+                      </div>
+
+                      {isSlotInvalid && (
+                        <div>
+                          <input
+                            type="file"
+                            id={`slotInput_${slot.id}`}
+                            accept="image/*"
+                            onChange={(e) => handleSlotFileChange(slot.id, e)}
+                            className="hidden"
+                          />
+                          <label
+                            htmlFor={`slotInput_${slot.id}`}
+                            className="block w-full text-center bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold py-1 px-2 rounded-lg cursor-pointer transition shadow-2xs"
+                          >
+                             Replace Photo
+                          </label>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="my-auto text-center py-4">
@@ -393,7 +495,11 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
                   {/* Slot Footer Status */}
                   <div className="mt-2 pt-2 border-t border-gray-200/80 flex items-center justify-between text-[10px]">
                     <span className="text-gray-500 font-medium">Status:</span>
-                    {preview ? (
+                    {isSlotInvalid ? (
+                      <span className="text-rose-600 font-bold flex items-center gap-1">
+                        <span>⚠️</span> Invalid (Non-Orchid)
+                      </span>
+                    ) : preview ? (
                       <span className="text-emerald-700 font-bold flex items-center gap-1">
                         <span>●</span> Ready
                       </span>
@@ -409,36 +515,55 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
           </div>
 
           {error && (
-            <div className={`p-4 rounded-xl border text-xs font-medium space-y-2.5 ${error.toLowerCase().includes("non-orchid")
-                ? "bg-amber-50 text-amber-900 border-amber-300 shadow-xs"
-                : "bg-rose-50 text-rose-700 border-rose-200"
-              }`}>
+            <div
+              className={`p-4 rounded-xl border text-xs font-medium space-y-3 ${
+                error.toLowerCase().includes("non-orchid") || error.toLowerCase().includes("invalid") || error.toLowerCase().includes("not an orchid")
+                  ? "bg-rose-50/90 text-rose-950 border-rose-300 shadow-sm"
+                  : "bg-rose-50 text-rose-700 border-rose-200"
+              }`}
+            >
               <div className="flex items-start gap-2.5">
-                <span className="text-xl shrink-0">
-                  {error.toLowerCase().includes("non-orchid") ? "⚠️" : "❌"}
+                <span className="text-2xl shrink-0">
+                  {error.toLowerCase().includes("non-orchid") || error.toLowerCase().includes("invalid") || error.toLowerCase().includes("not an orchid") ? "🚫" : "❌"}
                 </span>
-                <div className="space-y-1">
-                  <span className="font-extrabold text-sm block">
-                    {error.toLowerCase().includes("non-orchid") ? "Non-Orchid Image Detected" : "Prediction Error"}
+                <div className="space-y-1 flex-1">
+                  <span className="font-extrabold text-sm block text-rose-900">
+                    {error.toLowerCase().includes("non-orchid") || error.toLowerCase().includes("invalid") || error.toLowerCase().includes("not an orchid")
+                      ? "Non-Orchid Image Detected ('Invalid')"
+                      : "Prediction Error"}
                   </span>
-                  <p className="leading-relaxed">{error}</p>
+                  <p className="leading-relaxed text-rose-800">{error}</p>
+                  {(error.toLowerCase().includes("non-orchid") || error.toLowerCase().includes("invalid") || error.toLowerCase().includes("not an orchid")) && (
+                    <div className="mt-2 p-2.5 bg-white/90 rounded-lg border border-rose-200 text-[11px] text-rose-950 space-y-1">
+                      <p className="font-bold flex items-center gap-1 text-rose-900">
+                        <span>💡</span> <strong>Botanical Classification Note:</strong>
+                      </p>
+                      <p className="text-gray-700">
+                        The AI stage classification model identified the uploaded photo as <strong>'Invalid'</strong>, meaning the photo does not contain identifiable Dendrobium orchid botanical structures (e.g. canes, pseudobulbs, foliage, or floral spikes).
+                      </p>
+                      {invalidAngleInfo.length > 0 && (
+                        <p className="font-semibold text-rose-800 pt-1">
+                          Flagged Angle(s): <span className="font-bold underline">{invalidAngleInfo.join(", ")}</span>
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
-              {error.toLowerCase().includes("non-orchid") && (
-                <div className="pt-2 border-t border-amber-200/80 flex items-center justify-between">
-                  <span className="text-[11px] text-amber-800 font-semibold">
-                    Please upload clear photos of your Dendrobium orchid.
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleResetScan}
-                    className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg transition shadow-2xs cursor-pointer flex items-center gap-1"
-                  >
-                    <span>🔄</span>
-                    <span>Re-upload Photos</span>
-                  </button>
-                </div>
-              )}
+
+              <div className="pt-2 border-t border-rose-200/80 flex flex-wrap items-center justify-between gap-2">
+                <span className="text-[11px] text-rose-800 font-medium">
+                  Please replace the flagged photo(s) with clear photos of your Dendrobium orchid.
+                </span>
+                <button
+                  type="button"
+                  onClick={handleResetScan}
+                  className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs px-3.5 py-1.5 rounded-lg transition shadow-2xs cursor-pointer flex items-center gap-1"
+                >
+                  <span>🔄</span>
+                  <span>Reset All Photos</span>
+                </button>
+              </div>
             </div>
           )}
 
@@ -593,22 +718,38 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
                     Multi-Angle Voting Breakdown ({predictionResult.image_predictions.length} Angles):
                   </span>
                   <div className="space-y-2">
-                    {predictionResult.image_predictions.map((p, idx) => (
-                      <div key={idx} className="flex items-center justify-between text-xs bg-white p-2.5 rounded-lg border border-gray-200 shadow-2xs">
-                        <div>
-                          <span className="font-bold text-gray-800 block">
-                            {p.angle_label || `Angle ${p.image_index}`}
-                          </span>
-                          <span className="text-[10px] text-gray-400 font-mono">{p.filename}</span>
+                    {predictionResult.image_predictions.map((p, idx) => {
+                      const isInvalid = p.stage === "Invalid" || p.stage === "Non-Orchid" || p.is_valid === false || p.is_orchid === false;
+                      return (
+                        <div
+                          key={idx}
+                          className={`flex items-center justify-between text-xs p-2.5 rounded-lg border shadow-2xs ${
+                            isInvalid
+                              ? "bg-rose-50/80 border-rose-200"
+                              : "bg-white border-gray-200"
+                          }`}
+                        >
+                          <div>
+                            <span className="font-bold text-gray-800 block">
+                              {p.angle_label || `Angle ${p.image_index}`}
+                            </span>
+                            <span className="text-[10px] text-gray-400 font-mono">{p.filename}</span>
+                          </div>
+                          <div className="text-right">
+                            {isInvalid ? (
+                              <span className="font-black text-rose-700 block">
+                                ⚠️ Invalid (Not Orchid)
+                              </span>
+                            ) : (
+                              <span className="font-black text-purple-900 block">{p.stage}</span>
+                            )}
+                            <span className="text-[11px] text-gray-500 font-mono font-semibold">
+                              {Math.round((p.confidence || 0) * 100)}%
+                            </span>
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <span className="font-black text-purple-900 block">{p.stage}</span>
-                          <span className="text-[11px] text-gray-500 font-mono font-semibold">
-                            {Math.round(p.confidence * 100)}%
-                          </span>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}

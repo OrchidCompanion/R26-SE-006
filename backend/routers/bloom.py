@@ -52,9 +52,10 @@ BLOOMING_STAGES = [
 STAGE_CLASS_MAP = {
     0: "Bud_formation",
     1: "Flowering",
-    2: "Mature_Pseudobulb",
-    3: "Seedling",
-    4: "Vegetative",
+    2: "Invalid",
+    3: "Mature_Pseudobulb",
+    4: "Seedling",
+    5: "Vegetative",
 }
 
 NEXT_STAGE_MAP = {
@@ -371,7 +372,7 @@ def get_model01():
         try:
             if model_path.endswith(".pth") or "rfdetr" in model_path.lower():
                 from rfdetr import RFDETRSmall
-                _model01_instance = ("rfdetr", RFDETRSmall(num_classes=5, pretrain_weights=model_path))
+                _model01_instance = ("rfdetr", RFDETRSmall(num_classes=6, pretrain_weights=model_path))
                 print(f"[Bloom Router] RF-DETR Model 01 loaded successfully.")
             else:
                 from ultralytics import YOLO
@@ -504,7 +505,7 @@ def _predict_image_stage(image_bytes: bytes, filename: str, idx: int) -> Dict[st
             return {
                 "image_index": idx,
                 "filename": filename,
-                "stage": "Non-Orchid",
+                "stage": "Invalid",
                 "confidence": 0.0,
                 "is_valid": False,
                 "is_orchid": False,
@@ -512,7 +513,7 @@ def _predict_image_stage(image_bytes: bytes, filename: str, idx: int) -> Dict[st
             }
 
         if model_type == "rfdetr":
-            # RF-DETR inference on valid orchid image (Threshold 0.15 strictly rejects non-orchid objects like chairs/furniture/cars)
+            # RF-DETR inference on valid orchid image (Threshold 0.15 strictly rejects low-confidence detections)
             results = model_obj.predict(pil_img, threshold=0.15)
             confs = getattr(results, "confidence", None)
             class_ids = getattr(results, "class_id", None)
@@ -523,15 +524,27 @@ def _predict_image_stage(image_bytes: bytes, filename: str, idx: int) -> Dict[st
                 conf = float(confs[best_idx])
                 raw_name = STAGE_CLASS_MAP.get(top_idx, str(top_idx))
                 mapped_stage = STAGE_CLASS_MAP.get(top_idx, raw_name)
+
+                # Check if the AI model identified this image as "Invalid" (Not an Orchid)
+                if mapped_stage == "Invalid" or top_idx == 2:
+                    return {
+                        "image_index": idx,
+                        "filename": filename,
+                        "stage": "Invalid",
+                        "confidence": conf,
+                        "is_valid": False,
+                        "is_orchid": False,
+                        "error": f"Non-orchid image detected in Angle {idx}. The AI model classified this image as 'Invalid' (not an orchid) with {round(conf * 100)}% confidence. Please upload a clear photo of your Dendrobium orchid plant.",
+                    }
             else:
                 return {
                     "image_index": idx,
                     "filename": filename,
-                    "stage": "Non-Orchid",
+                    "stage": "Invalid",
                     "confidence": 0.0,
                     "is_valid": False,
                     "is_orchid": False,
-                    "error": "Non-orchid object detected. No recognizable Dendrobium orchid botanical structure found in this photo. Please upload a clear photo of your Dendrobium orchid.",
+                    "error": f"Non-orchid object detected in Angle {idx}. No recognizable Dendrobium orchid botanical structure found in this photo. Please upload a clear photo of your Dendrobium orchid.",
                 }
         else:
             results = model_obj.predict(source=pil_img, imgsz=640, verbose=False)[0]
@@ -550,6 +563,17 @@ def _predict_image_stage(image_bytes: bytes, filename: str, idx: int) -> Dict[st
             raw_name = getattr(model_obj, "names", {}).get(top_idx, str(top_idx))
             mapped_stage = STAGE_CLASS_MAP.get(top_idx, raw_name)
 
+            if mapped_stage == "Invalid" or str(raw_name).lower() == "invalid":
+                return {
+                    "image_index": idx,
+                    "filename": filename,
+                    "stage": "Invalid",
+                    "confidence": conf,
+                    "is_valid": False,
+                    "is_orchid": False,
+                    "error": f"Non-orchid image detected in Angle {idx}. The AI model classified this image as 'Invalid' (not an orchid). Please upload a clear photo of your Dendrobium orchid plant.",
+                }
+
         return {
             "image_index": idx,
             "filename": filename,
@@ -564,7 +588,7 @@ def _predict_image_stage(image_bytes: bytes, filename: str, idx: int) -> Dict[st
         return {
             "image_index": idx,
             "filename": filename,
-            "stage": "Non-Orchid",
+            "stage": "Invalid",
             "confidence": 0.0,
             "is_valid": False,
             "is_orchid": False,
@@ -779,7 +803,7 @@ async def predict_bloom_full_workflow(
         pred["angle_label"] = angle_label
         img_predictions.append(pred)
 
-        if not pred.get("is_orchid", True) or not pred.get("is_valid", True):
+        if not pred.get("is_orchid", True) or not pred.get("is_valid", True) or pred.get("stage") in ("Invalid", "Non-Orchid"):
             invalid_angles.append(f"{angle_label}")
 
     # If any uploaded photo is a non-orchid object, prompt the user to re-upload clear orchid photos
@@ -787,7 +811,7 @@ async def predict_bloom_full_workflow(
         angles_text = ", ".join(invalid_angles)
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Non-orchid image detected in {angles_text}. Please re-upload clear photos of your Dendrobium orchid plant for all 3 angles to receive an accurate prediction.",
+            detail=f"Non-orchid image detected in {angles_text}. The AI model classified the photo as not an orchid (Invalid). Please re-upload clear photos of your Dendrobium orchid plant for all 3 angles to receive an accurate prediction.",
         )
 
     # Determine final stage via confidence-weighted majority voting across valid detections
@@ -961,6 +985,30 @@ async def predict_bloom_full_workflow(
         "optimal_conditions": STAGE_OPTIMAL_CONDITIONS.get(final_stage, {}),
         "care_instructions": STAGE_CARE_GUIDES.get(final_stage, "Maintain balanced conditions."),
         "record": saved_record,
+    }
+
+
+@router.post("/validate-image", status_code=status.HTTP_200_OK)
+async def validate_single_orchid_image(
+    image: UploadFile = File(...),
+    slot: Optional[str] = Form(None),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Validate a single uploaded image to verify if it is a genuine Dendrobium orchid
+    and determine if it is classified as 'Invalid' (Not an Orchid) or a valid blooming stage.
+    """
+    content = await image.read()
+    fname = image.filename or "uploaded_image.jpg"
+    pred = _predict_image_stage(content, fname, 1)
+    return {
+        "filename": fname,
+        "slot": slot,
+        "is_orchid": pred.get("is_orchid", False),
+        "is_valid": pred.get("is_valid", False),
+        "stage": pred.get("stage", "Invalid"),
+        "confidence": pred.get("confidence", 0.0),
+        "error": pred.get("error"),
     }
 
 
