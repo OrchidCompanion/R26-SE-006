@@ -84,23 +84,6 @@ MODEL02_FEATURE_ORDER = [
     "light_std_lux",
 ]
 
-STAGE_CARE_GUIDES = {
-    "Seedling": "Maintain warm temperatures (24–28°C), high humidity (70–80%), and gentle diffused light. Avoid strong direct sunlight.",
-    "Vegetative": "Support robust pseudobulb and cane development with consistent watering, balanced orchid fertilizer, and 12,000–18,000 Lux light.",
-    "Mature_Pseudobulb": "Mature canes store essential energy for flower spikes. Provide bright light (15,000–22,000 Lux) and a 5–7°C night-time temperature drop to initiate spikes.",
-    "Bud_formation": "Keep humidity stable (60–75%) and avoid moving the pot to prevent bud drop or blast. Maintain 12,000–16,000 Lux filtered light.",
-    "Flowering": "Your orchid is in full bloom! Keep flowers dry when misting and shield from harsh midday heat to enjoy long-lasting blooms (6–10 weeks).",
-}
-
-STAGE_OPTIMAL_CONDITIONS = {
-    "Seedling": {"temp": "25–30 °C", "humidity": "70–75 %", "light": "16,000–32,000 Lux"},
-    "Vegetative": {"temp": "25–30 °C", "humidity": "70–75 %", "light": "16,000–32,000 Lux"},
-    "Mature_Pseudobulb": {"temp": "25–30 °C", "humidity": "70–75 %", "light": "16,000–32,000 Lux"},
-    "Bud_formation": {"temp": "25–30 °C", "humidity": "70–75 %", "light": "16,000–32,000 Lux"},
-    "Flowering": {"temp": "25–30 °C", "humidity": "70–75 %", "light": "16,000–32,000 Lux"},
-}
-
-
 # ==============================================================================
 # AGRONOMIC ENVIRONMENTAL STANDARDS & EVALUATION
 # ==============================================================================
@@ -982,8 +965,6 @@ async def predict_bloom_full_workflow(
         "timeline": timeline_steps,
         "sensor_summary": sensor_stats,
         "environment_evaluation": env_eval,
-        "optimal_conditions": STAGE_OPTIMAL_CONDITIONS.get(final_stage, {}),
-        "care_instructions": STAGE_CARE_GUIDES.get(final_stage, "Maintain balanced conditions."),
         "record": saved_record,
     }
 

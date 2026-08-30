@@ -755,7 +755,7 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
               )}
             </div>
 
-            {/* Right Box: Standard Dendrobium Targets & Stage Cultural Care */}
+            {/* Right Box: Standard Dendrobium Targets */}
             <div className="p-5 border border-gray-200 rounded-xl bg-gray-50/50 space-y-4">
               <div>
                 <h4 className="font-extrabold text-sm text-gray-800">
