@@ -112,11 +112,23 @@ def evaluate_environmental_conditions(
 
     The recommendation attempts to correct abnormal environmental factors
     while preserving factors that are already within the recommended range.
+    Covers all 27 permutations of 3-factor microclimate status.
     """
 
-    temp = avg_temp
-    humidity = avg_humidity
-    light = avg_light
+    try:
+        temp = float(avg_temp) if avg_temp is not None else 27.5
+    except (ValueError, TypeError):
+        temp = 27.5
+
+    try:
+        humidity = float(avg_humidity) if avg_humidity is not None else 72.5
+    except (ValueError, TypeError):
+        humidity = 72.5
+
+    try:
+        light = float(avg_light) if avg_light is not None else 20000.0
+    except (ValueError, TypeError):
+        light = 20000.0
 
     # ---------------------------------------------------------
     # 1. Determine environmental status
@@ -135,7 +147,7 @@ def evaluate_environmental_conditions(
     light_high = light > 32000
 
     # ---------------------------------------------------------
-    # 2. Completely suitable environment
+    # 2. Completely suitable environment (0 factors abnormal)
     # ---------------------------------------------------------
 
     if temp_normal and humidity_normal and light_normal:
@@ -145,7 +157,7 @@ def evaluate_environmental_conditions(
         )
 
     # ---------------------------------------------------------
-    # 3. Three factors abnormal
+    # 3. Three factors abnormal (8 permutations)
     # ---------------------------------------------------------
 
     elif temp_low and humidity_low and light_low:
@@ -162,8 +174,49 @@ def evaluate_environmental_conditions(
             "watering."
         )
 
+    elif temp_low and humidity_low and light_high:
+        recommendation = (
+            "Move the orchid to a warmer location with filtered natural shade "
+            "to reduce direct sunlight, and place a shallow water-and-pebble "
+            "tray nearby to provide additional local humidity."
+        )
+
+    elif temp_low and humidity_high and light_low:
+        recommendation = (
+            "Move the orchid to a warmer, brighter, and well-ventilated "
+            "location with gentle morning sunlight, and avoid keeping the "
+            "growing medium excessively wet."
+        )
+
+    elif temp_low and humidity_high and light_high:
+        recommendation = (
+            "Move the orchid to a warmer location with natural shade to reduce "
+            "excessive direct sunlight, and improve air movement to decrease "
+            "excess humidity."
+        )
+
+    elif temp_high and humidity_low and light_low:
+        recommendation = (
+            "Move the orchid to a cooler location with bright, filtered "
+            "natural light, and place a shallow water-and-pebble tray nearby "
+            "to provide additional local humidity."
+        )
+
+    elif temp_high and humidity_low and light_high:
+        recommendation = (
+            "Move the orchid to a cooler, naturally shaded location away from "
+            "harsh afternoon sun, and place a shallow water-and-pebble tray "
+            "nearby to increase local humidity."
+        )
+
+    elif temp_high and humidity_high and light_low:
+        recommendation = (
+            "Move the orchid to a cooler, brighter, and well-ventilated "
+            "location away from high heat, and avoid excessive watering."
+        )
+
     # ---------------------------------------------------------
-    # 4. Two factors abnormal
+    # 4. Two factors abnormal (12 permutations)
     # ---------------------------------------------------------
 
     elif temp_low and light_low:
@@ -206,6 +259,19 @@ def evaluate_environmental_conditions(
             "avoid excessive watering."
         )
 
+    elif temp_low and humidity_high:
+        recommendation = (
+            "Move the orchid to a warmer, well-ventilated location and "
+            "avoid overwatering while maintaining current suitable light conditions."
+        )
+
+    elif temp_high and humidity_low:
+        recommendation = (
+            "Move the orchid to a cooler, well-ventilated location and "
+            "place a shallow water-and-pebble tray nearby to increase local "
+            "humidity while maintaining suitable light."
+        )
+
     elif temp_high and light_low:
         recommendation = (
             "Move the orchid to a cooler location with bright, filtered "
@@ -233,7 +299,7 @@ def evaluate_environmental_conditions(
         )
 
     # ---------------------------------------------------------
-    # 5. Only temperature abnormal
+    # 5. Only temperature abnormal (2 permutations)
     # ---------------------------------------------------------
 
     elif temp_low:
@@ -249,7 +315,7 @@ def evaluate_environmental_conditions(
         )
 
     # ---------------------------------------------------------
-    # 6. Only humidity abnormal
+    # 6. Only humidity abnormal (2 permutations)
     # ---------------------------------------------------------
 
     elif humidity_low:
@@ -267,7 +333,7 @@ def evaluate_environmental_conditions(
         )
 
     # ---------------------------------------------------------
-    # 7. Only light abnormal
+    # 7. Only light abnormal (2 permutations)
     # ---------------------------------------------------------
 
     elif light_low:
