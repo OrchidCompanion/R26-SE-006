@@ -14,7 +14,7 @@ async def identify_orchid_species(
     files: List[UploadFile] = File(
         ..., description="Upload 1 to 5 images for batch detection"
     ),
-    conf_threshold: float = 0.35,
+    conf_threshold: float = 0.60,
     current_user: dict = Depends(get_current_user),
 ):
     if len(files) == 0:

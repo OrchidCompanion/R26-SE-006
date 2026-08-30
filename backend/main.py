@@ -45,13 +45,13 @@ app.include_router(species.router)
 
 
 # Standalone / Legacy ESP32 route aliases for direct /npk-reading POSTs
-@app.post("/npk-reading", tags=["NPK Soil Sensor Direct Alias"])
+@app.post("/npk-reading", tags=["NPK Sensor Direct Alias"])
 def receive_npk_reading_direct(reading: npk.NPKReading, plant_id: str = None):
     """Direct root route alias for ESP32 posting to http://<IP>:8000/npk-reading"""
     return npk.receive_npk_reading(reading=reading, plant_id=plant_id)
 
 
-@app.get("/npk-reading/latest", tags=["NPK Soil Sensor Direct Alias"])
+@app.get("/npk-reading/latest", tags=["NPK Sensor Direct Alias"])
 def get_latest_reading_direct(plant_id: str = None):
     """Direct root route alias for fetching latest NPK reading from http://<IP>:8000/npk-reading/latest"""
     return npk.get_latest_reading(plant_id=plant_id)
