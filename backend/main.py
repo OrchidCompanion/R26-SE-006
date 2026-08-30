@@ -13,6 +13,7 @@ from routers import (
     bloom,
     disease,
     fertilizer,
+    species,
 )
 
 app = FastAPI(
@@ -40,6 +41,7 @@ app.include_router(npk.router)
 app.include_router(bloom.router)
 app.include_router(disease.router)
 app.include_router(fertilizer.router)
+app.include_router(species.router)
 
 
 # Standalone / Legacy ESP32 route aliases for direct /npk-reading POSTs
