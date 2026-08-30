@@ -343,6 +343,17 @@ export default function AnalyseDisease({ selectedPlant, selectedUser, onBack }) 
                         "Not enough NPK readings for a full 7-day window. Please take more cocopeat NPK readings."}
                     </div>
                   )}
+                  {analysisResult.npk_window.deficiency_msg && (
+                    <div
+                      className={`mb-2 px-3 py-2 rounded-lg border text-xs font-bold ${
+                        analysisResult.npk_window.has_deficiency
+                          ? "bg-rose-50 border-rose-300 text-rose-900"
+                          : "bg-emerald-50 border-emerald-200 text-emerald-900"
+                      }`}
+                    >
+                      {analysisResult.npk_window.deficiency_msg}
+                    </div>
+                  )}
                   <div className="grid grid-cols-3 gap-2 text-center">
                     <div className="p-2 border rounded-lg bg-white">
                       <span className="text-xs text-gray-500 block">Avg N</span>

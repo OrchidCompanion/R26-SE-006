@@ -248,12 +248,30 @@ def _analyze_npk_window(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
             f"Not enough NPK readings for a full {NPK_WINDOW_DAYS}-day window "
             f"({days_covered} day(s) with data). Please take more cocopeat NPK readings."
         )
+    names = {"N": "Nitrogen", "P": "Phosphorus", "K": "Potassium"}
+    deficient = [names[n] for n in ("N", "P", "K") if mean_status.get(n) == "low"]
+    excess = [names[n] for n in ("N", "P", "K") if mean_status.get(n) == "high"]
+    has_deficiency = len(deficient) > 0
+    if has_deficiency:
+        deficiency_msg = f"Nutrient deficiency detected: {', '.join(deficient)} low."
+    elif excess:
+        deficiency_msg = (
+            f"No nutrient deficiency. Excess detected: {', '.join(excess)} high."
+        )
+    elif any(mean_status.get(n) == "ok" for n in ("N", "P", "K")):
+        deficiency_msg = "No nutrient deficiency. 7-day NPK averages are in range."
+    else:
+        deficiency_msg = "Not enough NPK data to detect a nutrient deficiency."
     return {
         "mode": "last_7_days",
         "days": NPK_WINDOW_DAYS,
         "sample_size": len(parsed),
         "used": len(usable) if usable else len(parsed),
         "skipped_all_zero": len(parsed) - len(usable),
+        "has_deficiency": has_deficiency,
+        "deficient_nutrients": deficient,
+        "excess_nutrients": excess,
+        "deficiency_msg": deficiency_msg,
         "oldest": span["oldest"],
         "newest": span["newest"],
         "span_days": span["span_days"],
