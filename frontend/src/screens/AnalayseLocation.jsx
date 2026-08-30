@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { ArrowLeft } from "lucide-react";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -29,12 +30,12 @@ export default function AnalayseLocation({ onBack }) {
   const [error, setError] = useState("");
 
   const THRESHOLDS = {
-    tempMin: 20,
-    tempMax: 25,
-    humMin: 40,
-    humMax: 60,
-    luxMin: 100,
-    luxMax: 500,
+    tempMin: 25,
+    tempMax: 30,
+    humMin: 70,
+    humMax: 75,
+    luxMin: 16000,
+    luxMax: 32000,
   };
 
   useEffect(() => {
@@ -269,15 +270,16 @@ export default function AnalayseLocation({ onBack }) {
         <div>
           <button
             onClick={onBack}
-            className="text-xs text-emerald-600 hover:underline font-semibold mb-1"
+            className="group inline-flex items-center gap-2 text-xs font-semibold text-gray-600 hover:text-emerald-700 bg-gray-50 hover:bg-emerald-50/80 border border-gray-200 hover:border-emerald-200 px-3 py-1.5 rounded-lg transition-all mb-3 shadow-xs"
           >
-            ← Back to Dashboard
+            <ArrowLeft className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-0.5" />
+            Back to Dashboard
           </button>
           <h2 className="text-[#1f2937] text-2xl font-extrabold flex items-center gap-2">
-            Orchid Location Environmental Analysis
+            Plant Placement Environmental Analysis
           </h2>
           <p className="text-gray-500 text-sm">
-            Read live DHT11 & BH1750 microclimate readings to verify location suitability.
+            Read real time micro climate readings to analyse location suitability.
           </p>
         </div>
 
@@ -295,7 +297,7 @@ export default function AnalayseLocation({ onBack }) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-gray-50 p-4 rounded-xl border border-gray-200">
         <div className="space-y-1">
           <label className="block text-xs font-bold text-gray-700 uppercase">
-            1. Select Target User
+            1. Select User
           </label>
           <input
             type="text"
@@ -320,12 +322,12 @@ export default function AnalayseLocation({ onBack }) {
 
         <div className="space-y-1">
           <label className="block text-xs font-bold text-gray-700 uppercase">
-            2. Select ESP32 Sensor Node
+            2. Select Sensor Module
           </label>
           <input
             type="text"
             disabled={!selectedUserId}
-            placeholder="Type to filter modules by name/MAC..."
+            placeholder="Type to filter sensor modules"
             value={moduleSearch}
             onChange={(e) => setModuleSearch(e.target.value)}
             className="w-full px-3 py-1.5 text-xs bg-gray-50 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:outline-none mb-1"
@@ -353,9 +355,9 @@ export default function AnalayseLocation({ onBack }) {
       {selectedUserId && selectedModuleId && (
         <div className="border border-emerald-200 bg-emerald-50/40 p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
           <div>
-            <h4 className="font-bold text-gray-800 text-sm">ESP32 Hardware Diagnostics</h4>
+            <h4 className="font-bold text-gray-800 text-sm">Environment Sensor Module Connection</h4>
             <p className="text-xs text-gray-500">
-              Verify Wi-Fi ping, DHT11 temperature/humidity, and BH1750 lux sensors.
+              Verify Wi-Fi, DHT11 temperature/humidity sensor and BH1750 lux sensor connectivity.
             </p>
           </div>
           <button
@@ -372,7 +374,7 @@ export default function AnalayseLocation({ onBack }) {
       {sensorStatus && (
         <div className="p-4 rounded-xl border bg-gray-50 space-y-3">
           <h4 className="text-xs uppercase font-bold tracking-wider text-gray-500">
-            Sensor Health Report
+            Sensor Status Overview
           </h4>
           <div className="grid grid-cols-3 gap-3 text-center text-xs">
             <div className="p-2 rounded-lg bg-white border">
@@ -381,7 +383,7 @@ export default function AnalayseLocation({ onBack }) {
                 className={`font-extrabold ${sensorStatus.online ? "text-emerald-600" : "text-rose-600"
                   }`}
               >
-                {sensorStatus.online ? "🟢 Online" : "🔴 Offline"}
+                {sensorStatus.online ? "🟢 Ready" : "🔴 Not Connected"}
               </span>
             </div>
             <div className="p-2 rounded-lg bg-white border">
@@ -390,7 +392,7 @@ export default function AnalayseLocation({ onBack }) {
                 className={`font-extrabold ${sensorStatus.dht11 ? "text-emerald-600" : "text-rose-600"
                   }`}
               >
-                {sensorStatus.dht11 ? "🟢 Ready" : "🔴 Error"}
+                {sensorStatus.dht11 ? "🟢 Ready" : "🔴 Not Connected"}
               </span>
             </div>
             <div className="p-2 rounded-lg bg-white border">
@@ -399,7 +401,7 @@ export default function AnalayseLocation({ onBack }) {
                 className={`font-extrabold ${sensorStatus.bh1750 ? "text-emerald-600" : "text-rose-600"
                   }`}
               >
-                {sensorStatus.bh1750 ? "🟢 Ready" : "🔴 Error"}
+                {sensorStatus.bh1750 ? "🟢 Ready" : "🔴 Not Connected"}
               </span>
             </div>
           </div>
@@ -411,7 +413,7 @@ export default function AnalayseLocation({ onBack }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
             <div>
               <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
-                3. Target Orchid Variety
+                3. Orchid Species for Location Suitability
               </label>
               <select
                 value={selectedOrchid}
@@ -434,8 +436,8 @@ export default function AnalayseLocation({ onBack }) {
 
           {analyzing && (
             <div className="p-4 bg-emerald-50 rounded-lg border border-emerald-200 space-y-2">
-              <div className="flex justify-between text-xs font-bold text-emerald-800">
-                <span>Gathering 1-min Environmental Burst Data...</span>
+              <div className="flex justify-between text-sm font-bold text-emerald-800">
+                <span>Gathering Environmental Data...</span>
                 <span>{countdown}s</span>
               </div>
               <div className="w-full bg-emerald-200 rounded-full h-2 overflow-hidden">
@@ -452,13 +454,13 @@ export default function AnalayseLocation({ onBack }) {
       {readings.length > 0 && (
         <div className="space-y-4">
           <h3 className="font-bold text-gray-800 text-sm">
-            Burst Sample Records ({readings.length}/3 Readings Collected)
+            Sensor Reading Records ({readings.length}/3 Collected)
           </h3>
           <div className="overflow-x-auto rounded-lg border border-gray-200">
             <table className="w-full text-left text-xs text-gray-700">
               <thead className="bg-gray-100 text-gray-600 uppercase">
                 <tr>
-                  <th className="px-4 py-2">Sample #</th>
+                  <th className="px-4 py-2">Reading #</th>
                   <th className="px-4 py-2">Temperature (°C)</th>
                   <th className="px-4 py-2">Humidity (%)</th>
                   <th className="px-4 py-2">Light Intensity (Lux)</th>
@@ -468,7 +470,7 @@ export default function AnalayseLocation({ onBack }) {
               <tbody className="divide-y divide-gray-100 bg-white">
                 {readings.map((r, i) => (
                   <tr key={i}>
-                    <td className="px-4 py-2 font-bold">Sample #{r.sampleIndex}</td>
+                    <td className="px-4 py-2 font-bold">Reading #{r.sampleIndex}</td>
                     <td className="px-4 py-2 font-semibold text-emerald-700">{r.temp} °C</td>
                     <td className="px-4 py-2 font-semibold text-sky-700">{r.hum} %</td>
                     <td className="px-4 py-2 font-semibold text-amber-700">{r.lux} Lux</td>
@@ -484,27 +486,19 @@ export default function AnalayseLocation({ onBack }) {
       {analysisCompleted && (
         <div className="border-t pt-6 space-y-6">
           <h3 className="text-lg font-bold text-gray-800">
-            Location Suitability Verdict for {selectedOrchid}
+            Location Suitability for {selectedOrchid} : 
+            <span className={`ml-2 ${isLocationIdeal ? "text-emerald-600" : "text-amber-600"}`}>
+              {isLocationIdeal ? "Optimal Location" : "Needs Adjustment"}
+            </span>
           </h3>
-
-          <div
-            className={`p-4 rounded-xl text-center text-white font-extrabold text-lg shadow-sm ${isLocationIdeal
-              ? "bg-linear-to-r from-emerald-600 to-green-500"
-              : "bg-linear-to-r from-amber-600 to-orange-500"
-              }`}
-          >
-            {isLocationIdeal
-              ? "Location is OPTIMAL for Dendrobium Orchids!"
-              : "Location Requires Environmental Adjustment"}
-          </div>
 
           <div className="overflow-x-auto rounded-xl border border-gray-200">
             <table className="w-full text-left text-xs">
               <thead className="bg-gray-100 text-gray-600 uppercase font-bold">
                 <tr>
                   <th className="px-4 py-3">Parameter</th>
-                  <th className="px-4 py-3">Optimal Target Range</th>
-                  <th className="px-4 py-3">Measured 1-Min Average</th>
+                  <th className="px-4 py-3">Optimal Range</th>
+                  <th className="px-4 py-3">Average Measurement</th>
                   <th className="px-4 py-3">Assessment</th>
                 </tr>
               </thead>
@@ -576,7 +570,7 @@ export default function AnalayseLocation({ onBack }) {
         <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex justify-center items-center p-4 z-50">
           <div className="bg-white p-6 rounded-2xl max-w-md w-full shadow-2xl space-y-4">
             <h3 className="text-lg font-bold text-gray-800">
-              Register ESP32 S3 Module
+              Register New Sensor Module
             </h3>
             <p className="text-xs text-gray-500">
               Enter the hardware MAC address of the ESP32 to pair it with{" "}
@@ -589,7 +583,7 @@ export default function AnalayseLocation({ onBack }) {
             <form onSubmit={handleSaveModule} className="space-y-3">
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1">
-                  Device Label
+                  Device Name
                 </label>
                 <input
                   type="text"

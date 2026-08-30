@@ -217,7 +217,7 @@ export default function AnalyseFertilizer({ selectedPlant, selectedUser, onBack 
           {/* Live NPK Readings & Target Ratio */}
           <div className="p-4 border rounded-xl bg-amber-50/30 space-y-3">
             <h4 className="font-bold text-sm text-amber-900 border-b border-amber-200 pb-2 flex justify-between">
-              <span>Live Soil NPK Sensor Readings</span>
+              <span>Live NPK Sensor Readings</span>
               <span className="text-xs font-semibold text-amber-700">Target Ratio: {analysisResult.npk_recommendation?.target_ratio || "20-20-20"}</span>
             </h4>
 

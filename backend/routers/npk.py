@@ -42,7 +42,7 @@ class NPKCreate(BaseModel):
 
 router = APIRouter(
     prefix="/api/sensors/npk",
-    tags=["NPK Soil Sensor"],
+    tags=["NPK Sensor"],
 )
 
 
@@ -338,7 +338,7 @@ def get_latest_npk_reading(
 def get_npk_readings_by_plant(
     plant_id: str,
     page: int = 1,
-    limit: int = 90,
+    limit: int = 10,
     current_user: dict = Depends(get_current_user),
 ):
     start = (page - 1) * limit
