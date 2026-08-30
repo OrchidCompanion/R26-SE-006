@@ -165,7 +165,7 @@ def analyze_npk(npk):
             'P_low': 'Apply phosphorus fertilizer',
             'P_high': 'Reduce phosphorus application',
             'K_low': 'Apply potassium fertilizer',
-            'K_high': 'Leach soil with water',
+            'K_high': 'Leach with water',
             'N_ok': 'Nitrogen OK',
             'P_ok': 'Phosphorus OK',
             'K_ok': 'Potassium OK',

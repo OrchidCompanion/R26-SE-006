@@ -203,7 +203,7 @@ async def trigger_live_ambient_read(
     }
 
 
-# Live NPK Soil Sensor Read
+# Live NPK Sensor Read
 @router.get("/modules/{module_id}/read-npk")
 async def trigger_live_npk_read(
     module_id: str, current_user: dict = Depends(get_current_user)
