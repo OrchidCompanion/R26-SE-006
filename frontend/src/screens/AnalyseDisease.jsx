@@ -15,6 +15,17 @@ export default function AnalyseDisease({ selectedPlant, selectedUser, onBack }) 
     fetchLast7DaysNpkReadings();
   }, [selectedPlant, selectedUser]);
 
+  const uniqueReadingDays = (rows) => {
+    const days = new Set();
+    for (const row of rows || []) {
+      if (!row?.created_at) continue;
+      const d = new Date(row.created_at);
+      if (Number.isNaN(d.getTime())) continue;
+      days.add(d.toISOString().slice(0, 10));
+    }
+    return days.size;
+  };
+
   const fetchLast7DaysNpkReadings = async () => {
     const plantId = selectedPlant?.plant_id;
     if (!plantId) {
@@ -123,7 +134,7 @@ export default function AnalyseDisease({ selectedPlant, selectedUser, onBack }) 
           Disease Diagnostics — {selectedPlant.plant_name}
         </h2>
         <p className="text-gray-500 text-sm">
-          Upload leaf imagery and combine with latest NPK soil readings for AI detection.
+          Upload leaf imagery and combine with latest NPK cocopeat readings for AI detection.
         </p>
       </div>
 
@@ -177,12 +188,20 @@ export default function AnalyseDisease({ selectedPlant, selectedUser, onBack }) 
         {/* Right Column: last 7 days of NPK readings */}
         <div className="border border-gray-200 rounded-xl p-4 bg-gray-50/50 flex flex-col h-100">
           <h3 className="font-bold text-gray-800 text-sm mb-1">
-            Soil NPK History (Last 7 days — {npkReadings.length} readings)
+            Cocopeat NPK History (Last 7 days — {npkReadings.length} readings)
           </h3>
           <p className="text-xs text-gray-500 mb-3">
             Only readings from the last 7 days. Older values are excluded so a recent
             deficiency is not hidden by earlier healthy averages.
           </p>
+
+          {!loadingNpk && uniqueReadingDays(npkReadings) < 7 && (
+            <div className="mb-3 px-3 py-2 rounded-lg border border-amber-300 bg-amber-50 text-amber-950 text-xs font-semibold">
+              {npkReadings.length === 0
+                ? "No NPK readings in the last 7 days. Please take cocopeat NPK readings."
+                : `Not enough data for a full 7-day window (${uniqueReadingDays(npkReadings)} day(s) with readings). Please take more cocopeat NPK readings.`}
+            </div>
+          )}
 
           {loadingNpk ? (
             <p className="text-xs text-gray-400 my-auto text-center">Loading NPK telemetry...</p>
@@ -251,10 +270,19 @@ export default function AnalyseDisease({ selectedPlant, selectedUser, onBack }) 
               </div>
 
               <div className="pt-2">
-                <h5 className="font-bold text-xs text-gray-600 mb-1">Recommended Treatment:</h5>
-                <ul className="list-disc list-inside text-xs text-gray-700 space-y-1">
+                <h5 className="font-bold text-xs text-gray-600 mb-2">Recommended Treatment:</h5>
+                <ul className="space-y-2">
                   {analysisResult.treatment?.map((t, idx) => (
-                    <li key={idx}>{t}</li>
+                    <li
+                      key={idx}
+                      className={`text-xs font-semibold leading-snug px-3 py-2 rounded-lg border ${
+                        analysisResult.verdict === "HEALTHY"
+                          ? "bg-emerald-50 border-emerald-200 text-emerald-900"
+                          : "bg-amber-50 border-amber-300 text-amber-950"
+                      }`}
+                    >
+                      {t}
+                    </li>
                   ))}
                 </ul>
               </div>
@@ -262,7 +290,7 @@ export default function AnalyseDisease({ selectedPlant, selectedUser, onBack }) 
 
             {/* NPK Snapshot & Advice */}
             <div className="p-4 border rounded-xl bg-gray-50 space-y-4">
-              <h4 className="font-bold text-sm text-gray-700">NPK Soil Context</h4>
+              <h4 className="font-bold text-sm text-gray-700">NPK Cocopeat Context</h4>
 
               <div>
                 <h5 className="font-bold text-xs text-gray-600 mb-2">Latest reading</h5>
@@ -296,15 +324,25 @@ export default function AnalyseDisease({ selectedPlant, selectedUser, onBack }) 
               {analysisResult.npk_window && (
                 <div className="pt-3 border-t">
                   <h5 className="font-bold text-xs text-gray-600 mb-1">
-                    Last {analysisResult.npk_window.days || 7} days ({analysisResult.npk_window.sample_size} readings)
+                    Last {analysisResult.npk_window.days || 7} days ({analysisResult.npk_window.sample_size} readings
+                    {analysisResult.npk_window.days_covered != null
+                      ? `, ${analysisResult.npk_window.days_covered} day(s) covered`
+                      : ""}
+                    )
                     {analysisResult.npk_window.skipped_all_zero
                       ? ` (${analysisResult.npk_window.used} used, ${analysisResult.npk_window.skipped_all_zero} all-zero skipped)`
                       : ""}
                   </h5>
                   <p className="text-[11px] text-gray-500 mb-2">
-                    Deficiency uses the 7-day average so older month-start readings cannot
-                    mask a current problem. Majority vote is also shown.
+                    Avg N/P/K is the mean of last-7-day readings. Status uses
+                    N 25–65, P 15–35, K 50–130. Older month-start readings are excluded.
                   </p>
+                  {analysisResult.npk_window.sufficient === false && (
+                    <div className="mb-2 px-3 py-2 rounded-lg border border-amber-300 bg-amber-50 text-amber-950 text-xs font-semibold">
+                      {analysisResult.npk_window.prompt ||
+                        "Not enough NPK readings for a full 7-day window. Please take more cocopeat NPK readings."}
+                    </div>
+                  )}
                   <div className="grid grid-cols-3 gap-2 text-center">
                     <div className="p-2 border rounded-lg bg-white">
                       <span className="text-xs text-gray-500 block">Avg N</span>

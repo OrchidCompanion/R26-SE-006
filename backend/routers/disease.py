@@ -21,20 +21,21 @@ RECOMMENDATIONS = {
         "label": "Black Rot",
         "disease_info": "Black Rot detected. Fungal infection on orchid tissue.",
         "treatment": [
-            "Remove infected leaves immediately",
-            "Apply copper-based fungicide",
-            "Reduce watering frequency",
-            "Improve air circulation",
+            "Remove infected tissue with sterilized tools immediately",
+            "Reduce excess moisture; improve air circulation",
+            "If you have neem oil, apply it to the infected spots.",
+            "Apply proper fungicide (copper octanoate, phosphorous acid, copper ammonium complex, — check label compatibility)",
+            "Isolate infected plant to prevent spread",
         ],
     },
     "bacterial_brown_spot": {
         "label": "Bacterial Brown Spot",
         "disease_info": "Bacterial Brown Spot detected.",
         "treatment": [
-            "Remove and destroy infected parts",
-            "Apply bactericide",
-            "Avoid overhead watering",
-            "Sterilize cutting tools",
+            "Apply hydrogen peroxide to localized spots",
+            "Remove infected tissue with a sterile blade (severe cases)",
+            "Apply chemical treatment (Dithane M-45, Manzate, Captan 50 WP, or Captaf — per label instructions)",
+            "Avoid copper-based products on Dendrobiums",
         ],
     },
     "healthy": {
@@ -55,7 +56,7 @@ ADVICE_MAP = {
     "P_low": "Apply phosphorus fertilizer",
     "P_high": "Reduce phosphorus application",
     "K_low": "Apply potassium fertilizer",
-    "K_high": "Leach soil with water",
+    "K_high": "Leach cocopeat with water",
     "N_ok": "Nitrogen OK",
     "P_ok": "Phosphorus OK",
     "K_ok": "Potassium OK",
@@ -144,12 +145,17 @@ def _parse_created_at(value: Any) -> Optional[datetime]:
 def _window_span(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
     times = [t for t in (_parse_created_at(r.get("created_at")) for r in rows) if t]
     if not times:
-        return {"oldest": None, "newest": None, "span_days": None}
+        return {"oldest": None, "newest": None, "span_days": None, "days_covered": 0}
     oldest, newest = min(times), max(times)
+    unique_days = {
+        (t if t.tzinfo else t.replace(tzinfo=timezone.utc)).date().isoformat()
+        for t in times
+    }
     return {
         "oldest": oldest.isoformat(),
         "newest": newest.isoformat(),
         "span_days": round(max(0.0, (newest - oldest).total_seconds() / 86400.0), 1),
+        "days_covered": len(unique_days),
     }
 
 
@@ -234,6 +240,14 @@ def _analyze_npk_window(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
         advice.append(_advice_for_status(nutrient, majority[nutrient]))
 
     mean_status, mean_advice = _analyze_npk(mean)
+    days_covered = int(span.get("days_covered") or 0)
+    sufficient = days_covered >= NPK_WINDOW_DAYS
+    prompt = None
+    if not sufficient:
+        prompt = (
+            f"Not enough NPK readings for a full {NPK_WINDOW_DAYS}-day window "
+            f"({days_covered} day(s) with data). Please take more cocopeat NPK readings."
+        )
     return {
         "mode": "last_7_days",
         "days": NPK_WINDOW_DAYS,
@@ -243,6 +257,9 @@ def _analyze_npk_window(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
         "oldest": span["oldest"],
         "newest": span["newest"],
         "span_days": span["span_days"],
+        "days_covered": days_covered,
+        "sufficient": sufficient,
+        "prompt": prompt,
         "mean": mean,
         "mean_status": mean_status,
         "mean_advice": mean_advice,
