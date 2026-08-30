@@ -138,7 +138,7 @@ async def websocket_esp32_endpoint(websocket: WebSocket, module_id: str):
         print(f"[ESP32 Error] Module {clean_id}: {e}")
 
 
-# Unified Status Check (Works for both Ambient and NPK Nodes)
+# Diagnostics & Status Check
 @router.get("/modules/{module_id}/status")
 async def check_sensor_module_status(
     module_id: str, current_user: dict = Depends(get_current_user)
@@ -148,8 +148,6 @@ async def check_sensor_module_status(
     if not manager.is_online(clean_id):
         return {
             "online": False,
-            "device": "Offline",
-            "npk": False,
             "dht11": False,
             "bh1750": False,
             "msg": "ESP32 is offline or powered off.",
@@ -159,25 +157,14 @@ async def check_sensor_module_status(
         result = await manager.send_command_and_wait(
             clean_id, {"action": "health_check"}, timeout_seconds=5.0
         )
-        is_npk = result.get("device") == "NPK_Node" or bool(result.get("npk_ok", False))
-
         return {
             "online": True,
-            "device": result.get("device", "Ambient_Node" if not is_npk else "NPK_Node"),
-            "npk": is_npk,
-            "dht11": bool(result.get("dht11_ok", False)),
-            "bh1750": bool(result.get("bh1750_ok", False)),
-            "msg": "Sensor module operational.",
+            "dht11": result.get("dht11_ok", False),
+            "bh1750": result.get("bh1750_ok", False),
+            "msg": "Sensors operational.",
         }
     except HTTPException as e:
-        return {
-            "online": False,
-            "device": "Error",
-            "npk": False,
-            "dht11": False,
-            "bh1750": False,
-            "msg": e.detail,
-        }
+        return {"online": False, "dht11": False, "bh1750": False, "msg": e.detail}
 
 
 # Live Ambient Burst Read (DHT11 & BH1750)
@@ -234,8 +221,7 @@ async def trigger_live_npk_read(
         )
 
     n = response.get("nitrogen_n", response.get("nitrogen"))
-    # Accepts phosphorus_p, phosphorus, or phosphorous
-    p = response.get("phosphorus_p", response.get("phosphorus", response.get("phosphorous")))
+    p = response.get("phosphorus_p", response.get("phosphorus"))
     k = response.get("potassium_k", response.get("potassium"))
 
     if n is None or p is None or k is None:
@@ -319,3 +305,45 @@ def delete_sensor_module(
     if not res.data:
         raise HTTPException(status_code=404, detail="Module not found.")
     return {"message": "Module removed successfully."}
+
+
+# Diagnostics & Status Check
+@router.get("/modules/{module_id}/status")
+async def check_sensor_module_status(
+    module_id: str, current_user: dict = Depends(get_current_user)
+):
+    clean_id = manager.normalize_mac(module_id)
+
+    if not manager.is_online(clean_id):
+        return {
+            "online": False,
+            "device": "Offline",
+            "npk": False,
+            "dht11": False,
+            "bh1750": False,
+            "msg": "ESP32 is offline or powered off.",
+        }
+
+    try:
+        result = await manager.send_command_and_wait(
+            clean_id, {"action": "health_check"}, timeout_seconds=5.0
+        )
+        is_npk = result.get("device") == "NPK_Node" or "npk_ok" in result
+
+        return {
+            "online": True,
+            "device": result.get("device", "Ambient_Node"),
+            "npk": is_npk or result.get("npk_ok", False),
+            "dht11": result.get("dht11_ok", False),
+            "bh1750": result.get("bh1750_ok", False),
+            "msg": "Sensor module operational.",
+        }
+    except HTTPException as e:
+        return {
+            "online": False,
+            "device": "Error",
+            "npk": False,
+            "dht11": False,
+            "bh1750": False,
+            "msg": e.detail,
+        }
