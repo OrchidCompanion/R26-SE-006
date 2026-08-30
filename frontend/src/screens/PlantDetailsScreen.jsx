@@ -367,8 +367,8 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
         {sensorStatus && (
           <div
             className={`p-3 rounded-lg text-xs font-medium flex items-center justify-between ${sensorStatus.online
-                ? "bg-emerald-50 border border-emerald-200 text-emerald-800"
-                : "bg-rose-50 border border-rose-200 text-rose-800"
+              ? "bg-emerald-50 border border-emerald-200 text-emerald-800"
+              : "bg-rose-50 border border-rose-200 text-rose-800"
               }`}
           >
             <span>
@@ -447,8 +447,8 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
               key={tab.id}
               onClick={() => setSensorTab(tab.id)}
               className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${sensorTab === tab.id
-                  ? "bg-[#059669] text-white"
-                  : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-100"
+                ? "bg-[#059669] text-white"
+                : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-100"
                 }`}
             >
               {tab.label}
@@ -569,8 +569,8 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
               key={tab.id}
               onClick={() => setOutputTab(tab.id)}
               className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${outputTab === tab.id
-                  ? "bg-[#059669] text-white"
-                  : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-100"
+                ? "bg-[#059669] text-white"
+                : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-100"
                 }`}
             >
               {tab.label}
@@ -621,8 +621,8 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
                         <td className="px-4 py-3">
                           <span
                             className={`px-2 py-1 rounded text-xs font-bold ${row.verdict === "HEALTHY"
-                                ? "bg-emerald-100 text-emerald-800"
-                                : "bg-rose-100 text-rose-800"
+                              ? "bg-emerald-100 text-emerald-800"
+                              : "bg-rose-100 text-rose-800"
                               }`}
                           >
                             {row.verdict}
