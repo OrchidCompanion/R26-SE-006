@@ -52,9 +52,10 @@ BLOOMING_STAGES = [
 STAGE_CLASS_MAP = {
     0: "Bud_formation",
     1: "Flowering",
-    2: "Mature_Pseudobulb",
-    3: "Seedling",
-    4: "Vegetative",
+    2: "Invalid",
+    3: "Mature_Pseudobulb",
+    4: "Seedling",
+    5: "Vegetative",
 }
 
 NEXT_STAGE_MAP = {
@@ -82,23 +83,6 @@ MODEL02_FEATURE_ORDER = [
     "max_light_lux",
     "light_std_lux",
 ]
-
-STAGE_CARE_GUIDES = {
-    "Seedling": "Maintain warm temperatures (24–28°C), high humidity (70–80%), and gentle diffused light. Avoid strong direct sunlight.",
-    "Vegetative": "Support robust pseudobulb and cane development with consistent watering, balanced orchid fertilizer, and 12,000–18,000 Lux light.",
-    "Mature_Pseudobulb": "Mature canes store essential energy for flower spikes. Provide bright light (15,000–22,000 Lux) and a 5–7°C night-time temperature drop to initiate spikes.",
-    "Bud_formation": "Keep humidity stable (60–75%) and avoid moving the pot to prevent bud drop or blast. Maintain 12,000–16,000 Lux filtered light.",
-    "Flowering": "Your orchid is in full bloom! Keep flowers dry when misting and shield from harsh midday heat to enjoy long-lasting blooms (6–10 weeks).",
-}
-
-STAGE_OPTIMAL_CONDITIONS = {
-    "Seedling": {"temp": "25–30 °C", "humidity": "70–75 %", "light": "16,000–32,000 Lux"},
-    "Vegetative": {"temp": "25–30 °C", "humidity": "70–75 %", "light": "16,000–32,000 Lux"},
-    "Mature_Pseudobulb": {"temp": "25–30 °C", "humidity": "70–75 %", "light": "16,000–32,000 Lux"},
-    "Bud_formation": {"temp": "25–30 °C", "humidity": "70–75 %", "light": "16,000–32,000 Lux"},
-    "Flowering": {"temp": "25–30 °C", "humidity": "70–75 %", "light": "16,000–32,000 Lux"},
-}
-
 
 # ==============================================================================
 # AGRONOMIC ENVIRONMENTAL STANDARDS & EVALUATION
@@ -128,11 +112,23 @@ def evaluate_environmental_conditions(
 
     The recommendation attempts to correct abnormal environmental factors
     while preserving factors that are already within the recommended range.
+    Covers all 27 permutations of 3-factor microclimate status.
     """
 
-    temp = avg_temp
-    humidity = avg_humidity
-    light = avg_light
+    try:
+        temp = float(avg_temp) if avg_temp is not None else 27.5
+    except (ValueError, TypeError):
+        temp = 27.5
+
+    try:
+        humidity = float(avg_humidity) if avg_humidity is not None else 72.5
+    except (ValueError, TypeError):
+        humidity = 72.5
+
+    try:
+        light = float(avg_light) if avg_light is not None else 20000.0
+    except (ValueError, TypeError):
+        light = 20000.0
 
     # ---------------------------------------------------------
     # 1. Determine environmental status
@@ -151,7 +147,7 @@ def evaluate_environmental_conditions(
     light_high = light > 32000
 
     # ---------------------------------------------------------
-    # 2. Completely suitable environment
+    # 2. Completely suitable environment (0 factors abnormal)
     # ---------------------------------------------------------
 
     if temp_normal and humidity_normal and light_normal:
@@ -161,7 +157,7 @@ def evaluate_environmental_conditions(
         )
 
     # ---------------------------------------------------------
-    # 3. Three factors abnormal
+    # 3. Three factors abnormal (8 permutations)
     # ---------------------------------------------------------
 
     elif temp_low and humidity_low and light_low:
@@ -178,8 +174,49 @@ def evaluate_environmental_conditions(
             "watering."
         )
 
+    elif temp_low and humidity_low and light_high:
+        recommendation = (
+            "Move the orchid to a warmer location with filtered natural shade "
+            "to reduce direct sunlight, and place a shallow water-and-pebble "
+            "tray nearby to provide additional local humidity."
+        )
+
+    elif temp_low and humidity_high and light_low:
+        recommendation = (
+            "Move the orchid to a warmer, brighter, and well-ventilated "
+            "location with gentle morning sunlight, and avoid keeping the "
+            "growing medium excessively wet."
+        )
+
+    elif temp_low and humidity_high and light_high:
+        recommendation = (
+            "Move the orchid to a warmer location with natural shade to reduce "
+            "excessive direct sunlight, and improve air movement to decrease "
+            "excess humidity."
+        )
+
+    elif temp_high and humidity_low and light_low:
+        recommendation = (
+            "Move the orchid to a cooler location with bright, filtered "
+            "natural light, and place a shallow water-and-pebble tray nearby "
+            "to provide additional local humidity."
+        )
+
+    elif temp_high and humidity_low and light_high:
+        recommendation = (
+            "Move the orchid to a cooler, naturally shaded location away from "
+            "harsh afternoon sun, and place a shallow water-and-pebble tray "
+            "nearby to increase local humidity."
+        )
+
+    elif temp_high and humidity_high and light_low:
+        recommendation = (
+            "Move the orchid to a cooler, brighter, and well-ventilated "
+            "location away from high heat, and avoid excessive watering."
+        )
+
     # ---------------------------------------------------------
-    # 4. Two factors abnormal
+    # 4. Two factors abnormal (12 permutations)
     # ---------------------------------------------------------
 
     elif temp_low and light_low:
@@ -222,6 +259,19 @@ def evaluate_environmental_conditions(
             "avoid excessive watering."
         )
 
+    elif temp_low and humidity_high:
+        recommendation = (
+            "Move the orchid to a warmer, well-ventilated location and "
+            "avoid overwatering while maintaining current suitable light conditions."
+        )
+
+    elif temp_high and humidity_low:
+        recommendation = (
+            "Move the orchid to a cooler, well-ventilated location and "
+            "place a shallow water-and-pebble tray nearby to increase local "
+            "humidity while maintaining suitable light."
+        )
+
     elif temp_high and light_low:
         recommendation = (
             "Move the orchid to a cooler location with bright, filtered "
@@ -249,7 +299,7 @@ def evaluate_environmental_conditions(
         )
 
     # ---------------------------------------------------------
-    # 5. Only temperature abnormal
+    # 5. Only temperature abnormal (2 permutations)
     # ---------------------------------------------------------
 
     elif temp_low:
@@ -265,7 +315,7 @@ def evaluate_environmental_conditions(
         )
 
     # ---------------------------------------------------------
-    # 6. Only humidity abnormal
+    # 6. Only humidity abnormal (2 permutations)
     # ---------------------------------------------------------
 
     elif humidity_low:
@@ -283,7 +333,7 @@ def evaluate_environmental_conditions(
         )
 
     # ---------------------------------------------------------
-    # 7. Only light abnormal
+    # 7. Only light abnormal (2 permutations)
     # ---------------------------------------------------------
 
     elif light_low:
@@ -371,7 +421,7 @@ def get_model01():
         try:
             if model_path.endswith(".pth") or "rfdetr" in model_path.lower():
                 from rfdetr import RFDETRSmall
-                _model01_instance = ("rfdetr", RFDETRSmall(num_classes=5, pretrain_weights=model_path))
+                _model01_instance = ("rfdetr", RFDETRSmall(num_classes=6, pretrain_weights=model_path))
                 print(f"[Bloom Router] RF-DETR Model 01 loaded successfully.")
             else:
                 from ultralytics import YOLO
@@ -504,7 +554,7 @@ def _predict_image_stage(image_bytes: bytes, filename: str, idx: int) -> Dict[st
             return {
                 "image_index": idx,
                 "filename": filename,
-                "stage": "Non-Orchid",
+                "stage": "Invalid",
                 "confidence": 0.0,
                 "is_valid": False,
                 "is_orchid": False,
@@ -512,7 +562,7 @@ def _predict_image_stage(image_bytes: bytes, filename: str, idx: int) -> Dict[st
             }
 
         if model_type == "rfdetr":
-            # RF-DETR inference on valid orchid image (Threshold 0.15 strictly rejects non-orchid objects like chairs/furniture/cars)
+            # RF-DETR inference on valid orchid image (Threshold 0.15 strictly rejects low-confidence detections)
             results = model_obj.predict(pil_img, threshold=0.15)
             confs = getattr(results, "confidence", None)
             class_ids = getattr(results, "class_id", None)
@@ -523,15 +573,27 @@ def _predict_image_stage(image_bytes: bytes, filename: str, idx: int) -> Dict[st
                 conf = float(confs[best_idx])
                 raw_name = STAGE_CLASS_MAP.get(top_idx, str(top_idx))
                 mapped_stage = STAGE_CLASS_MAP.get(top_idx, raw_name)
+
+                # Check if the AI model identified this image as "Invalid" (Not an Orchid)
+                if mapped_stage == "Invalid" or top_idx == 2:
+                    return {
+                        "image_index": idx,
+                        "filename": filename,
+                        "stage": "Invalid",
+                        "confidence": conf,
+                        "is_valid": False,
+                        "is_orchid": False,
+                        "error": f"Non-orchid image detected in Angle {idx}. The AI model classified this image as 'Invalid' (not an orchid) with {round(conf * 100)}% confidence. Please upload a clear photo of your Dendrobium orchid plant.",
+                    }
             else:
                 return {
                     "image_index": idx,
                     "filename": filename,
-                    "stage": "Non-Orchid",
+                    "stage": "Invalid",
                     "confidence": 0.0,
                     "is_valid": False,
                     "is_orchid": False,
-                    "error": "Non-orchid object detected. No recognizable Dendrobium orchid botanical structure found in this photo. Please upload a clear photo of your Dendrobium orchid.",
+                    "error": f"Non-orchid object detected in Angle {idx}. No recognizable Dendrobium orchid botanical structure found in this photo. Please upload a clear photo of your Dendrobium orchid.",
                 }
         else:
             results = model_obj.predict(source=pil_img, imgsz=640, verbose=False)[0]
@@ -550,6 +612,17 @@ def _predict_image_stage(image_bytes: bytes, filename: str, idx: int) -> Dict[st
             raw_name = getattr(model_obj, "names", {}).get(top_idx, str(top_idx))
             mapped_stage = STAGE_CLASS_MAP.get(top_idx, raw_name)
 
+            if mapped_stage == "Invalid" or str(raw_name).lower() == "invalid":
+                return {
+                    "image_index": idx,
+                    "filename": filename,
+                    "stage": "Invalid",
+                    "confidence": conf,
+                    "is_valid": False,
+                    "is_orchid": False,
+                    "error": f"Non-orchid image detected in Angle {idx}. The AI model classified this image as 'Invalid' (not an orchid). Please upload a clear photo of your Dendrobium orchid plant.",
+                }
+
         return {
             "image_index": idx,
             "filename": filename,
@@ -564,7 +637,7 @@ def _predict_image_stage(image_bytes: bytes, filename: str, idx: int) -> Dict[st
         return {
             "image_index": idx,
             "filename": filename,
-            "stage": "Non-Orchid",
+            "stage": "Invalid",
             "confidence": 0.0,
             "is_valid": False,
             "is_orchid": False,
@@ -779,7 +852,7 @@ async def predict_bloom_full_workflow(
         pred["angle_label"] = angle_label
         img_predictions.append(pred)
 
-        if not pred.get("is_orchid", True) or not pred.get("is_valid", True):
+        if not pred.get("is_orchid", True) or not pred.get("is_valid", True) or pred.get("stage") in ("Invalid", "Non-Orchid"):
             invalid_angles.append(f"{angle_label}")
 
     # If any uploaded photo is a non-orchid object, prompt the user to re-upload clear orchid photos
@@ -787,7 +860,7 @@ async def predict_bloom_full_workflow(
         angles_text = ", ".join(invalid_angles)
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Non-orchid image detected in {angles_text}. Please re-upload clear photos of your Dendrobium orchid plant for all 3 angles to receive an accurate prediction.",
+            detail=f"Non-orchid image detected in {angles_text}. The AI model classified the photo as not an orchid (Invalid). Please re-upload clear photos of your Dendrobium orchid plant for all 3 angles to receive an accurate prediction.",
         )
 
     # Determine final stage via confidence-weighted majority voting across valid detections
@@ -958,9 +1031,31 @@ async def predict_bloom_full_workflow(
         "timeline": timeline_steps,
         "sensor_summary": sensor_stats,
         "environment_evaluation": env_eval,
-        "optimal_conditions": STAGE_OPTIMAL_CONDITIONS.get(final_stage, {}),
-        "care_instructions": STAGE_CARE_GUIDES.get(final_stage, "Maintain balanced conditions."),
         "record": saved_record,
+    }
+
+
+@router.post("/validate-image", status_code=status.HTTP_200_OK)
+async def validate_single_orchid_image(
+    image: UploadFile = File(...),
+    slot: Optional[str] = Form(None),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Validate a single uploaded image to verify if it is a genuine Dendrobium orchid
+    and determine if it is classified as 'Invalid' (Not an Orchid) or a valid blooming stage.
+    """
+    content = await image.read()
+    fname = image.filename or "uploaded_image.jpg"
+    pred = _predict_image_stage(content, fname, 1)
+    return {
+        "filename": fname,
+        "slot": slot,
+        "is_orchid": pred.get("is_orchid", False),
+        "is_valid": pred.get("is_valid", False),
+        "stage": pred.get("stage", "Invalid"),
+        "confidence": pred.get("confidence", 0.0),
+        "error": pred.get("error"),
     }
 
 
