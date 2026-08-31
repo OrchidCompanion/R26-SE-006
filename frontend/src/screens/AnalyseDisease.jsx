@@ -160,11 +160,11 @@ export default function AnalyseDisease({ selectedPlant, selectedUser, onBack }) 
             </label>
 
             {previewUrl && (
-              <div className="mt-2 pt-4 border-t border-emerald-200">
+              <div className="mt-2 pt-3 border-t border-emerald-200">
                 <img
                   src={previewUrl}
                   alt="Selected Leaf"
-                  className="w-full max-h-80 mx-auto rounded-lg border shadow-xs object-cover"
+                  className="max-h-40 max-w-[180px] w-auto mx-auto rounded-lg border shadow-xs object-contain"
                 />
               </div>
             )}
@@ -186,56 +186,76 @@ export default function AnalyseDisease({ selectedPlant, selectedUser, onBack }) 
         </div>
 
         {/* Right Column: last 7 days of NPK readings */}
-        <div className="border border-gray-200 rounded-xl p-4 bg-gray-50/50 flex flex-col h-100">
-          <h3 className="font-bold text-gray-800 text-sm mb-1">
-            Cocopeat NPK History (Last 7 days — {npkReadings.length} readings)
-          </h3>
-          <p className="text-xs text-gray-500 mb-3">
-            Only readings from the last 7 days. Older values are excluded so a recent
-            deficiency is not hidden by earlier healthy averages.
+        <div className="lg:col-span-7 border border-gray-200 rounded-xl p-4 bg-white flex flex-col">
+          <div className="flex items-start justify-between gap-3 mb-1">
+            <h3 className="font-bold text-[#1e3a5f] text-sm">
+              Cocopeat NPK History (Last 7 Days)
+            </h3>
+            <span className="shrink-0 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800">
+              {loadingNpk ? "…" : `${npkReadings.length} reading(s)`}
+            </span>
+          </div>
+          <p className="text-[11px] text-gray-500 mb-3">
+            Recent 7-day readings identify recent nutrient imbalances correlated with fungal/bacterial leaf symptoms.
           </p>
 
           {!loadingNpk && uniqueReadingDays(npkReadings) < 7 && (
-            <div className="mb-3 px-3 py-2 rounded-lg border border-amber-300 bg-amber-50 text-amber-950 text-xs font-semibold">
+            <div className="mb-3 px-3 py-2 rounded-lg border border-amber-200 bg-amber-50 text-amber-900 text-xs font-medium">
               {npkReadings.length === 0
-                ? "No NPK readings in the last 7 days. Please take cocopeat NPK readings."
-                : `Not enough data for a full 7-day window (${uniqueReadingDays(npkReadings)} day(s) with readings). Please take more cocopeat NPK readings.`}
+                ? "No readings this week."
+                : `Need more readings (${uniqueReadingDays(npkReadings)}/7 days).`}
             </div>
           )}
 
           {loadingNpk ? (
-            <p className="text-xs text-gray-400 my-auto text-center">Loading NPK telemetry...</p>
+            <p className="text-xs text-gray-400 my-auto text-center">Loading…</p>
           ) : npkReadings.length === 0 ? (
-            <p className="text-xs text-gray-400 my-auto text-center">No NPK readings in the last 7 days for this plant.</p>
+            <p className="text-xs text-gray-400 my-auto text-center">No NPK readings this week.</p>
           ) : (
-            <div className="overflow-y-auto flex-1 rounded border border-gray-200 bg-white">
-              <table className="w-full text-left text-xs text-gray-700">
-                <thead className="bg-gray-100 text-gray-600 uppercase sticky top-0">
+            <div className="h-80 overflow-y-auto overflow-x-auto rounded-lg border border-gray-200">
+              <table className="w-full text-xs">
+                <thead className="bg-gray-100 text-[#1e3a5f] uppercase sticky top-0 z-10">
                   <tr>
-                    <th className="px-2.5 py-2">#</th>
-                    <th className="px-2.5 py-2">Date</th>
-                    <th className="px-2.5 py-2">Time Slot</th>
-                    <th className="px-2.5 py-2 text-center">N</th>
-                    <th className="px-2.5 py-2 text-center">P</th>
-                    <th className="px-2.5 py-2 text-center">K</th>
+                    <th className="px-2.5 py-2 text-left font-semibold">#</th>
+                    <th className="px-2.5 py-2 text-left font-semibold">Date & Time</th>
+                    <th className="px-2.5 py-2 text-left font-semibold">Slot</th>
+                    <th className="px-2.5 py-2 text-center font-semibold">Nitrogen (N)</th>
+                    <th className="px-2.5 py-2 text-center font-semibold">Phosphorus (P)</th>
+                    <th className="px-2.5 py-2 text-center font-semibold">Potassium (K)</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-gray-100 bg-white">
                   {npkReadings.map((r, i) => (
                     <tr key={r.reading_id || i} className="hover:bg-gray-50">
-                      <td className="px-3 py-1.5 text-gray-400">{i + 1}</td>
-                      <td className="px-3 py-1.5 font-semibold text-emerald-700">{r.nitrogen_n}</td>
-                      <td className="px-3 py-1.5 font-semibold text-amber-700">{r.phosphorus_p}</td>
-                      <td className="px-3 py-1.5 font-semibold text-rose-700">{r.potassium_k}</td>
-                      <td className="px-3 py-1.5 text-gray-400 whitespace-nowrap">
-                        {new Date(r.created_at).toLocaleString()}
+                      <td className="px-2.5 py-2 text-gray-400">{i + 1}</td>
+                      <td className="px-2.5 py-2 text-gray-500 whitespace-nowrap">
+                        {r.created_at
+                          ? new Date(r.created_at).toLocaleString("en-US", {
+                              month: "numeric",
+                              day: "numeric",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })
+                          : "—"}
                       </td>
-                      <td className="px-2.5 py-1.5 font-medium text-gray-600">
-                        {r.time_slot.charAt(0).toUpperCase() + r.time_slot.slice(1)}
+                      <td className="px-2.5 py-2 font-medium text-[#1e3a5f]">
+                        {r.time_slot
+                          ? r.time_slot.charAt(0).toUpperCase() + r.time_slot.slice(1)
+                          : "—"}
                       </td>
-                      <td className="px-2.5 py-1.5 font-semibold text-emerald-700 text-right">{r.nitrogen_n} mg/kg</td>
-                      <td className="px-2.5 py-1.5 font-semibold text-amber-700 text-right">{r.phosphorus_p} mg/kg</td>
-                      <td className="px-2.5 py-1.5 font-semibold text-rose-700 text-right">{r.potassium_k} mg/kg</td>
+                      <td className="px-2.5 py-2 text-center text-emerald-700">
+                        <span className="block font-bold">{r.nitrogen_n ?? "—"}</span>
+                        <span className="block text-[10px] font-medium">mg/kg</span>
+                      </td>
+                      <td className="px-2.5 py-2 text-center text-amber-700">
+                        <span className="block font-bold">{r.phosphorus_p ?? "—"}</span>
+                        <span className="block text-[10px] font-medium">mg/kg</span>
+                      </td>
+                      <td className="px-2.5 py-2 text-center text-rose-700">
+                        <span className="block font-bold">{r.potassium_k ?? "—"}</span>
+                        <span className="block text-[10px] font-medium">mg/kg</span>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -321,11 +341,6 @@ export default function AnalyseDisease({ selectedPlant, selectedUser, onBack }) 
                     </span>
                   </div>
                 </div>
-                <ul className="list-disc list-inside text-xs text-gray-700 space-y-1 mt-2">
-                  {analysisResult.npk_advice?.map((adv, idx) => (
-                    <li key={idx}>{adv}</li>
-                  ))}
-                </ul>
               </div>
 
               {analysisResult.npk_window && (
@@ -390,14 +405,6 @@ export default function AnalyseDisease({ selectedPlant, selectedUser, onBack }) 
                       </span>
                     </div>
                   </div>
-                  <h5 className="font-bold text-xs text-gray-600 mt-2 mb-1">
-                    7-day advice (from averages):
-                  </h5>
-                  <ul className="list-disc list-inside text-xs text-gray-700 space-y-1">
-                    {analysisResult.npk_window.mean_advice?.map((adv, idx) => (
-                      <li key={idx}>{adv}</li>
-                    ))}
-                  </ul>
                 </div>
               )}
             </div>
