@@ -14,6 +14,9 @@ export default function RootLayout() {
         <Stack.Screen name="plant-details" />
         <Stack.Screen name="identify-species" />
         <Stack.Screen name="analyse-location" />
+        <Stack.Screen name="analyse-fertilizer" />
+        <Stack.Screen name="analyse-disease" />
+        <Stack.Screen name="predict-blooming" />
         <Stack.Screen name="profile" />
       </Stack>
     </Provider>
