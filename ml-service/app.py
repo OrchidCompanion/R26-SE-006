@@ -2,7 +2,7 @@ import os
 import io
 import base64
 import json
-from typing import List, Optional
+from typing import List, Optional, Tuple, Dict, Any
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
 
@@ -19,9 +19,11 @@ app = FastAPI(title="OrchidCompanion Unified ML Service")
 
 BASE_DIR = Path(__file__).resolve().parent
 
+# ==============================================================================
 # MODEL LOADERS
+# ==============================================================================
 
-# Species Model
+# 1. Species Model
 _species_model = None
 def get_species_model():
     global _species_model
@@ -32,16 +34,25 @@ def get_species_model():
         _species_model = YOLO(str(path))
     return _species_model
 
-# Bloom Models
+# 2. Bloom Models
 _bloom_model01 = None
 _bloom_model02 = None
+
+BLOOMING_STAGES = [
+    "Seedling",
+    "Vegetative",
+    "Mature_Pseudobulb",
+    "Bud_formation",
+    "Flowering",
+]
 
 STAGE_CLASS_MAP = {
     0: "Bud_formation",
     1: "Flowering",
-    2: "Mature_Pseudobulb",
-    3: "Seedling",
-    4: "Vegetative",
+    2: "Invalid",
+    3: "Mature_Pseudobulb",
+    4: "Seedling",
+    5: "Vegetative",
 }
 
 NEXT_STAGE_MAP = {
@@ -65,10 +76,17 @@ def get_bloom_models():
         path01 = BASE_DIR / "checkpoint_best_total.pth"
         if path01.exists():
             try:
-                from rfdetr import RFDETRSmall
-                _bloom_model01 = ("rfdetr", RFDETRSmall(num_classes=5, pretrain_weights=str(path01)))
+                # Dynamic import for custom RF-DETR package
+                import importlib
+                rfdetr_module = importlib.import_module("rfdetr")
+                RFDETRSmall = getattr(rfdetr_module, "RFDETRSmall")
+                _bloom_model01 = ("rfdetr", RFDETRSmall(num_classes=6, pretrain_weights=str(path01)))
             except Exception:
-                _bloom_model01 = ("torch", torch.load(str(path01), map_location="cpu"))
+                try:
+                    _bloom_model01 = ("torch", torch.load(str(path01), map_location="cpu"))
+                except Exception as e:
+                    print(f"Warning: Could not load bloom model 01: {e}")
+                    _bloom_model01 = None
         else:
             _bloom_model01 = None
 
@@ -78,7 +96,7 @@ def get_bloom_models():
             _bloom_model02 = joblib.load(str(path02))
     return _bloom_model01, _bloom_model02
 
-# Fertilizer / Leaf Models
+# 3. Fertilizer / Leaf Models
 _leaf_yolo = None
 _growth_model = None
 _growth_encoder = None
@@ -103,7 +121,10 @@ def get_leaf_models():
     return _leaf_yolo, _growth_model, _growth_encoder
 
 
+# ==============================================================================
 # SPECIES IDENTIFICATION ENDPOINT
+# ==============================================================================
+
 @app.get("/")
 def health():
     return {"status": "running", "service": "Unified ML Service"}
@@ -115,7 +136,7 @@ async def predict_species(files: List[UploadFile] = File(...), conf_threshold: f
         raise HTTPException(status_code=400, detail="No files uploaded.")
 
     overall_results = []
-    species_detected_counts = {}
+    species_detected_counts: Dict[str, int] = {}
 
     for file in files:
         content = await file.read()
@@ -167,41 +188,134 @@ async def predict_species(files: List[UploadFile] = File(...), conf_threshold: f
     }
 
 
+# ==============================================================================
 # BLOOM PREDICTION ENDPOINT
-def validate_orchid_image(pil_img: Image.Image):
-    img_rgb = np.array(pil_img.convert("RGB"))
-    gray = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2GRAY)
-    lab = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2LAB)
-    l_chan, a_chan = lab[:, :, 0], lab[:, :, 1]
-    green_pct = float(np.mean((a_chan < 124) & (l_chan > 15) & (l_chan < 245)))
+# ==============================================================================
 
-    hsv = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2HSV)
-    h, s, v = hsv[:, :, 0], hsv[:, :, 1], hsv[:, :, 2]
-    floral_pct = float(np.mean(((h >= 135) & (h <= 175) & (s > 25) & (v > 25)) | ((h >= 15) & (h <= 35) & (s > 30) & (v > 35))))
-    if green_pct < 0.012 and floral_pct < 0.020:
-        return False, "Non-orchid image detected."
-    return True, "Valid orchid"
+def validate_orchid_image(pil_img: Image.Image) -> Tuple[bool, str]:
+    try:
+        img_rgb = np.array(pil_img.convert("RGB"))
+        if img_rgb.size == 0:
+            return False, "Image file is empty or unreadable."
+
+        gray = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2GRAY)
+        if float(np.std(gray)) < 0.5:
+            return False, "Image is a blank solid color. Please upload a clear photo of your Dendrobium orchid."
+
+        lab = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2LAB)
+        l_chan, a_chan = lab[:, :, 0], lab[:, :, 1]
+        green_lab = (a_chan < 124) & (l_chan > 15) & (l_chan < 245)
+        green_pct = float(np.mean(green_lab))
+
+        hsv = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2HSV)
+        h, s, v = hsv[:, :, 0], hsv[:, :, 1], hsv[:, :, 2]
+        pink_mask = (h >= 135) & (h <= 175) & (s > 25) & (v > 25)
+        yellow_mask = (h >= 15) & (h <= 35) & (s > 30) & (v > 35)
+        floral_pct = float(np.mean(pink_mask | yellow_mask))
+
+        sobel_x = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
+        sobel_y = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
+        edge_energy = float(np.mean(np.abs(sobel_x) + np.abs(sobel_y)))
+
+        if edge_energy > 25.0 and green_pct < 0.008:
+            return False, "Document or ID card detected. Please upload a clear photo of your Dendrobium orchid plant."
+
+        if green_pct < 0.012 and floral_pct < 0.020:
+            return False, "Non-orchid image detected. No plant foliage, canes, or flowers detected."
+
+        return True, "Valid orchid"
+    except Exception:
+        return True, "Valid orchid"
+
 
 @app.post("/predict/bloom")
 async def predict_bloom(
     files: List[UploadFile] = File(...),
     sensor_stats_json: str = Form(...),
 ):
-    model01, model02 = get_bloom_models()
+    model01_tuple, model02 = get_bloom_models()
     sensor_stats = json.loads(sensor_stats_json)
 
     img_predictions = []
+    invalid_angles = []
+
     for idx, f in enumerate(files, start=1):
         content = await f.read()
         pil_img = Image.open(io.BytesIO(content)).convert("RGB")
+
         is_orchid, msg = validate_orchid_image(pil_img)
         if not is_orchid:
-            return {"status": "error", "message": f"Non-orchid image detected in Angle {idx}"}
+            invalid_angles.append(f"Angle {idx}")
+            img_predictions.append({
+                "image_index": idx,
+                "filename": f.filename,
+                "stage": "Invalid",
+                "confidence": 0.0,
+                "is_valid": False,
+                "is_orchid": False,
+                "error": msg,
+            })
+            continue
 
-        # Fallback stage inference or RF-DETR
-        img_predictions.append({"image_index": idx, "filename": f.filename, "stage": "Vegetative", "confidence": 0.85, "is_valid": True})
+        stage_pred = "Vegetative"
+        conf_pred = 0.85
 
-    final_stage = "Vegetative"
+        if model01_tuple is not None:
+            mtype, mobj = model01_tuple
+            if mtype == "rfdetr":
+                res = mobj.predict(pil_img, threshold=0.15)
+                confs = getattr(res, "confidence", None)
+                c_ids = getattr(res, "class_id", None)
+                if confs is not None and len(confs) > 0 and float(max(confs)) >= 0.15:
+                    best_i = int(np.argmax(confs))
+                    top_i = int(c_ids[best_i])
+                    conf_pred = float(confs[best_i])
+                    stage_pred = STAGE_CLASS_MAP.get(top_i, "Vegetative")
+                else:
+                    stage_pred = "Invalid"
+                    conf_pred = 0.0
+            elif mtype == "yolo":
+                res = mobj.predict(source=pil_img, imgsz=640, verbose=False)[0]
+                if hasattr(res, "probs") and res.probs is not None:
+                    top_i = int(res.probs.top1)
+                    conf_pred = float(res.probs.top1conf)
+                    stage_pred = STAGE_CLASS_MAP.get(top_i, "Vegetative")
+
+        is_valid_stage = stage_pred != "Invalid" and stage_pred in BLOOMING_STAGES
+        if not is_valid_stage:
+            invalid_angles.append(f"Angle {idx}")
+
+        img_predictions.append({
+            "image_index": idx,
+            "filename": f.filename,
+            "stage": stage_pred,
+            "confidence": conf_pred,
+            "is_valid": is_valid_stage,
+            "is_orchid": is_valid_stage,
+            "error": None if is_valid_stage else f"Non-orchid image detected in Angle {idx}.",
+        })
+
+    if invalid_angles:
+        angles_str = ", ".join(invalid_angles)
+        return {
+            "status": "error",
+            "message": f"Non-orchid image detected in {angles_str}. The AI model classified the photo as not an orchid (Invalid). Please re-upload clear photos of your Dendrobium orchid plant for all 3 angles to receive an accurate prediction.",
+            "image_predictions": img_predictions,
+        }
+
+    # Confidence-weighted majority voting
+    valid_preds = [p for p in img_predictions if p["is_valid"]]
+    stage_scores: Dict[str, float] = {}
+    stage_counts: Dict[str, int] = {}
+    for p in valid_preds:
+        st = p["stage"]
+        stage_scores[st] = stage_scores.get(st, 0.0) + p["confidence"]
+        stage_counts[st] = stage_counts.get(st, 0) + 1
+
+    final_stage = max(stage_scores.keys(), key=lambda s: stage_scores[s]) if stage_scores else "Vegetative"
+    overall_conf = stage_scores[final_stage] / stage_counts[final_stage] if stage_scores else 0.85
+
+    # Forecast timeline
     now_dt = datetime.now(timezone.utc)
     cumulative_days = 0.0
     curr_sim_stage = final_stage
@@ -236,14 +350,17 @@ async def predict_bloom(
     return {
         "status": "success",
         "current_stage": final_stage,
-        "confidence": 85,
+        "confidence": round(overall_conf * 100 if overall_conf <= 1.0 else overall_conf),
         "total_days_to_flowering": round(cumulative_days, 1),
         "timeline": timeline_steps,
         "image_predictions": img_predictions,
     }
 
 
-#  FERTILIZER / LEAF GROWTH PREDICTION ENDPOINT
+# ==============================================================================
+# FERTILIZER / LEAF GROWTH PREDICTION ENDPOINT
+# ==============================================================================
+
 @app.post("/predict/fertilizer-growth")
 async def predict_fertilizer_growth(
     image: UploadFile = File(...),

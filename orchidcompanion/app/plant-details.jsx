@@ -3,8 +3,8 @@ import { View, Text, ScrollView, TouchableOpacity, Modal, TextInput, Alert } fro
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { RefreshCw, Edit, Trash2, ChevronDown, X, Check } from "lucide-react-native";
-import Header from "./components/Header";
-import { colors } from "./constants/colors";
+import Header from "../src/components/Header";
+import { colors } from "../src/constants/colors";
 
 // Sample Database
 const plantsDatabase = [
