@@ -1,9 +1,9 @@
 import { ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { colors } from "./constants/colors";
+import { colors } from "../src/constants/colors";
 
-import Header from "./components/Header";
-import PlantCard from "./components/PlantCard";
+import Header from "../src/components/Header";
+import PlantCard from "../src/components/PlantCard";
 
 const allSamplePlants = [
   { id: 1, name: "Plant A", species: "dendrobium", location: "Greenhouse Section A" },

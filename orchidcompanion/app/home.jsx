@@ -1,9 +1,9 @@
 import { View, Text, ScrollView, TouchableOpacity, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { colors } from "./constants/colors";
+import { colors } from "../src/constants/colors";
 
-import PlantCard from "./components/PlantCard";
+import PlantCard from "../src/components/PlantCard";
 
 const samplePlants = [
   { id: 1, name: "Plant A", species: "dendrobium", location: "Greenhouse Section A" },
