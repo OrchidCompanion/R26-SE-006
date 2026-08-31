@@ -79,19 +79,42 @@ def get_bloom_models():
                 import importlib
                 rfdetr_module = importlib.import_module("rfdetr")
                 RFDETRSmall = getattr(rfdetr_module, "RFDETRSmall")
-                _bloom_model01 = ("rfdetr", RFDETRSmall(num_classes=6, pretrain_weights=str(path01)))
-            except Exception:
-                try:
-                    _bloom_model01 = ("torch", torch.load(str(path01), map_location="cpu"))
-                except Exception as e:
-                    print(f"Warning: Could not load bloom model 01: {e}")
-                    _bloom_model01 = None
+                ckpt = torch.load(str(path01), map_location="cpu", weights_only=False)
+                ckpt_classes = ckpt.get("args", {}).get("class_names") if isinstance(ckpt, dict) else None
+                if ckpt_classes and isinstance(ckpt_classes, list):
+                    num_cls = len(ckpt_classes)
+                    class_map = {i: name for i, name in enumerate(ckpt_classes)}
+                else:
+                    num_cls = 5
+                    class_map = {0: "Bud_formation", 1: "Flowering", 2: "Mature_Pseudobulb", 3: "Seedling", 4: "Vegetative"}
+                model = RFDETRSmall(num_classes=num_cls, pretrain_weights=str(path01))
+                _bloom_model01 = ("rfdetr", model, class_map)
+                print(f"[ML Service] Bloom Model 01 loaded successfully with {num_cls} classes: {class_map}")
+            except Exception as e:
+                print(f"Warning: Could not load bloom model 01: {e}")
+                _bloom_model01 = None
         else:
             _bloom_model01 = None
 
     if _bloom_model02 is None:
         path02 = BASE_DIR / "gradient_boosting_experiment.joblib"
         if path02.exists():
+            try:
+                import sklearn.compose._column_transformer as c_tr
+                if not hasattr(c_tr, "_RemainderColsList"):
+                    class _RemainderColsList(list):
+                        pass
+                    c_tr._RemainderColsList = _RemainderColsList
+
+                import sklearn.impute._base as imp_base
+                _orig_transform = imp_base.SimpleImputer.transform
+                def _compat_transform(self, X):
+                    if not hasattr(self, "_fill_dtype"):
+                        self._fill_dtype = getattr(self, "_fit_dtype", getattr(self, "statistics_", np.array([])).dtype)
+                    return _orig_transform(self, X)
+                imp_base.SimpleImputer.transform = _compat_transform
+            except Exception:
+                pass
             _bloom_model02 = joblib.load(str(path02))
     return _bloom_model01, _bloom_model02
 
@@ -289,7 +312,7 @@ async def predict_bloom(
         conf_pred = 0.85
 
         if model01_tuple is not None:
-            mtype, mobj = model01_tuple
+            mtype, mobj, class_map = model01_tuple
             if mtype == "rfdetr":
                 res = mobj.predict(pil_img, threshold=0.15)
                 confs = getattr(res, "confidence", None)
@@ -298,7 +321,7 @@ async def predict_bloom(
                     best_i = int(np.argmax(confs))
                     top_i = int(c_ids[best_i])
                     conf_pred = float(confs[best_i])
-                    stage_pred = STAGE_CLASS_MAP.get(top_i, "Vegetative")
+                    stage_pred = class_map.get(top_i, "Vegetative")
                 else:
                     stage_pred = "Invalid"
                     conf_pred = 0.0
@@ -307,7 +330,7 @@ async def predict_bloom(
                 if hasattr(res, "probs") and res.probs is not None:
                     top_i = int(res.probs.top1)
                     conf_pred = float(res.probs.top1conf)
-                    stage_pred = STAGE_CLASS_MAP.get(top_i, "Vegetative")
+                    stage_pred = class_map.get(top_i, "Vegetative")
 
         is_valid_stage = stage_pred != "Invalid" and stage_pred in BLOOMING_STAGES
         if not is_valid_stage:
