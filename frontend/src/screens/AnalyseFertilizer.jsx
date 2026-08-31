@@ -202,22 +202,65 @@ export default function AnalyseFertilizer({ selectedPlant, selectedUser, onBack 
           <h3 className="text-lg font-bold text-gray-800">Growth Stage & NPK Analysis Results</h3>
 
           {/* Growth Stage Banner */}
-          <div className="p-4 rounded-xl text-center text-white font-extrabold shadow-sm bg-gradient-to-r from-amber-600 to-yellow-600">
+          <div className="p-4 rounded-xl text-center text-white font-extrabold shadow-sm bg-gradient-to-r from-amber-600 to-yellow-600 space-y-1">
             <div className="text-xl">
               Growth Stage: {analysisResult.growth_stage || "Analyzed"}
             </div>
+            {analysisResult.confidence != null && (
+              <div className="text-xs font-semibold bg-white/20 inline-block px-3 py-1 rounded-full backdrop-blur-xs">
+                Confidence: {(analysisResult.confidence * 100).toFixed(1)}%
+              </div>
+            )}
           </div>
 
-          {/* Leaf Count Card */}
-          <div className="p-3 bg-gray-50 border rounded-xl text-center max-w-xs mx-auto">
-            <span className="block text-xs text-gray-500 font-medium">Leaf Count</span>
-            <strong className="text-sm font-bold text-gray-800">{analysisResult.leaf_count || leafCount}</strong>
+          {/* Leaf Measurements & Metrics */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <div className="p-3 bg-gray-50 border border-gray-200 rounded-xl text-center shadow-2xs">
+              <span className="block text-xs text-gray-500 font-medium">Leaf Count</span>
+              <strong className="text-sm font-bold text-gray-800">{analysisResult.leaf_count || leafCount}</strong>
+            </div>
+
+            <div className="p-3 bg-gray-50 border border-amber-200/60 bg-amber-50/20 rounded-xl text-center shadow-2xs">
+              <span className="block text-xs text-gray-500 font-medium">Leaf Length</span>
+              <strong className="text-sm font-bold text-amber-900">
+                {analysisResult.leaf_length_cm != null
+                  ? `${typeof analysisResult.leaf_length_cm === 'number' ? analysisResult.leaf_length_cm.toFixed(2) : analysisResult.leaf_length_cm} cm`
+                  : "N/A"}
+              </strong>
+            </div>
+
+            <div className="p-3 bg-gray-50 border border-amber-200/60 bg-amber-50/20 rounded-xl text-center shadow-2xs">
+              <span className="block text-xs text-gray-500 font-medium">Leaf Width</span>
+              <strong className="text-sm font-bold text-amber-900">
+                {analysisResult.leaf_width_cm != null
+                  ? `${typeof analysisResult.leaf_width_cm === 'number' ? analysisResult.leaf_width_cm.toFixed(2) : analysisResult.leaf_width_cm} cm`
+                  : "N/A"}
+              </strong>
+            </div>
+
+            <div className="p-3 bg-gray-50 border border-amber-200/60 bg-amber-50/20 rounded-xl text-center shadow-2xs">
+              <span className="block text-xs text-gray-500 font-medium">Leaf Area</span>
+              <strong className="text-sm font-bold text-amber-900">
+                {analysisResult.leaf_area_cm2 != null
+                  ? `${typeof analysisResult.leaf_area_cm2 === 'number' ? analysisResult.leaf_area_cm2.toFixed(2) : analysisResult.leaf_area_cm2} cm²`
+                  : "N/A"}
+              </strong>
+            </div>
+
+            <div className="p-3 bg-gray-50 border border-amber-200/60 bg-amber-50/20 rounded-xl text-center shadow-2xs col-span-2 sm:col-span-1">
+              <span className="block text-xs text-gray-500 font-medium">Confidence</span>
+              <strong className="text-sm font-bold text-amber-900">
+                {analysisResult.confidence != null
+                  ? `${(analysisResult.confidence * 100).toFixed(1)}%`
+                  : "N/A"}
+              </strong>
+            </div>
           </div>
 
           {/* Live NPK Readings & Target Ratio */}
           <div className="p-4 border rounded-xl bg-amber-50/30 space-y-3">
             <h4 className="font-bold text-sm text-amber-900 border-b border-amber-200 pb-2 flex justify-between">
-              <span>Live Soil NPK Sensor Readings</span>
+              <span>Live NPK Sensor Readings</span>
               <span className="text-xs font-semibold text-amber-700">Target Ratio: {analysisResult.npk_recommendation?.target_ratio || "20-20-20"}</span>
             </h4>
 

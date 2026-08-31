@@ -130,7 +130,7 @@ export default function LoginScreen({ onLoginSuccess }) {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder=""
+              placeholder="********"
               className="w-full px-3 py-2 rounded-lg border border-[#e5e7eb] focus:outline-none focus:ring-2 focus:ring-[#059669] text-base"
             />
           </div>
@@ -147,7 +147,7 @@ export default function LoginScreen({ onLoginSuccess }) {
 
       {/* Footer */}
       <div className="text-center mt-6">
-        <p className="text-[#ecfdf5] text-xs tracking-widest uppercase opacity-80">
+        <p className="text-[#ecfdf5] text-base tracking-widest uppercase opacity-80">
           R26-SE-006
         </p>
       </div>
