@@ -76,7 +76,6 @@ def get_bloom_models():
         path01 = BASE_DIR / "checkpoint_best_total.pth"
         if path01.exists():
             try:
-                # Dynamic import for custom RF-DETR package
                 import importlib
                 rfdetr_module = importlib.import_module("rfdetr")
                 RFDETRSmall = getattr(rfdetr_module, "RFDETRSmall")
@@ -119,6 +118,35 @@ def get_leaf_models():
         _growth_model = joblib.load(str(path_gm))
         _growth_encoder = joblib.load(str(path_enc))
     return _leaf_yolo, _growth_model, _growth_encoder
+
+# 4. Disease Models (YOLO + MobileNetV2 + CNN)
+_disease_yolo = None
+_disease_mobilenet = None
+_disease_cnn = None
+
+DISEASE_CLASSES = ["bacterial_brown_spot", "black_rot", "healthy", "invalid"]
+
+def get_disease_models():
+    global _disease_yolo, _disease_mobilenet, _disease_cnn
+    if _disease_yolo is None:
+        p_yolo = BASE_DIR / "disease_yolo.pt"
+        if not p_yolo.exists():
+            p_yolo = BASE_DIR / "yolov26best.pt"
+        _disease_yolo = YOLO(str(p_yolo))
+
+    if _disease_mobilenet is None or _disease_cnn is None:
+        import tensorflow as tf
+        p_mb = BASE_DIR / "disease_mobilenetv2.keras"
+        if not p_mb.exists():
+            p_mb = BASE_DIR / "MobileNetV2_best.keras"
+        _disease_mobilenet = tf.keras.models.load_model(str(p_mb))
+
+        p_cnn = BASE_DIR / "disease_custom_cnn.keras"
+        if not p_cnn.exists():
+            p_cnn = BASE_DIR / "CNN_best.keras"
+        _disease_cnn = tf.keras.models.load_model(str(p_cnn))
+
+    return _disease_yolo, _disease_mobilenet, _disease_cnn
 
 
 # ==============================================================================
@@ -425,4 +453,91 @@ async def predict_fertilizer_growth(
         "leaf_count": leaf_count,
         "growth_stage": growth_stage,
         "confidence": round(prob, 4),
+    }
+
+
+# ==============================================================================
+# 4. DISEASE DIAGNOSTICS ENSEMBLE ENDPOINT
+# ==============================================================================
+
+@app.post("/predict/disease")
+async def predict_disease_ensemble(
+    image: UploadFile = File(...),
+):
+    yolo_model, mobilenet_model, cnn_model = get_disease_models()
+    content = await image.read()
+    pil_img = Image.open(io.BytesIO(content)).convert("RGB")
+    img_bgr = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
+
+    # 1. YOLO Detection & Cropping
+    yolo_res = yolo_model.predict(source=pil_img, conf=0.25, imgsz=640)[0]
+    boxes = yolo_res.boxes
+
+    crop_img = pil_img
+    yolo_det = None
+
+    if boxes is not None and len(boxes) > 0:
+        confs = boxes.conf.cpu().numpy()
+        best_i = int(np.argmax(confs))
+        box = boxes[best_i]
+        xyxy = box.xyxy[0].cpu().numpy().astype(int)
+        cls_id = int(box.cls[0])
+        cls_name = yolo_model.names.get(cls_id, str(cls_id))
+        yolo_det = {
+            "class_name": cls_name,
+            "confidence": float(confs[best_i]),
+            "box": [int(x) for x in xyxy],
+        }
+
+        # Crop detected spot for classifiers
+        h, w = pil_img.size[1], pil_img.size[0]
+        x1, y1, x2, y2 = max(0, xyxy[0]), max(0, xyxy[1]), min(w, xyxy[2]), min(h, xyxy[3])
+        if (x2 - x1) > 10 and (y2 - y1) > 10:
+            crop_img = pil_img.crop((x1, y1, x2, y2))
+
+    # 2. Preprocess Crop for MobileNetV2 and CNN (224x224)
+    crop_resized = crop_img.resize((224, 224))
+    crop_arr = np.array(crop_resized, dtype=np.float32) / 255.0
+    crop_batch = np.expand_dims(crop_arr, axis=0)
+
+    # 3. MobileNetV2 Inference
+    mb_probs = mobilenet_model.predict(crop_batch, verbose=0)[0]
+    mb_top_idx = int(np.argmax(mb_probs))
+    mobilenet_det = {
+        "class_name": DISEASE_CLASSES[mb_top_idx] if mb_top_idx < len(DISEASE_CLASSES) else str(mb_top_idx),
+        "confidence": float(mb_probs[mb_top_idx]),
+        "probabilities": [float(p) for p in mb_probs],
+    }
+
+    # 4. Custom CNN Inference
+    cnn_probs = cnn_model.predict(crop_batch, verbose=0)[0]
+    cnn_top_idx = int(np.argmax(cnn_probs))
+    cnn_det = {
+        "class_name": DISEASE_CLASSES[cnn_top_idx] if cnn_top_idx < len(DISEASE_CLASSES) else str(cnn_top_idx),
+        "confidence": float(cnn_probs[cnn_top_idx]),
+        "probabilities": [float(p) for p in cnn_probs],
+    }
+
+    # 5. Weighted Ensemble Fusion (0.55 MobileNet + 0.45 CNN)
+    ensemble_probs = 0.55 * mb_probs + 0.45 * cnn_probs
+    top_class_idx = int(np.argmax(ensemble_probs))
+    final_class = DISEASE_CLASSES[top_class_idx] if top_class_idx < len(DISEASE_CLASSES) else str(top_class_idx)
+    final_conf = float(ensemble_probs[top_class_idx])
+
+    # 6. Generate Annotated Bounding Box Image
+    annotated_bgr = yolo_res.plot()
+    annotated_rgb = Image.fromarray(annotated_bgr[..., ::-1])
+    buf = io.BytesIO()
+    annotated_rgb.save(buf, format="JPEG")
+    res_b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+
+    return {
+        "status": "success",
+        "predicted_class": final_class,
+        "confidence": round(final_conf, 4),
+        "yolo": yolo_det,
+        "mobilenet": mobilenet_det,
+        "cnn": cnn_det,
+        "ensemble_probs": [round(float(p), 4) for p in ensemble_probs],
+        "result_image": res_b64,
     }
