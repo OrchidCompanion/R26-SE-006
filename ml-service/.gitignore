@@ -1,1 +1,3 @@
 checkpoint_best_total.pth
+disease_custom_cnn.keras
+disease_mobilenetv2.keras
