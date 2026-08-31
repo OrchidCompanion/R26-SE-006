@@ -42,7 +42,7 @@ class NPKCreate(BaseModel):
 
 router = APIRouter(
     prefix="/api/sensors/npk",
-    tags=["NPK Soil Sensor"],
+    tags=["NPK Sensor"],
 )
 
 
@@ -338,41 +338,23 @@ def get_latest_npk_reading(
 def get_npk_readings_by_plant(
     plant_id: str,
     page: int = 1,
-    limit: int = 90,
+    limit: int = 10,
     current_user: dict = Depends(get_current_user),
 ):
-    """
-    Fetch NPK history for a specific plant belonging
-    to the authenticated user.
-    """
-    if page < 1:
-        raise HTTPException(
-            status_code=400,
-            detail="Page must be greater than 0.",
-        )
-
-    if limit < 1:
-        raise HTTPException(
-            status_code=400,
-            detail="Limit must be greater than 0.",
-        )
-
     start = (page - 1) * limit
     end = start + limit - 1
 
-    response = (
-        supabase.table("npk_history")
-        .select("*", count="exact")
-        .eq("plant_id", plant_id)
-        .eq("user_id", current_user["user_id"])
-        .order("created_at", desc=True)
-        .range(start, end)
-        .execute()
-    )
+    query = supabase.table("npk_history").select("*", count="exact").eq("plant_id", plant_id)
+    
+    # Only filter by user_id if the caller is not an admin
+    if current_user.get("role") != "admin":
+        query = query.eq("user_id", current_user["user_id"])
+
+    response = query.order("created_at", desc=True).range(start, end).execute()
 
     return {
         "data": response.data,
-        "total": (response.count if response.count is not None else len(response.data)),
+        "total": response.count if response.count is not None else len(response.data),
         "page": page,
         "limit": limit,
     }

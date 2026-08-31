@@ -9,20 +9,20 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
   const [currentView, setCurrentView] = useState("details");
 
   // Telemetry Tab & Pagination State
-  const [sensorTab, setSensorTab] = useState("dht11"); // 'dht11' | 'bh1750' | 'npk'
+  const [sensorTab, setSensorTab] = useState("npk"); // 'dht11' | 'bh1750' | 'npk'
   const [sensorData, setSensorData] = useState([]);
   const [sensorTotal, setSensorTotal] = useState(0);
   const [sensorPage, setSensorPage] = useState(1);
   const [loadingSensors, setLoadingSensors] = useState(false);
 
   // Diagnostic Tab & Pagination State
-  const [outputTab, setOutputTab] = useState("disease"); // 'disease' | 'fertilizer' | 'bloom'
+  const [outputTab, setOutputTab] = useState("fertilizer"); // 'disease' | 'fertilizer' | 'bloom'
   const [outputData, setOutputData] = useState([]);
   const [outputTotal, setOutputTotal] = useState(0);
   const [outputPage, setOutputPage] = useState(1);
   const [loadingOutputs, setLoadingOutputs] = useState(false);
 
-  // Hardware Module & Soil NPK Reading State
+  // Hardware Module & NPK Reading State
   const [modules, setModules] = useState([]);
   const [selectedModuleId, setSelectedModuleId] = useState("");
   const [checkingStatus, setCheckingStatus] = useState(false);
@@ -66,7 +66,9 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
         const data = await res.json();
         setModules(data);
         if (data.length > 0) {
-          setSelectedModuleId(data[0].module_id);
+          // Preselect NPK module if found, else default to first
+          const npkMod = data.find((m) => m.module_id === "441bf68cbc78" || m.device_name?.toLowerCase().includes("npk"));
+          setSelectedModuleId(npkMod ? npkMod.module_id : data[0].module_id);
         }
       }
     } catch (err) {
@@ -92,16 +94,12 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
       } else {
         setSensorStatus({
           online: false,
-          dht11: false,
-          bh1750: false,
           msg: "Device did not respond.",
         });
       }
     } catch {
       setSensorStatus({
         online: false,
-        dht11: false,
-        bh1750: false,
         msg: "Failed to connect to sensor module.",
       });
     } finally {
@@ -125,7 +123,11 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      if (!readRes.ok) throw new Error("NPK sensor read failed.");
+      if (!readRes.ok) {
+        const errorData = await readRes.json().catch(() => ({}));
+        throw new Error(errorData.detail || "NPK sensor read failed.");
+      }
+
       const data = await readRes.json();
 
       const n = Number(data.nitrogen_n ?? data.nitrogen ?? 0);
@@ -153,10 +155,12 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
         [slotKey]: { n, p, k, timestamp: new Date().toLocaleTimeString() },
       }));
 
-      fetchSensorData();
+      if (sensorTab === "npk") {
+        fetchSensorData();
+      }
     } catch (err) {
       console.error(err);
-      setActionError(`Error reading NPK data for ${timeSlot}.`);
+      setActionError(err.message || `Error reading NPK data for ${timeSlot}.`);
     } finally {
       setActiveReadingSlot(null);
     }
@@ -321,28 +325,28 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
         </div>
       </div>
 
-      {/* Spot-Check Soil NPK Sampling Box */}
+      {/* Spot-Check NPK Sampling Box */}
       <div className="border border-teal-200 bg-teal-50/20 rounded-xl p-5 space-y-4">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-teal-100 pb-3">
           <div>
             <h3 className="font-bold text-gray-800 text-base">
-              Daily Plant Soil NPK Sampling
+              Daily Plant NPK Sampling
             </h3>
             <p className="text-xs text-gray-500">
-              Measure Nitrogen (N), Phosphorus (P), and Potassium (K) levels for this specific orchid pot.
+              Trigger instant live NPK readings from the connected ESP32-S3 node over WebSockets.
             </p>
           </div>
 
-          <div className="flex items-center gap-2 w-full md:w-auto">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full md:w-auto">
             <select
               value={selectedModuleId}
               onChange={(e) => {
                 setSelectedModuleId(e.target.value);
                 setSensorStatus(null);
               }}
-              className="text-xs bg-white border border-gray-300 rounded-lg px-3 py-2 font-medium focus:ring-2 focus:ring-teal-500 focus:outline-none"
+              className="text-xs bg-white border border-gray-300 rounded-lg px-3 py-2 font-medium focus:ring-2 focus:ring-teal-500 focus:outline-none w-full sm:w-auto"
             >
-              <option value="">-- Select NPK Module --</option>
+              <option value="">-- Select Sensor Module --</option>
               {modules.map((m) => (
                 <option key={m.module_id} value={m.module_id}>
                   {m.device_name} ({m.module_id})
@@ -352,12 +356,30 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
             <button
               onClick={handleCheckSensorStatus}
               disabled={checkingStatus || !selectedModuleId}
-              className="px-3 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-lg transition disabled:opacity-50 shrink-0"
+              className="px-3 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-lg transition disabled:opacity-50 shrink-0 w-full sm:w-auto"
             >
               {checkingStatus ? "Checking..." : "Check Status"}
             </button>
           </div>
         </div>
+
+        {/* Status Indicator Banner */}
+        {sensorStatus && (
+          <div
+            className={`p-3 rounded-lg text-xs font-medium flex items-center justify-between ${sensorStatus.online
+              ? "bg-emerald-50 border border-emerald-200 text-emerald-800"
+              : "bg-rose-50 border border-rose-200 text-rose-800"
+              }`}
+          >
+            <span>
+              <strong>Module Status:</strong> {sensorStatus.online ? "Online & Ready" : "Disconnected / Offline"} (
+              {sensorStatus.msg})
+            </span>
+            <span className="text-[11px] font-semibold uppercase tracking-wider">
+              {sensorStatus.device || "Node"}
+            </span>
+          </div>
+        )}
 
         {actionError && (
           <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 text-xs font-medium">
@@ -375,14 +397,14 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
             return (
               <div
                 key={slot}
-                className="p-3.5 bg-white border border-gray-200 rounded-xl flex flex-col justify-between space-y-3"
+                className="p-3.5 bg-white border border-gray-200 rounded-xl flex flex-col justify-between space-y-3 shadow-xs"
               >
                 <div className="flex items-center justify-between">
                   <span className="capitalize font-bold text-xs text-gray-800">
                     {slot} Reading
                   </span>
                   <span className="text-[10px] uppercase font-semibold text-teal-700 bg-teal-50 px-2 py-0.5 rounded">
-                    Soil NPK
+                    NPK
                   </span>
                 </div>
 
@@ -417,18 +439,17 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
         {/* Sensor Tabs */}
         <div className="flex space-x-2 border-b border-gray-200 pb-2">
           {[
+            { id: "npk", label: "NPK Sensor" },
             { id: "dht11", label: "DHT11 Temp/Humidity" },
             { id: "bh1750", label: "BH1750 Light" },
-            { id: "npk", label: "NPK Soil Sensor" },
           ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => setSensorTab(tab.id)}
-              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
-                sensorTab === tab.id
-                  ? "bg-[#059669] text-white"
-                  : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-100"
-              }`}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${sensorTab === tab.id
+                ? "bg-[#059669] text-white"
+                : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-100"
+                }`}
             >
               {tab.label}
             </button>
@@ -445,67 +466,73 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
             <table className="w-full text-left text-sm text-[#1f2937]">
               <thead className="bg-[#f9fafb] text-[#6b7280] uppercase text-xs border-b border-gray-200">
                 <tr>
+                  <th className="px-4 py-3">Date</th>
+                  <th className="px-4 py-3">Time</th>
+                  <th className="px-4 py-3">Time Slot</th>
                   {sensorTab === "dht11" && (
                     <>
                       <th className="px-4 py-3">Temperature (°C)</th>
                       <th className="px-4 py-3">Humidity (%)</th>
-                      <th className="px-4 py-3">Time Slot</th>
-                      <th className="px-4 py-3">Module ID</th>
-                      <th className="px-4 py-3">Timestamp</th>
                     </>
                   )}
                   {sensorTab === "bh1750" && (
-                    <>
-                      <th className="px-4 py-3">Light Level (Lux)</th>
-                      <th className="px-4 py-3">Time Slot</th>
-                      <th className="px-4 py-3">Module ID</th>
-                      <th className="px-4 py-3">Timestamp</th>
-                    </>
+                    <th className="px-4 py-3">Light Level (Lux)</th>
                   )}
                   {sensorTab === "npk" && (
                     <>
                       <th className="px-4 py-3">Nitrogen (N)</th>
                       <th className="px-4 py-3">Phosphorus (P)</th>
                       <th className="px-4 py-3">Potassium (K)</th>
-                      <th className="px-4 py-3">Time Slot</th>
-                      <th className="px-4 py-3">Module ID</th>
-                      <th className="px-4 py-3">Timestamp</th>
                     </>
                   )}
+                  <th className="px-4 py-3">Sensor</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#e5e7eb]">
-                {sensorData.map((row, idx) => (
-                  <tr key={idx} className="hover:bg-slate-50">
-                    {sensorTab === "dht11" && (
-                      <>
-                        <td className="px-4 py-3 font-semibold text-rose-600">{row.temperature} °C</td>
-                        <td className="px-4 py-3 font-semibold text-sky-600">{row.humidity} %</td>
-                        <td className="px-4 py-3 text-xs capitalize text-gray-600">{row.time_slot}</td>
-                        <td className="px-4 py-3 text-xs text-gray-500">{row.module_id || "N/A"}</td>
-                        <td className="px-4 py-3 text-xs text-gray-500">{new Date(row.created_at).toLocaleString()}</td>
-                      </>
-                    )}
-                    {sensorTab === "bh1750" && (
-                      <>
+                {sensorData.map((row, idx) => {
+                  const sensorDeviceName =
+                    row.device_name ||
+                    modules.find((m) => m.module_id === row.module_id)?.device_name ||
+                    row.module_id ||
+                    "N/A";
+
+                  return (
+                    <tr key={idx} className="hover:bg-slate-50">
+                      <td className="px-4 py-3 text-xs text-gray-600">
+                        {row.created_at ? new Date(row.created_at).toLocaleDateString() : "N/A"}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-gray-600">
+                        {row.created_at ? new Date(row.created_at).toLocaleTimeString() : "N/A"}
+                      </td>
+                      <td className="px-4 py-3 text-xs capitalize text-gray-600">
+                        {row.time_slot || "N/A"}
+                      </td>
+
+                      {sensorTab === "dht11" && (
+                        <>
+                          <td className="px-4 py-3 font-semibold text-rose-600">{row.temperature} °C</td>
+                          <td className="px-4 py-3 font-semibold text-sky-600">{row.humidity} %</td>
+                        </>
+                      )}
+
+                      {sensorTab === "bh1750" && (
                         <td className="px-4 py-3 font-semibold text-amber-600">{row.lux} Lux</td>
-                        <td className="px-4 py-3 text-xs capitalize text-gray-600">{row.time_slot}</td>
-                        <td className="px-4 py-3 text-xs text-gray-500">{row.module_id || "N/A"}</td>
-                        <td className="px-4 py-3 text-xs text-gray-500">{new Date(row.created_at).toLocaleString()}</td>
-                      </>
-                    )}
-                    {sensorTab === "npk" && (
-                      <>
-                        <td className="px-4 py-3 font-semibold text-emerald-700">{row.nitrogen_n} mg/kg</td>
-                        <td className="px-4 py-3 font-semibold text-amber-700">{row.phosphorus_p} mg/kg</td>
-                        <td className="px-4 py-3 font-semibold text-rose-700">{row.potassium_k} mg/kg</td>
-                        <td className="px-4 py-3 text-xs capitalize text-gray-600">{row.time_slot}</td>
-                        <td className="px-4 py-3 text-xs text-gray-500">{row.module_id || "N/A"}</td>
-                        <td className="px-4 py-3 text-xs text-gray-500">{new Date(row.created_at).toLocaleString()}</td>
-                      </>
-                    )}
-                  </tr>
-                ))}
+                      )}
+
+                      {sensorTab === "npk" && (
+                        <>
+                          <td className="px-4 py-3 font-semibold text-emerald-700">{row.nitrogen_n} mg/kg</td>
+                          <td className="px-4 py-3 font-semibold text-amber-700">{row.phosphorus_p} mg/kg</td>
+                          <td className="px-4 py-3 font-semibold text-rose-700">{row.potassium_k} mg/kg</td>
+                        </>
+                      )}
+
+                      <td className="px-4 py-3 text-xs font-medium text-gray-700">
+                        {sensorDeviceName}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -536,7 +563,7 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
 
       {/* 2. Diagnostic & Algorithmic System Outputs */}
       <div className="border border-gray-200 rounded-xl p-4 bg-gray-50/50 space-y-4">
-        <h3 className="font-bold text-gray-800 text-base">2. Diagnostic & Algorithmic System Outputs</h3>
+        <h3 className="font-bold text-gray-800 text-base">Diagnostic & Algorithmic System Outputs</h3>
 
         <div className="flex space-x-2 border-b border-gray-200 pb-2">
           {[
@@ -547,11 +574,10 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
             <button
               key={tab.id}
               onClick={() => setOutputTab(tab.id)}
-              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
-                outputTab === tab.id
-                  ? "bg-[#059669] text-white"
-                  : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-100"
-              }`}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${outputTab === tab.id
+                ? "bg-[#059669] text-white"
+                : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-100"
+                }`}
             >
               {tab.label}
             </button>
@@ -567,86 +593,67 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
             <table className="w-full text-left text-sm text-[#1f2937]">
               <thead className="bg-[#f9fafb] text-[#6b7280] uppercase text-xs border-b border-gray-200">
                 <tr>
-                  {outputTab === "disease" && (
-                    <>
-                      <th className="px-4 py-3">Verdict</th>
-                      <th className="px-4 py-3">Disease Name</th>
-                      <th className="px-4 py-3">Confidence</th>
-                      <th className="px-4 py-3">Annotated Image</th>
-                      <th className="px-4 py-3">Timestamp</th>
-                    </>
-                  )}
-                  {outputTab === "fertilizer" && (
-                    <>
-                      <th className="px-4 py-3">Fertilizer Type</th>
-                      <th className="px-4 py-3">Quantity</th>
-                      <th className="px-4 py-3">Unit</th>
-                      <th className="px-4 py-3">Timestamp</th>
-                    </>
-                  )}
-                  {outputTab === "bloom" && (
-                    <>
-                      <th className="px-4 py-3">Bloom Prediction</th>
-                      <th className="px-4 py-3">Status</th>
-                      <th className="px-4 py-3">Timestamp</th>
-                    </>
-                  )}
+                  <th className="px-4 py-3">Date</th>
+                  <th className="px-4 py-3">Time</th>
+                  <th className="px-4 py-3">Output</th>
+                  <th className="px-4 py-3">Confidence</th>
+                  <th className="px-4 py-3">Verdict</th>
+                  <th className="px-4 py-3">Annotated Image</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#e5e7eb]">
                 {outputData.map((row, idx) => (
                   <tr key={idx} className="hover:bg-slate-50">
-                    {outputTab === "disease" && (
-                      <>
-                        <td className="px-4 py-3">
-                          <span
-                            className={`px-2 py-1 rounded text-xs font-bold ${
-                              row.verdict === "HEALTHY"
-                                ? "bg-emerald-100 text-emerald-800"
-                                : "bg-rose-100 text-rose-800"
+                    <td className="px-4 py-3 text-xs text-gray-600">
+                      {row.created_at ? new Date(row.created_at).toLocaleDateString() : "N/A"}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-gray-600">
+                      {row.created_at ? new Date(row.created_at).toLocaleTimeString() : "N/A"}
+                    </td>
+
+                    {/* Output */}
+                    <td className="px-4 py-3 font-semibold text-gray-800">
+                      {outputTab === "disease" && (row.disease_name || "N/A")}
+                      {outputTab === "fertilizer" && `${row.fertilizer || "N/A"} (${row.qty || 0} ${row.unit || ""})`}
+                      {outputTab === "bloom" && (row.weeks ? `${row.weeks} Weeks` : (row.bloom_status || row.prediction || "N/A"))}
+                    </td>
+
+                    {/* Confidence */}
+                    <td className="px-4 py-3 font-bold text-gray-700">
+                      {row.confidence !== undefined && row.confidence !== null ? `${row.confidence}%` : "N/A"}
+                    </td>
+
+                    {/* Verdict */}
+                    <td className="px-4 py-3">
+                      {outputTab === "disease" ? (
+                        <span
+                          className={`px-2 py-1 rounded text-xs font-bold ${row.verdict === "HEALTHY"
+                            ? "bg-emerald-100 text-emerald-800"
+                            : "bg-rose-100 text-rose-800"
                             }`}
-                          >
-                            {row.verdict}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 font-medium">{row.disease_name}</td>
-                        <td className="px-4 py-3 font-bold">{row.confidence}%</td>
-                        <td className="px-4 py-3">
-                          {row.result_image_b64 ? (
-                            <button
-                              onClick={() => setSelectedImage(`data:image/jpeg;base64,${row.result_image_b64}`)}
-                              className="px-2 py-1 bg-sky-100 text-sky-700 rounded text-xs font-semibold hover:bg-sky-200"
-                            >
-                              Preview Image
-                            </button>
-                          ) : (
-                            <span className="text-gray-400 text-xs">No Image</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-xs text-gray-500">{new Date(row.created_at).toLocaleString()}</td>
-                      </>
-                    )}
-                    {outputTab === "fertilizer" && (
-                      <>
-                        <td className="px-4 py-3 font-semibold">{row.fertilizer}</td>
-                        <td className="px-4 py-3">{row.qty}</td>
-                        <td className="px-4 py-3">{row.unit}</td>
-                        <td className="px-4 py-3 text-xs text-gray-500">{new Date(row.created_at).toLocaleString()}</td>
-                      </>
-                    )}
-                    {outputTab === "bloom" && (
-                      <>
-                        <td className="px-4 py-3 font-semibold">
-                          {row.weeks ? `${row.weeks} Weeks` : (row.bloom_status || row.prediction || "N/A")}
-                        </td>
-                        <td className="px-4 py-3 text-xs">
-                          <span className="px-2 py-0.5 bg-purple-100 text-purple-800 rounded font-semibold text-xs">
-                            {row.status || "Predicted"}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-xs text-gray-500">{new Date(row.created_at).toLocaleString()}</td>
-                      </>
-                    )}
+                        >
+                          {row.verdict || "N/A"}
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded font-semibold text-xs capitalize">
+                          {row.status || row.verdict || "Completed"}
+                        </span>
+                      )}
+                    </td>
+
+                    {/* Annotated Image */}
+                    <td className="px-4 py-3">
+                      {row.result_image_b64 ? (
+                        <button
+                          onClick={() => setSelectedImage(`data:image/jpeg;base64,${row.result_image_b64}`)}
+                          className="px-2 py-1 bg-sky-100 text-sky-700 rounded text-xs font-semibold hover:bg-sky-200"
+                        >
+                          Preview Image
+                        </button>
+                      ) : (
+                        <span className="text-gray-400 text-xs">No Image</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

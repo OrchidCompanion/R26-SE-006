@@ -138,9 +138,11 @@ export default function AnalyseDisease({ selectedPlant, selectedUser, onBack }) 
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="space-y-4">
-          <div className="border-2 border-dashed border-emerald-300 bg-emerald-50/40 py-14 px-6 rounded-xl text-center">
+      {/* 5 / 7 Column Split to reduce upload area width */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Left Column: Image Upload Area (5 cols) */}
+        <div className="lg:col-span-5 space-y-2">
+          <div className="border-2 border-dashed border-emerald-300 bg-emerald-50/40 py-4 px-4 rounded-xl text-center">
             <input
               type="file"
               id="leafImageInput"
@@ -150,21 +152,19 @@ export default function AnalyseDisease({ selectedPlant, selectedUser, onBack }) 
             />
             <label
               htmlFor="leafImageInput"
-              className="cursor-pointer flex flex-col items-center justify-center space-y-2"
+              className="cursor-pointer flex flex-col items-center justify-center"
             >
               <span className="text-sm font-bold text-emerald-700">
-                Click or drag leaf image to upload
+                Click leaf image to upload
               </span>
-              <span className="text-xs text-gray-500">Supports JPG, PNG</span>
             </label>
 
             {previewUrl && (
-              <div className="mt-4 pt-4 border-t border-emerald-200">
-                <p className="text-xs font-semibold text-gray-600 mb-2">Image Preview:</p>
+              <div className="mt-2 pt-4 border-t border-emerald-200">
                 <img
                   src={previewUrl}
                   alt="Selected Leaf"
-                  className="max-h-56 mx-auto rounded-lg border shadow-xs object-contain"
+                  className="w-full max-h-80 mx-auto rounded-lg border shadow-xs object-cover"
                 />
               </div>
             )}
@@ -212,11 +212,12 @@ export default function AnalyseDisease({ selectedPlant, selectedUser, onBack }) 
               <table className="w-full text-left text-xs text-gray-700">
                 <thead className="bg-gray-100 text-gray-600 uppercase sticky top-0">
                   <tr>
-                    <th className="px-3 py-2">#</th>
-                    <th className="px-3 py-2">Nitrogen (N)</th>
-                    <th className="px-3 py-2">Phosphorus (P)</th>
-                    <th className="px-3 py-2">Potassium (K)</th>
-                    <th className="px-3 py-2">Date</th>
+                    <th className="px-2.5 py-2">#</th>
+                    <th className="px-2.5 py-2">Date</th>
+                    <th className="px-2.5 py-2">Time Slot</th>
+                    <th className="px-2.5 py-2 text-center">N</th>
+                    <th className="px-2.5 py-2 text-center">P</th>
+                    <th className="px-2.5 py-2 text-center">K</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -229,6 +230,12 @@ export default function AnalyseDisease({ selectedPlant, selectedUser, onBack }) 
                       <td className="px-3 py-1.5 text-gray-400 whitespace-nowrap">
                         {new Date(r.created_at).toLocaleString()}
                       </td>
+                      <td className="px-2.5 py-1.5 font-medium text-gray-600">
+                        {r.time_slot.charAt(0).toUpperCase() + r.time_slot.slice(1)}
+                      </td>
+                      <td className="px-2.5 py-1.5 font-semibold text-emerald-700 text-right">{r.nitrogen_n} mg/kg</td>
+                      <td className="px-2.5 py-1.5 font-semibold text-amber-700 text-right">{r.phosphorus_p} mg/kg</td>
+                      <td className="px-2.5 py-1.5 font-semibold text-rose-700 text-right">{r.potassium_k} mg/kg</td>
                     </tr>
                   ))}
                 </tbody>

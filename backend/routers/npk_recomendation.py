@@ -25,7 +25,7 @@ The system:
 
 IMPORTANT:
 The fertilizer ratios (30-10-10, 20-20-20 and 6-30-30) represent
-fertilizer formulations, not direct soil nutrient thresholds.
+fertilizer formulations, not direct nutrient thresholds.
 
 The system does NOT calculate an exact fertilizer quantity in
 grams or millilitres because that requires additional validated
@@ -681,7 +681,7 @@ def print_npk_recommendation(result: dict):
 
     print("\n")
     print("==========================================")
-    print("       SOIL NPK RECOMMENDATION")
+    print("       NPK RECOMMENDATION")
     print("==========================================")
 
     print(
