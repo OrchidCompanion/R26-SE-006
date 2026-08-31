@@ -1,31 +1,22 @@
-import shutil
-import tempfile
-from pathlib import Path
+import os
 from typing import Optional
 from datetime import datetime, timezone
+import httpx
 from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, File, Form
 from pydantic import BaseModel
 
 from database import supabase
 from utils.auth import get_current_user
 
+# Base URL for Hugging Face inference space
+ML_SERVICE_URL = os.getenv("ML_SERVICE_URL", "https://dinukarathnayake-orchid-inference.hf.space")
+HF_TOKEN = os.getenv("HF_TOKEN")
+
 try:
     from routers.npk import get_latest_npk_data
 except Exception:
     def get_latest_npk_data(plant_id=None, user_id=None):
         return {"nitrogen": 0.0, "phosphorous": 0.0, "potassium": 0.0, "device_id": "no-sensor-reading"}
-
-
-def _get_predict_single_leaf():
-    """Helper to lazily import leaf prediction pipeline."""
-    try:
-        from routers.predict_new_leaf import predict_single_leaf
-        return predict_single_leaf
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"ML leaf prediction error: {str(e)}. Please run 'pip install -r requirements.txt' to install ultralytics and OpenCV."
-        )
 
 
 def _get_evaluate_npk():
@@ -70,34 +61,46 @@ async def analyze_growth_stage(
     current_user: dict = Depends(get_current_user),
 ):
     """
-    Upload an image + leaf count, runs the full analysis pipeline:
-    (YOLO segmentation -> OpenCV length/width/area -> ML growth stage prediction
-    -> NPK recommendation using latest sensor reading).
+    Upload an image + leaf count, proxies inference to Hugging Face:
+    (YOLO segmentation -> OpenCV length/width/area -> ML growth stage prediction)
+    and then computes NPK recommendation using latest Supabase sensor readings.
     """
-    predict_single_leaf = _get_predict_single_leaf()
     evaluate_npk = _get_evaluate_npk()
 
-    suffix = Path(image.filename).suffix if image.filename else ".jpg"
-    if not suffix or suffix == ".":
-        suffix = ".jpg"
+    # Read image contents to forward to Hugging Face
+    image_bytes = await image.read()
+    files_payload = {
+        "image": (image.filename or "leaf.jpg", image_bytes, image.content_type or "image/jpeg")
+    }
+    data_payload = {
+        "leaf_count": str(leaf_count)
+    }
+    headers = {"Authorization": f"Bearer {HF_TOKEN}"} if HF_TOKEN else {}
 
-    # Save uploaded image to a temporary file for YOLO & OpenCV processing
-    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-        shutil.copyfileobj(image.file, tmp)
-        tmp_path = tmp.name
-
-    try:
-        result = predict_single_leaf(tmp_path, leaf_count)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Image analysis error: {str(e)}")
-    finally:
-        Path(tmp_path).unlink(missing_ok=True)
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        try:
+            response = await client.post(
+                f"{ML_SERVICE_URL}/predict/fertilizer-growth",
+                files=files_payload,
+                data=data_payload,
+                headers=headers,
+            )
+            response.raise_for_status()
+            result = response.json()
+        except httpx.HTTPStatusError as exc:
+            raise HTTPException(
+                status_code=exc.response.status_code,
+                detail=f"Hugging Face ML Service Error: {exc.response.text}",
+            )
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Could not connect to ML growth prediction service: {str(e)}",
+            )
 
     stage = result["growth_stage"]
 
-    # Fetch latest NPK reading for this plant/user or in-memory fallback
+    # Fetch latest NPK reading for this plant/user or fallback
     npk_data = get_latest_npk_data(plant_id=plant_id, user_id=current_user["user_id"])
     n_val = npk_data["nitrogen"]
     p_val = npk_data["phosphorous"]
@@ -111,7 +114,7 @@ async def analyze_growth_stage(
     )
 
     # Normalize confidence to decimal (0.0 - 1.0)
-    conf_val = result["confidence"]
+    conf_val = float(result.get("confidence", 0.0))
     conf_decimal = conf_val / 100.0 if conf_val > 1.0 else conf_val
 
     # Log requirement to database if plant_id is present
@@ -131,9 +134,9 @@ async def analyze_growth_stage(
     return {
         "plant_id": plant_id,
         "user_id": current_user["user_id"],
-        "leaf_length_cm": result["opencv_leaf_length_cm"],
-        "leaf_width_cm": result["opencv_leaf_width_cm"],
-        "leaf_area_cm2": result["opencv_leaf_area_cm2"],
+        "leaf_length_cm": result.get("leaf_length_cm"),
+        "leaf_width_cm": result.get("leaf_width_cm"),
+        "leaf_area_cm2": result.get("leaf_area_cm2"),
         "leaf_count": leaf_count,
         "growth_stage": stage,
         "confidence": conf_decimal,
@@ -145,7 +148,6 @@ async def analyze_growth_stage(
         },
         "npk_recommendation": npk_result,
     }
-
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -276,5 +278,3 @@ def get_fertilizer_reqs_by_plant(
         "page": page,
         "limit": limit,
     }
-
-
