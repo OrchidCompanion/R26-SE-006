@@ -102,35 +102,10 @@ export default function DashboardScreen({
         </button>
       </div>
 
-      {/* System Overview Card */}
-      <div className="bg-white p-6 rounded-xl border border-[#e5e7eb] shadow-sm">
-        <h2 className="text-[#1f2937] text-xl font-bold mb-4">System Overview</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          <div className="p-4 bg-[#ecfdf5] rounded-lg border border-[#10b981]/20">
-            <h3 className="text-[#059669] text-sm font-semibold">Registered Users</h3>
-            <p className="text-[#1f2937] text-2xl font-extrabold mt-1">
-              {loading ? "..." : users.length}
-            </p>
-          </div>
-          <div className="p-4 bg-[#ecfdf5] rounded-lg border border-[#10b981]/20">
-            <h3 className="text-[#059669] text-sm font-semibold">User Role</h3>
-            <p className="text-[#1f2937] text-xl font-extrabold mt-1 uppercase">
-              {user.role}
-            </p>
-          </div>
-          <div className="p-4 bg-sky-50 rounded-lg border border-sky-200">
-            <h3 className="text-[#0284c7] text-sm font-semibold">Admin Account</h3>
-            <p className="text-[#1f2937] text-base font-semibold mt-1 truncate">
-              {user.email}
-            </p>
-          </div>
-        </div>
-      </div>
-
       {/* Registered Users Section */}
       <div className="bg-white p-6 rounded-xl border border-[#e5e7eb] shadow-sm">
         <div className="flex justify-between items-center mb-2">
-          <h2 className="text-[#1f2937] text-xl font-bold">Select User to Inspect</h2>
+          <h2 className="text-[#1f2937] text-xl font-bold">Registered Users ({users.length})</h2>
         </div>
         <p className="text-gray-500 text-sm mb-4">
           Click on any user below to inspect their locations and plants.

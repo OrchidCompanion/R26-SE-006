@@ -15,7 +15,7 @@ from routers import (
     bloom,
     disease,
     fertilizer,
-    species
+    species,
 )
 
 app = FastAPI(
@@ -46,12 +46,24 @@ app.include_router(fertilizer.router)
 app.include_router(species.router)
 
 
-@app.get("/", tags=["Running"])
-def health_check():
-    """Public health check endpoint."""
-    return {"status": "Backend is running", "timestamp": datetime.now(timezone.utc).isoformat()}
+# Standalone / Legacy ESP32 route aliases for direct /npk-reading POSTs
+@app.post("/npk-reading", tags=["NPK Sensor Direct Alias"])
+def receive_npk_reading_direct(reading: npk.NPKReading, plant_id: str = None):
+    """Direct root route alias for ESP32 posting to http://<IP>:8000/npk-reading"""
+    return npk.receive_npk_reading(reading=reading, plant_id=plant_id)
 
+
+@app.get("/npk-reading/latest", tags=["NPK Sensor Direct Alias"])
+def get_latest_reading_direct(plant_id: str = None):
+    """Direct root route alias for fetching latest NPK reading from http://<IP>:8000/npk-reading/latest"""
+    return npk.get_latest_reading(plant_id=plant_id)
+
+
+@app.get("/", tags=["Running"])
+@app.get("/health", tags=["Health Check"])
 @app.get("/api/health", tags=["Health Check"])
 def health_check():
     """Public health check endpoint."""
     return {"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat()}
+
+
