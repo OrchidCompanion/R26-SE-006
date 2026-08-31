@@ -36,15 +36,16 @@ export default function AnalyseDisease({ selectedPlant, selectedUser, onBack }) 
 
     setLoadingNpk(true);
     try {
-      const token = localStorage.getItem("admin_token") || localStorage.getItem("token");
+      const token = localStorage.getItem("admin_token");
       const params = new URLSearchParams();
       if (selectedUser?.user_id) params.set("user_id", selectedUser.user_id);
       const query = params.toString() ? `?${params.toString()}` : "";
       const headers = { Authorization: `Bearer ${token}` };
 
       const urls = [
-        `${API_BASE_URL}/sensors/npk/plant/${plantId}?page=1&limit=25`,
         `${API_BASE_URL}/disease/plant/${plantId}?include_npk=true&limit=1${query ? `&${query.slice(1)}` : ""}`,
+        `${API_BASE_URL}/disease/plant/${plantId}/npk-history${query}`,
+        `${API_BASE_URL}/disease/npk-history/${plantId}${query}`,
       ];
 
       let list = [];
@@ -55,7 +56,11 @@ export default function AnalyseDisease({ selectedPlant, selectedUser, onBack }) 
         const next = Array.isArray(responseData)
           ? responseData
           : responseData.npk_data || responseData.data || responseData.rows || [];
-        if (Array.isArray(next) && next.length && next[0] && ("nitrogen_n" in next[0] || "nitrogen" in next[0])) {
+        if (Array.isArray(next) && next.length && next[0] && ("nitrogen_n" in next[0] || "N" in next[0])) {
+          list = next;
+          break;
+        }
+        if (Array.isArray(next) && next.length && next[0]?.nitrogen_n != null) {
           list = next;
           break;
         }
@@ -90,7 +95,7 @@ export default function AnalyseDisease({ selectedPlant, selectedUser, onBack }) 
     setError("");
 
     try {
-      const token = localStorage.getItem("admin_token") || localStorage.getItem("token");
+      const token = localStorage.getItem("admin_token");
       const formData = new FormData();
       formData.append("image", selectedFile);
       formData.append("plant_id", selectedPlant.plant_id);
@@ -104,7 +109,7 @@ export default function AnalyseDisease({ selectedPlant, selectedUser, onBack }) 
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.detail || "Disease analysis failed.");
+        throw new Error(data.detail || "Analysis failed.");
       }
 
       setAnalysisResult(data);
@@ -121,7 +126,7 @@ export default function AnalyseDisease({ selectedPlant, selectedUser, onBack }) 
       <div className="border-b pb-4">
         <button
           onClick={onBack}
-          className="text-xs text-emerald-600 hover:underline font-semibold mb-1 cursor-pointer"
+          className="text-xs text-emerald-600 hover:underline font-semibold mb-1"
         >
           ← Back to Plant Details
         </button>
@@ -129,15 +134,15 @@ export default function AnalyseDisease({ selectedPlant, selectedUser, onBack }) 
           Disease Diagnostics — {selectedPlant.plant_name}
         </h2>
         <p className="text-gray-500 text-sm">
-          Upload leaf imagery and integrate recent NPK cocopeat telemetry for AI disease detection.
+          Upload leaf imagery and combine with latest NPK cocopeat readings for AI detection.
         </p>
       </div>
 
-      {/* Main Grid: Upload Slot (5 cols) + Telemetry Table (7 cols) */}
+      {/* 5 / 7 Column Split to reduce upload area width */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column: Image Upload Area (5 cols) */}
-        <div className="lg:col-span-5 space-y-3">
-          <div className="border-2 border-dashed border-emerald-300 bg-emerald-50/40 p-5 rounded-xl text-center flex flex-col justify-center min-h-[260px]">
+        <div className="lg:col-span-5 space-y-2">
+          <div className="border-2 border-dashed border-emerald-300 bg-emerald-50/40 py-4 px-4 rounded-xl text-center">
             <input
               type="file"
               id="leafImageInput"
@@ -147,30 +152,26 @@ export default function AnalyseDisease({ selectedPlant, selectedUser, onBack }) 
             />
             <label
               htmlFor="leafImageInput"
-              className="cursor-pointer flex flex-col items-center justify-center space-y-2"
+              className="cursor-pointer flex flex-col items-center justify-center"
             >
-              <div className="w-12 h-12 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center text-xl shadow-2xs">
-                🍃
-              </div>
-              <span className="text-sm font-bold text-emerald-800">
-                Click or drag leaf photo to upload
+              <span className="text-sm font-bold text-emerald-700">
+                Click leaf image to upload
               </span>
-              <span className="text-xs text-gray-500">Supports JPG, PNG</span>
             </label>
 
             {previewUrl && (
-              <div className="mt-3 pt-3 border-t border-emerald-200">
+              <div className="mt-2 pt-3 border-t border-emerald-200">
                 <img
                   src={previewUrl}
-                  alt="Selected Leaf Preview"
-                  className="w-full max-h-56 mx-auto rounded-lg border shadow-xs object-cover"
+                  alt="Selected Leaf"
+                  className="max-h-40 max-w-[180px] w-auto mx-auto rounded-lg border shadow-xs object-contain"
                 />
               </div>
             )}
           </div>
 
           {error && (
-            <div className="bg-rose-50 text-rose-700 border border-rose-200 text-xs p-3 rounded-lg text-center font-medium">
+            <div className="bg-rose-50 text-rose-700 border border-rose-200 text-xs p-3 rounded-lg text-center">
               {error}
             </div>
           )}
@@ -178,76 +179,85 @@ export default function AnalyseDisease({ selectedPlant, selectedUser, onBack }) 
           <button
             onClick={handleRunAnalysis}
             disabled={analyzing || !selectedFile}
-            className="w-full bg-[#059669] hover:bg-[#047857] text-white font-bold py-3.5 rounded-xl transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-sm"
+            className="w-full bg-[#059669] hover:bg-[#047857] text-white font-bold py-3 rounded-xl transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {analyzing ? "Running Multi-Model Disease Ensemble..." : "Run Disease Diagnostics"}
+            {analyzing ? "Running YOLO + MobileNetV2 + CNN ensemble..." : "Run Disease Analysis"}
           </button>
         </div>
 
-        {/* Right Column: Last 7 Days of NPK Readings (7 cols) */}
-        <div className="lg:col-span-7 border border-gray-200 rounded-xl p-4 bg-gray-50/50 flex flex-col h-[380px]">
-          <div className="flex items-center justify-between mb-1">
-            <h3 className="font-bold text-gray-800 text-sm">
+        {/* Right Column: last 7 days of NPK readings */}
+        <div className="lg:col-span-7 border border-gray-200 rounded-xl p-4 bg-white flex flex-col">
+          <div className="flex items-start justify-between gap-3 mb-1">
+            <h3 className="font-bold text-[#1e3a5f] text-sm">
               Cocopeat NPK History (Last 7 Days)
             </h3>
-            <span className="text-[11px] font-semibold text-emerald-800 bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded-md">
-              {npkReadings.length} reading(s)
+            <span className="shrink-0 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800">
+              {loadingNpk ? "…" : `${npkReadings.length} reading(s)`}
             </span>
           </div>
-          <p className="text-xs text-gray-500 mb-3">
+          <p className="text-[11px] text-gray-500 mb-3">
             Recent 7-day readings identify recent nutrient imbalances correlated with fungal/bacterial leaf symptoms.
           </p>
 
           {!loadingNpk && uniqueReadingDays(npkReadings) < 7 && (
-            <div className="mb-2 px-3 py-1.5 rounded-lg border border-amber-300 bg-amber-50 text-amber-950 text-xs font-semibold">
+            <div className="mb-3 px-3 py-2 rounded-lg border border-amber-200 bg-amber-50 text-amber-900 text-xs font-medium">
               {npkReadings.length === 0
-                ? "No NPK readings recorded in the last 7 days."
-                : `Active window: ${uniqueReadingDays(npkReadings)} of 7 days recorded.`}
+                ? "No readings this week."
+                : `Need more readings (${uniqueReadingDays(npkReadings)}/7 days).`}
             </div>
           )}
 
           {loadingNpk ? (
-            <div className="flex-1 flex items-center justify-center text-xs text-gray-400">
-              Loading NPK telemetry...
-            </div>
+            <p className="text-xs text-gray-400 my-auto text-center">Loading…</p>
           ) : npkReadings.length === 0 ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-xs text-gray-400 p-4 text-center">
-              <span>No NPK readings recorded for this plant yet.</span>
-              <span className="text-[11px] text-gray-400 mt-1">Standard baseline nutrient parameters will be applied.</span>
-            </div>
+            <p className="text-xs text-gray-400 my-auto text-center">No NPK readings this week.</p>
           ) : (
-            <div className="overflow-y-auto flex-1 rounded-lg border border-gray-200 bg-white shadow-2xs">
-              <table className="w-full text-left text-xs text-gray-700">
-                <thead className="bg-gray-100 text-gray-600 uppercase sticky top-0 text-[10px] font-bold">
+            <div className="h-80 overflow-y-auto overflow-x-auto rounded-lg border border-gray-200">
+              <table className="w-full text-xs">
+                <thead className="bg-gray-100 text-[#1e3a5f] uppercase sticky top-0 z-10">
                   <tr>
-                    <th className="px-3 py-2">#</th>
-                    <th className="px-3 py-2">Date & Time</th>
-                    <th className="px-3 py-2">Slot</th>
-                    <th className="px-3 py-2 text-right">Nitrogen (N)</th>
-                    <th className="px-3 py-2 text-right">Phosphorus (P)</th>
-                    <th className="px-3 py-2 text-right">Potassium (K)</th>
+                    <th className="px-2.5 py-2 text-left font-semibold">#</th>
+                    <th className="px-2.5 py-2 text-left font-semibold">Date & Time</th>
+                    <th className="px-2.5 py-2 text-left font-semibold">Slot</th>
+                    <th className="px-2.5 py-2 text-center font-semibold">Nitrogen (N)</th>
+                    <th className="px-2.5 py-2 text-center font-semibold">Phosphorus (P)</th>
+                    <th className="px-2.5 py-2 text-center font-semibold">Potassium (K)</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100 font-mono">
-                  {npkReadings.map((r, i) => {
-                    const nVal = r.nitrogen_n ?? r.nitrogen ?? r.N ?? 0;
-                    const pVal = r.phosphorus_p ?? r.phosphorous ?? r.P ?? 0;
-                    const kVal = r.potassium_k ?? r.potassium ?? r.K ?? 0;
-                    const slot = r.time_slot ? r.time_slot.charAt(0).toUpperCase() + r.time_slot.slice(1) : "Auto";
-
-                    return (
-                      <tr key={r.reading_id || i} className="hover:bg-emerald-50/20">
-                        <td className="px-3 py-2 text-gray-400 font-sans">{i + 1}</td>
-                        <td className="px-3 py-2 text-gray-500 font-sans text-[11px]">
-                          {new Date(r.created_at).toLocaleDateString()} {new Date(r.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </td>
-                        <td className="px-3 py-2 font-medium font-sans text-gray-700">{slot}</td>
-                        <td className="px-3 py-2 font-bold text-emerald-700 text-right">{nVal} mg/kg</td>
-                        <td className="px-3 py-2 font-bold text-amber-700 text-right">{pVal} mg/kg</td>
-                        <td className="px-3 py-2 font-bold text-rose-700 text-right">{kVal} mg/kg</td>
-                      </tr>
-                    );
-                  })}
+                <tbody className="divide-y divide-gray-100 bg-white">
+                  {npkReadings.map((r, i) => (
+                    <tr key={r.reading_id || i} className="hover:bg-gray-50">
+                      <td className="px-2.5 py-2 text-gray-400">{i + 1}</td>
+                      <td className="px-2.5 py-2 text-gray-500 whitespace-nowrap">
+                        {r.created_at
+                          ? new Date(r.created_at).toLocaleString("en-US", {
+                              month: "numeric",
+                              day: "numeric",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })
+                          : "—"}
+                      </td>
+                      <td className="px-2.5 py-2 font-medium text-[#1e3a5f]">
+                        {r.time_slot
+                          ? r.time_slot.charAt(0).toUpperCase() + r.time_slot.slice(1)
+                          : "—"}
+                      </td>
+                      <td className="px-2.5 py-2 text-center text-emerald-700">
+                        <span className="block font-bold">{r.nitrogen_n ?? "—"}</span>
+                        <span className="block text-[10px] font-medium">mg/kg</span>
+                      </td>
+                      <td className="px-2.5 py-2 text-center text-amber-700">
+                        <span className="block font-bold">{r.phosphorus_p ?? "—"}</span>
+                        <span className="block text-[10px] font-medium">mg/kg</span>
+                      </td>
+                      <td className="px-2.5 py-2 text-center text-rose-700">
+                        <span className="block font-bold">{r.potassium_k ?? "—"}</span>
+                        <span className="block text-[10px] font-medium">mg/kg</span>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -257,114 +267,193 @@ export default function AnalyseDisease({ selectedPlant, selectedUser, onBack }) 
 
       {/* Analysis Output Section */}
       {analysisResult && (
-        <div className="border-t pt-6 space-y-6 animate-fade-in max-w-4xl mx-auto">
-          <h3 className="text-xl font-extrabold text-gray-900">Diagnostic Verdict & Results</h3>
+        <div className="border-t pt-6 space-y-6 animate-fade-in">
+          <h3 className="text-lg font-bold text-gray-800">Diagnostic Verdict & Results</h3>
 
           {/* Verdict Banner */}
           <div
-            className={`p-5 rounded-2xl text-center text-white font-extrabold text-xl shadow-md ${
-              analysisResult.verdict === "HEALTHY"
-                ? "bg-gradient-to-r from-emerald-600 to-green-500"
-                : "bg-gradient-to-r from-rose-600 to-red-500"
-            }`}
+            className={`p-4 rounded-xl text-center text-white font-extrabold text-lg shadow-sm ${analysisResult.verdict === "HEALTHY"
+              ? "bg-linear-to-r from-emerald-600 to-green-500"
+              : "bg-linear-to-r from-rose-600 to-red-500"
+              }`}
           >
-            {analysisResult.verdict_msg || (analysisResult.verdict === "HEALTHY" ? "Plant Leaf is Healthy" : `Disease Detected: ${analysisResult.disease_name}`)}
+            {analysisResult.verdict_msg}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Detection Specs & Treatment */}
-            <div className="p-5 border border-gray-200 rounded-xl bg-gray-50/60 space-y-4 shadow-2xs">
-              <div className="flex justify-between items-center">
-                <h4 className="font-extrabold text-sm text-gray-800">Detection Confidence</h4>
-                <span className="text-xs font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-900">
-                  {analysisResult.disease_info || analysisResult.disease_name}
-                </span>
+            {/* Detection Specs */}
+            <div className="p-4 border rounded-xl bg-gray-50 space-y-3">
+              <h4 className="font-bold text-sm text-gray-700">Detection Confidence</h4>
+              <div className="flex justify-between items-center text-xl font-extrabold text-emerald-800">
+                <span>{analysisResult.disease_info}</span>
+                <span>{analysisResult.confidence}%</span>
               </div>
 
-              <div className="space-y-1">
-                <div className="flex justify-between text-xs font-bold text-gray-700">
-                  <span>Confidence Rating</span>
-                  <span className="text-emerald-700 text-sm">{analysisResult.confidence}%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden shadow-inner">
-                  <div
-                    className="bg-emerald-600 h-full rounded-full transition-all duration-1000"
-                    style={{ width: `${analysisResult.confidence}%` }}
-                  ></div>
-                </div>
+              <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                <div
+                  className="bg-emerald-600 h-full rounded-full transition-all duration-1000"
+                  style={{ width: `${analysisResult.confidence}%` }}
+                ></div>
               </div>
 
-              <div className="pt-2 border-t border-gray-200">
-                <h5 className="font-bold text-xs text-gray-700 uppercase tracking-wider mb-2">Recommended Treatment Protocol:</h5>
+              <div className="pt-2">
+                <h5 className="font-bold text-xs text-gray-600 mb-2">Recommended Treatment:</h5>
                 <ul className="space-y-2">
                   {analysisResult.treatment?.map((t, idx) => (
                     <li
                       key={idx}
-                      className={`text-xs font-semibold leading-relaxed px-3 py-2.5 rounded-lg border flex items-start gap-2 ${
+                      className={`text-xs font-semibold leading-snug px-3 py-2 rounded-lg border ${
                         analysisResult.verdict === "HEALTHY"
                           ? "bg-emerald-50 border-emerald-200 text-emerald-900"
                           : "bg-amber-50 border-amber-300 text-amber-950"
                       }`}
                     >
-                      <span className="font-bold text-emerald-600">•</span>
-                      <span>{t}</span>
+                      {t}
                     </li>
                   ))}
                 </ul>
               </div>
             </div>
 
-            {/* NPK Snapshot & Environmental Advice */}
-            <div className="p-5 border border-gray-200 rounded-xl bg-gray-50/60 space-y-4 shadow-2xs">
-              <h4 className="font-extrabold text-sm text-gray-800">NPK Cocopeat Context</h4>
+            {/* NPK Snapshot & Advice */}
+            <div className="p-4 border rounded-xl bg-gray-50 space-y-4">
+              <h4 className="font-bold text-sm text-gray-700">NPK Cocopeat Context</h4>
 
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="p-3 border border-emerald-200 rounded-xl bg-white shadow-2xs">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block">Nitrogen</span>
-                  <span className="font-extrabold text-emerald-700 text-sm">
-                    {analysisResult.npk_reading?.nitrogen ?? analysisResult.npk?.N ?? "—"} mg/kg
-                  </span>
-                </div>
-                <div className="p-3 border border-amber-200 rounded-xl bg-white shadow-2xs">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block">Phosphorus</span>
-                  <span className="font-extrabold text-amber-700 text-sm">
-                    {analysisResult.npk_reading?.phosphorous ?? analysisResult.npk?.P ?? "—"} mg/kg
-                  </span>
-                </div>
-                <div className="p-3 border border-rose-200 rounded-xl bg-white shadow-2xs">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block">Potassium</span>
-                  <span className="font-extrabold text-rose-700 text-sm">
-                    {analysisResult.npk_reading?.potassium ?? analysisResult.npk?.K ?? "—"} mg/kg
-                  </span>
+              <div>
+                <h5 className="font-bold text-xs text-gray-600 mb-2">Latest reading</h5>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="p-2 border rounded-lg bg-white">
+                    <span className="text-xs text-gray-500 block">Nitrogen</span>
+                    <span className="font-extrabold text-emerald-700">
+                      {analysisResult.npk?.N ?? "N/A"}
+                    </span>
+                  </div>
+                  <div className="p-2 border rounded-lg bg-white">
+                    <span className="text-xs text-gray-500 block">Phosphorus</span>
+                    <span className="font-extrabold text-amber-700">
+                      {analysisResult.npk?.P ?? "N/A"}
+                    </span>
+                  </div>
+                  <div className="p-2 border rounded-lg bg-white">
+                    <span className="text-xs text-gray-500 block">Potassium</span>
+                    <span className="font-extrabold text-rose-700">
+                      {analysisResult.npk?.K ?? "N/A"}
+                    </span>
+                  </div>
                 </div>
               </div>
 
-              {analysisResult.npk_advice && (
-                <div className="pt-2 border-t border-gray-200">
-                  <h5 className="font-bold text-xs text-gray-700 uppercase tracking-wider mb-2">Nutrient Balancing Advice:</h5>
-                  <ul className="space-y-1.5 text-xs text-gray-700 bg-white p-3 rounded-lg border border-gray-200">
-                    {analysisResult.npk_advice.map((adv, idx) => (
-                      <li key={idx} className="flex items-start gap-1.5">
-                        <span className="text-emerald-600 font-bold">✓</span>
-                        <span>{adv}</span>
-                      </li>
-                    ))}
-                  </ul>
+              {analysisResult.npk_window && (
+                <div className="pt-3 border-t">
+                  <h5 className="font-bold text-xs text-gray-600 mb-1">
+                    Last {analysisResult.npk_window.days || 7} days ({analysisResult.npk_window.sample_size} readings
+                    {analysisResult.npk_window.days_covered != null
+                      ? `, ${analysisResult.npk_window.days_covered} day(s) covered`
+                      : ""}
+                    )
+                    {analysisResult.npk_window.skipped_all_zero
+                      ? ` (${analysisResult.npk_window.used} used, ${analysisResult.npk_window.skipped_all_zero} all-zero skipped)`
+                      : ""}
+                  </h5>
+                  <p className="text-[11px] text-gray-500 mb-2">
+                    Avg N/P/K is the mean of last-7-day readings. Status uses
+                    N 25–65, P 15–35, K 50–130. Older month-start readings are excluded.
+                  </p>
+                  {analysisResult.npk_window.sufficient === false && (
+                    <div className="mb-2 px-3 py-2 rounded-lg border border-amber-300 bg-amber-50 text-amber-950 text-xs font-semibold">
+                      {analysisResult.npk_window.prompt ||
+                        "Not enough NPK readings for a full 7-day window. Please take more cocopeat NPK readings."}
+                    </div>
+                  )}
+                  {analysisResult.npk_window.deficiency_msg && (
+                    <div
+                      className={`mb-2 px-3 py-2 rounded-lg border text-xs font-bold ${
+                        analysisResult.npk_window.has_deficiency
+                          ? "bg-rose-50 border-rose-300 text-rose-900"
+                          : "bg-emerald-50 border-emerald-200 text-emerald-900"
+                      }`}
+                    >
+                      {analysisResult.npk_window.deficiency_msg}
+                    </div>
+                  )}
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="p-2 border rounded-lg bg-white">
+                      <span className="text-xs text-gray-500 block">Avg N</span>
+                      <span className="font-extrabold text-emerald-700">
+                        {analysisResult.npk_window.mean?.N ?? "N/A"}
+                      </span>
+                      <span className="text-[10px] text-gray-500 block">
+                        {analysisResult.npk_window.mean_status?.N}
+                      </span>
+                    </div>
+                    <div className="p-2 border rounded-lg bg-white">
+                      <span className="text-xs text-gray-500 block">Avg P</span>
+                      <span className="font-extrabold text-amber-700">
+                        {analysisResult.npk_window.mean?.P ?? "N/A"}
+                      </span>
+                      <span className="text-[10px] text-gray-500 block">
+                        {analysisResult.npk_window.mean_status?.P}
+                      </span>
+                    </div>
+                    <div className="p-2 border rounded-lg bg-white">
+                      <span className="text-xs text-gray-500 block">Avg K</span>
+                      <span className="font-extrabold text-rose-700">
+                        {analysisResult.npk_window.mean?.K ?? "N/A"}
+                      </span>
+                      <span className="text-[10px] text-gray-500 block">
+                        {analysisResult.npk_window.mean_status?.K}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
           </div>
 
+          {analysisResult.ensemble && (
+            <div className="p-4 border rounded-xl bg-gray-50">
+              <h4 className="font-bold text-sm text-gray-700 mb-2">Ensemble votes</h4>
+              <p className="text-xs text-gray-500 mb-3">
+                YOLO locates the spot; MobileNetV2 and CNN classify the crop; weighted average is the final class.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                <div className="p-3 bg-white rounded-lg border">
+                  <p className="font-bold text-gray-600">YOLO</p>
+                  <p className="font-semibold mt-1">
+                    {analysisResult.ensemble.yolo?.class_name || "no box"}{" "}
+                    {analysisResult.ensemble.yolo?.confidence
+                      ? `(${Math.round(analysisResult.ensemble.yolo.confidence * 100)}%)`
+                      : ""}
+                  </p>
+                </div>
+                <div className="p-3 bg-white rounded-lg border">
+                  <p className="font-bold text-gray-600">MobileNetV2</p>
+                  <p className="font-semibold mt-1">
+                    {analysisResult.ensemble.mobilenet?.class_name} (
+                    {Math.round((analysisResult.ensemble.mobilenet?.confidence || 0) * 100)}%)
+                  </p>
+                </div>
+                <div className="p-3 bg-white rounded-lg border">
+                  <p className="font-bold text-gray-600">CNN</p>
+                  <p className="font-semibold mt-1">
+                    {analysisResult.ensemble.cnn?.class_name} (
+                    {Math.round((analysisResult.ensemble.cnn?.confidence || 0) * 100)}%)
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Annotated Result Image */}
           {analysisResult.result_image && (
-            <div className="p-5 border border-gray-200 rounded-2xl bg-gray-50 text-center space-y-3 shadow-xs">
-              <h4 className="font-extrabold text-sm text-gray-800">
-                AI Detection Output (Bounding Box Localization)
+            <div className="p-4 border rounded-xl bg-gray-50">
+              <h4 className="font-bold text-sm text-gray-700 mb-2">
+                AI Detection Output (Bounding Box Overlay)
               </h4>
               <img
                 src={`data:image/jpeg;base64,${analysisResult.result_image}`}
-                alt="AI Detection Annotation"
-                className="max-h-96 mx-auto rounded-xl border shadow-sm object-contain"
+                alt="Annotated Result"
+                className="max-h-100 mx-auto rounded-lg border shadow-sm object-contain"
               />
             </div>
           )}
