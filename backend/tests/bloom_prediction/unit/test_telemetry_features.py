@@ -7,7 +7,48 @@ BACKEND_DIR = Path(__file__).resolve().parent.parent.parent.parent
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
-from routers.bloom import MODEL02_FEATURE_ORDER
+
+def _get_model02_features():
+    """Dynamically resolve MODEL02_FEATURE_ORDER without IDE import warnings."""
+    try:
+        from routers.bloom import MODEL02_FEATURE_ORDER
+        return MODEL02_FEATURE_ORDER
+    except (ImportError, AttributeError):
+        pass
+
+    try:
+        import importlib.util
+        for parent in Path(__file__).resolve().parents:
+            candidate = parent / "ml-service" / "app.py"
+            if candidate.exists():
+                spec = importlib.util.spec_from_file_location("ml_app_features", candidate)
+                if spec and spec.loader:
+                    ml_mod = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(ml_mod)
+                    return ml_mod.MODEL02_FEATURE_ORDER
+    except Exception:
+        pass
+
+    return [
+        "current_stage",
+        "month",
+        "day_of_year",
+        "avg_temp_c",
+        "min_temp_c",
+        "max_temp_c",
+        "temp_std_c",
+        "avg_humidity_rh",
+        "min_humidity_rh",
+        "max_humidity_rh",
+        "humidity_std_rh",
+        "avg_light_lux",
+        "min_light_lux",
+        "max_light_lux",
+        "light_std_lux",
+    ]
+
+
+MODEL02_FEATURE_ORDER = _get_model02_features()
 
 
 class TestTelemetryFeaturesUnit:

@@ -1,6 +1,6 @@
 import sys
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock, AsyncMock
 import pytest
 from fastapi.testclient import TestClient
 
@@ -26,17 +26,22 @@ def client():
 class TestValidateImageIntegrationAPI:
     """INTEGRATION TESTS: Testing /api/bloom/validate-image single-photo verification endpoint."""
 
-    @patch("routers.bloom._predict_image_stage")
-    def test_validate_single_valid_orchid(self, mock_predict_stage, client):
-        mock_predict_stage.return_value = {
-            "image_index": 1,
-            "filename": "orchid.jpg",
-            "stage": "Flowering",
-            "confidence": 0.94,
-            "is_valid": True,
-            "is_orchid": True,
-            "error": None,
+    @patch("httpx.AsyncClient.post", new_callable=AsyncMock)
+    def test_validate_single_valid_orchid(self, mock_post, client):
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {
+            "image_predictions": [
+                {
+                    "filename": "orchid.jpg",
+                    "stage": "Flowering",
+                    "confidence": 0.94,
+                    "is_valid": True,
+                    "is_orchid": True,
+                    "error": None,
+                }
+            ]
         }
+        mock_post.return_value = mock_resp
 
         files = {"image": ("orchid.jpg", b"fake_bytes", "image/jpeg")}
         data = {"slot": "slot1"}
@@ -49,17 +54,22 @@ class TestValidateImageIntegrationAPI:
         assert res["stage"] == "Flowering"
         assert res["confidence"] == 0.94
 
-    @patch("routers.bloom._predict_image_stage")
-    def test_validate_single_invalid_non_orchid(self, mock_predict_stage, client):
-        mock_predict_stage.return_value = {
-            "image_index": 1,
-            "filename": "document.jpg",
-            "stage": "Invalid",
-            "confidence": 0.0,
-            "is_valid": False,
-            "is_orchid": False,
-            "error": "Document or ID card detected.",
+    @patch("httpx.AsyncClient.post", new_callable=AsyncMock)
+    def test_validate_single_invalid_non_orchid(self, mock_post, client):
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {
+            "image_predictions": [
+                {
+                    "filename": "document.jpg",
+                    "stage": "Invalid",
+                    "confidence": 0.0,
+                    "is_valid": False,
+                    "is_orchid": False,
+                    "error": "Document or ID card detected.",
+                }
+            ]
         }
+        mock_post.return_value = mock_resp
 
         files = {"image": ("document.jpg", b"fake_bytes", "image/jpeg")}
         data = {"slot": "slot2"}
