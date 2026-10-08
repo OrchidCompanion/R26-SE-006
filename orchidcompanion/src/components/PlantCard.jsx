@@ -5,11 +5,20 @@ import { colors } from "../constants/colors";
 export default function PlantCard({ plant, onPress }) {
   const router = useRouter();
 
+  const plantId = plant.plant_id || plant.id;
+  const plantName = plant.plant_name || plant.name || "Unnamed Orchid";
+  const species = plant.plant_species || plant.species || "Orchid";
+  const locationDisplay =
+    plant.locations?.location_name ||
+    plant.plant_location ||
+    plant.location ||
+    "Assigned Zone";
+
   const handlePress = () => {
     if (onPress) {
       onPress();
     } else {
-      router.push({ pathname: "/plant-details", params: { id: plant.id } });
+      router.push({ pathname: "/plant-details", params: { id: plantId } });
     }
   };
 
@@ -22,16 +31,16 @@ export default function PlantCard({ plant, onPress }) {
     >
       <View className="flex-1">
         <Text
-          className="text-sm font-semibold uppercase mb-0.5"
+          className="text-xs font-bold uppercase mb-0.5"
           style={{ color: colors.primary }}
         >
-          {plant.species}
+          {species}
         </Text>
-        <Text className="text-xl font-bold mb-0.5" style={{ color: colors.darkGray }}>
-          {plant.name}
+        <Text className="text-base font-extrabold mb-0.5" style={{ color: colors.darkGray }}>
+          {plantName}
         </Text>
-        <Text className="text-sm font-semibold" style={{ color: colors.mediumGray }}>
-          {plant.location}
+        <Text className="text-xs font-semibold" style={{ color: colors.mediumGray }}>
+          {locationDisplay}
         </Text>
       </View>
       {/* Arrow Navigation */}
