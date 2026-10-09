@@ -1,0 +1,25 @@
+# Python & Virtual Environments
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+
+# Environment files
+.env
+.env.local
+
+# ML Model Weight Binaries (Too large for GitHub; uploaded directly to VPS via SCP)
+*.pt
+*.pth
+*.keras
+*.h5
+*.pkl
+*.joblib
+*.onnx
+*.weights
+*.bin
+
+# Preserve model directory structure
+!**/.gitkeep
