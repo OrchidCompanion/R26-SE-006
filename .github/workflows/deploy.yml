@@ -1,0 +1,50 @@
+name: Deploy Orchid Backend to Contabo VPS
+
+on:
+  push:
+    branches:
+      - IT22140616
+      - deployment-backend
+    paths:
+      - 'services/**'
+      - 'mosquitto/**'
+      - 'docker-compose.yml'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy to Contabo VPS
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy backend services via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          port: 22
+          script: |
+            mkdir -p /opt/orchid-backend
+            cd /opt/orchid-backend
+
+            # Pull latest changes if repo exists, else clone
+            if [ -d ".git" ]; then
+              git fetch origin
+              git checkout ${{ github.ref_name }}
+              git pull origin ${{ github.ref_name }}
+            else
+              git clone -b ${{ github.ref_name }} https://github.com/OrchidCompanion/R26-SE-006.git .
+            fi
+
+            # Ensure .env exists
+            if [ ! -f ".env" ]; then
+              cp .env.example .env
+            fi
+
+            # Build and start microservices with Docker Compose
+            docker compose up -d --build
+
+            # Clean up stale images
+            docker image prune -f
