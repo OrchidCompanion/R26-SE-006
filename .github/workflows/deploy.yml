@@ -3,7 +3,6 @@ name: Deploy Orchid Backend to Contabo VPS
 on:
   push:
     branches:
-      - IT22140616
       - deployment-backend
     paths:
       - 'services/**'
