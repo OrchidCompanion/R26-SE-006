@@ -1,24 +1,53 @@
 import os
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone
+from contextlib import contextmanager
 from dotenv import load_dotenv
-from supabase import create_client, Client
+try:
+    import psycopg2
+    from psycopg2.extras import RealDictCursor, Json
+    from psycopg2 import pool
+except ImportError:
+    psycopg2 = None
+    RealDictCursor = None
+    Json = None
+    pool = None
 
 load_dotenv()
 
-SUPABASE_URL = os.getenv("SPECIES_SUPABASE_URL") or os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SPECIES_SUPABASE_KEY") or os.getenv("SUPABASE_KEY")
+# Dedicated database for Species Identification (IT22140616)
+DB_URL = os.getenv("SPECIES_DB_URL") or os.getenv("DATABASE_URL")
+if not DB_URL:
+    db_user = os.getenv("POSTGRES_USER", "orchid_admin")
+    db_pass = os.getenv("POSTGRES_PASSWORD", "orchid_secret_2026")
+    db_host = os.getenv("POSTGRES_HOST", "postgres-db")
+    db_port = os.getenv("POSTGRES_PORT", "5432")
+    DB_URL = f"postgresql://{db_user}:{db_pass}@{db_host}:{db_port}/orchid_species_db"
 
-supabase: Optional[Client] = None
+_connection_pool = None
 
-if SUPABASE_URL and SUPABASE_KEY:
+def get_pool():
+    global _connection_pool
+    if _connection_pool is None and psycopg2 and DB_URL:
+        try:
+            _connection_pool = pool.SimpleConnectionPool(minconn=1, maxconn=10, dsn=DB_URL)
+            print("[Database] Successfully connected to PostgreSQL orchid_species_db.")
+        except Exception as e:
+            print(f"[Database] Warning: Could not connect to PostgreSQL ({e}). Running in offline/inference mode.")
+            _connection_pool = None
+    return _connection_pool
+
+@contextmanager
+def get_db():
+    p = get_pool()
+    if not p:
+        yield None
+        return
+    conn = p.getconn()
     try:
-        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-        print("[Database] Successfully connected to Species Supabase project.")
-    except Exception as e:
-        print(f"[Database] Warning: Could not initialize Supabase client: {e}")
-else:
-    print("[Database] Warning: Missing SPECIES_SUPABASE_URL or SPECIES_SUPABASE_KEY in .env. Persistence disabled.")
+        yield conn
+    finally:
+        p.putconn(conn)
 
 
 def save_identification_log(
@@ -29,46 +58,58 @@ def save_identification_log(
     plant_id: Optional[str] = None,
     image_filenames: Optional[List[str]] = None,
 ) -> Optional[Dict[str, Any]]:
-    """Save an identification record to Member IT22140616's Supabase database."""
-    if not supabase:
-        return None
-
-    payload = {
-        "verdict": verdict,
-        "total_images": total_images,
-        "detections": detections_summary,
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    }
-    if user_id:
-        payload["user_id"] = user_id
-    if plant_id:
-        payload["plant_id"] = plant_id
-    if image_filenames:
-        payload["image_filenames"] = image_filenames
-
-    try:
-        res = supabase.table("species_identifications").insert(payload).execute()
-        return res.data[0] if res.data else None
-    except Exception as e:
-        print(f"[Database] Failed to insert identification record: {e}")
-        return None
+    """Save an identification record to PostgreSQL orchid_species_db."""
+    with get_db() as conn:
+        if not conn:
+            return None
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(
+                    """
+                    INSERT INTO species_identifications
+                        (verdict, total_images, detections, user_id, plant_id, image_filenames, created_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    RETURNING *;
+                    """,
+                    (
+                        verdict,
+                        total_images,
+                        Json(detections_summary),
+                        user_id,
+                        plant_id,
+                        image_filenames,
+                        datetime.now(timezone.utc),
+                    ),
+                )
+                conn.commit()
+                row = cur.fetchone()
+                return dict(row) if row else None
+        except Exception as e:
+            conn.rollback()
+            print(f"[Database] Failed to insert species identification: {e}")
+            return None
 
 
 def get_user_identification_history(user_id: str, limit: int = 20) -> List[Dict[str, Any]]:
-    """Retrieve historical identification records for a given user."""
-    if not supabase or not user_id:
+    """Retrieve historical identification records for a given user from PostgreSQL."""
+    if not user_id:
         return []
-
-    try:
-        res = (
-            supabase.table("species_identifications")
-            .select("*")
-            .eq("user_id", user_id)
-            .order("created_at", desc=True)
-            .limit(limit)
-            .execute()
-        )
-        return res.data or []
-    except Exception as e:
-        print(f"[Database] Failed to fetch user history: {e}")
-        return []
+    with get_db() as conn:
+        if not conn:
+            return []
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(
+                    """
+                    SELECT * FROM species_identifications
+                    WHERE user_id = %s
+                    ORDER BY created_at DESC
+                    LIMIT %s;
+                    """,
+                    (user_id, limit),
+                )
+                rows = cur.fetchall()
+                return [dict(r) for r in rows] if rows else []
+        except Exception as e:
+            print(f"[Database] Failed to fetch species history: {e}")
+            return []
