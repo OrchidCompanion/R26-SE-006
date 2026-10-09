@@ -1,6 +1,26 @@
 services:
   # ---------------------------------------------------------------------------
-  # MQTT Message Broker (Local Development)
+  # Central PostgreSQL Engine (Database-Per-Service Pattern)
+  # ---------------------------------------------------------------------------
+  postgres-db:
+    image: postgres:16-alpine
+    container_name: orchid-postgres-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-orchid_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-orchid_secret_2026}
+      POSTGRES_DB: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init-dbs.sh:/docker-entrypoint-initdb.d/init-dbs.sh:ro
+      - ./postgres/schemas:/docker-entrypoint-initdb.d/schemas:ro
+    ports:
+      - "5432:5432"
+    networks:
+      - orchid-network
+
+  # ---------------------------------------------------------------------------
+  # MQTT Message Broker
   # ---------------------------------------------------------------------------
   mqtt-broker:
     image: eclipse-mosquitto:2
@@ -27,9 +47,10 @@ services:
       - "7860:7860"
     environment:
       - PORT=7860
-      - SPECIES_SUPABASE_URL=${SPECIES_SUPABASE_URL:-}
-      - SPECIES_SUPABASE_KEY=${SPECIES_SUPABASE_KEY:-}
+      - SPECIES_DB_URL=postgresql://${POSTGRES_USER:-orchid_admin}:${POSTGRES_PASSWORD:-orchid_secret_2026}@postgres-db:5432/orchid_species_db
       - CONF_THRESHOLD=${CONF_THRESHOLD:-0.35}
+    depends_on:
+      - postgres-db
     networks:
       - orchid-network
 
@@ -46,12 +67,12 @@ services:
       - "7861:7860"
     environment:
       - PORT=7860
-      - DISEASE_SUPABASE_URL=${DISEASE_SUPABASE_URL:-}
-      - DISEASE_SUPABASE_KEY=${DISEASE_SUPABASE_KEY:-}
+      - DISEASE_DB_URL=postgresql://${POSTGRES_USER:-orchid_admin}:${POSTGRES_PASSWORD:-orchid_secret_2026}@postgres-db:5432/orchid_disease_db
       - ENABLE_MQTT=true
       - MQTT_BROKER_HOST=mqtt-broker
       - MQTT_BROKER_PORT=1883
     depends_on:
+      - postgres-db
       - mqtt-broker
     networks:
       - orchid-network
@@ -69,12 +90,12 @@ services:
       - "7862:7860"
     environment:
       - PORT=7860
-      - FLOWERING_SUPABASE_URL=${FLOWERING_SUPABASE_URL:-}
-      - FLOWERING_SUPABASE_KEY=${FLOWERING_SUPABASE_KEY:-}
+      - FLOWERING_DB_URL=postgresql://${POSTGRES_USER:-orchid_admin}:${POSTGRES_PASSWORD:-orchid_secret_2026}@postgres-db:5432/orchid_flowering_db
       - ENABLE_MQTT=true
       - MQTT_BROKER_HOST=mqtt-broker
       - MQTT_BROKER_PORT=1883
     depends_on:
+      - postgres-db
       - mqtt-broker
     networks:
       - orchid-network
@@ -92,12 +113,12 @@ services:
       - "7863:7860"
     environment:
       - PORT=7860
-      - FERTILIZER_SUPABASE_URL=${FERTILIZER_SUPABASE_URL:-}
-      - FERTILIZER_SUPABASE_KEY=${FERTILIZER_SUPABASE_KEY:-}
+      - FERTILIZER_DB_URL=postgresql://${POSTGRES_USER:-orchid_admin}:${POSTGRES_PASSWORD:-orchid_secret_2026}@postgres-db:5432/orchid_fertilizer_db
       - ENABLE_MQTT=true
       - MQTT_BROKER_HOST=mqtt-broker
       - MQTT_BROKER_PORT=1883
     depends_on:
+      - postgres-db
       - mqtt-broker
     networks:
       - orchid-network
@@ -115,12 +136,12 @@ services:
       - "7864:7860"
     environment:
       - PORT=7860
-      - PLACEMENT_SUPABASE_URL=${PLACEMENT_SUPABASE_URL:-}
-      - PLACEMENT_SUPABASE_KEY=${PLACEMENT_SUPABASE_KEY:-}
+      - PLACEMENT_DB_URL=postgresql://${POSTGRES_USER:-orchid_admin}:${POSTGRES_PASSWORD:-orchid_secret_2026}@postgres-db:5432/orchid_placement_db
       - ENABLE_MQTT=true
       - MQTT_BROKER_HOST=mqtt-broker
       - MQTT_BROKER_PORT=1883
     depends_on:
+      - postgres-db
       - mqtt-broker
     networks:
       - orchid-network
@@ -152,6 +173,10 @@ services:
       - placement-service
     networks:
       - orchid-network
+
+volumes:
+  postgres_data:
+    driver: local
 
 networks:
   orchid-network:
