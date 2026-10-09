@@ -1,108 +1,143 @@
 import os
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone
+from contextlib import contextmanager
 from dotenv import load_dotenv
-from supabase import create_client, Client
+
+try:
+    import psycopg2
+    from psycopg2.extras import RealDictCursor, Json
+    from psycopg2 import pool
+except ImportError:
+    psycopg2 = None
+    RealDictCursor = None
+    Json = None
+    pool = None
 
 load_dotenv()
 
-SUPABASE_URL = (
-    os.getenv("PLACEMENT_SUPABASE_URL")
-    or os.getenv("LOCATIONS_SUPABASE_URL")
-    or os.getenv("SUPABASE_URL")
-)
-SUPABASE_KEY = (
-    os.getenv("PLACEMENT_SUPABASE_KEY")
-    or os.getenv("LOCATIONS_SUPABASE_KEY")
-    or os.getenv("SUPABASE_KEY")
-)
+# Dedicated database for Plant Placement Analysis Service
+DB_URL = os.getenv("PLACEMENT_DB_URL") or os.getenv("DATABASE_URL")
+if not DB_URL:
+    db_user = os.getenv("POSTGRES_USER", "orchid_admin")
+    db_pass = os.getenv("POSTGRES_PASSWORD", "orchid_secret_2026")
+    db_host = os.getenv("POSTGRES_HOST", "postgres-db")
+    db_port = os.getenv("POSTGRES_PORT", "5432")
+    DB_URL = f"postgresql://{db_user}:{db_pass}@{db_host}:{db_port}/orchid_placement_db"
 
-supabase: Optional[Client] = None
+_connection_pool = None
 
-if SUPABASE_URL and SUPABASE_KEY:
+def get_pool():
+    global _connection_pool
+    if _connection_pool is None and psycopg2 and DB_URL:
+        try:
+            _connection_pool = pool.SimpleConnectionPool(minconn=1, maxconn=10, dsn=DB_URL)
+            print("[Database] Successfully connected to PostgreSQL orchid_placement_db.")
+        except Exception as e:
+            print(f"[Database] Warning: Could not connect to PostgreSQL ({e}). Running in offline/inference mode.")
+            _connection_pool = None
+    return _connection_pool
+
+@contextmanager
+def get_db():
+    p = get_pool()
+    if not p:
+        yield None
+        return
+    conn = p.getconn()
     try:
-        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-        print("[Database] Successfully connected to Placement Supabase project.")
-    except Exception as e:
-        print(f"[Database] Warning: Could not initialize Supabase client: {e}")
-else:
-    print("[Database] Warning: Missing PLACEMENT_SUPABASE_URL or PLACEMENT_SUPABASE_KEY. Persistence disabled.")
+        yield conn
+    finally:
+        p.putconn(conn)
 
-
-# ==============================================================================
-# LOCATION ZONES REPOSITORY
-# ==============================================================================
 
 def create_location(name: str, description: Optional[str], user_id: str) -> Optional[Dict[str, Any]]:
-    if not supabase:
-        return None
-    try:
-        res = supabase.table("locations").insert({
-            "location_name": name,
-            "description": description,
-            "user_id": user_id,
-        }).execute()
-        return res.data[0] if res.data else None
-    except Exception as e:
-        print(f"[Database] Failed to create location: {e}")
-        return None
+    with get_db() as conn:
+        if not conn:
+            return None
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(
+                    """
+                    INSERT INTO locations (location_name, description, user_id, created_at)
+                    VALUES (%s, %s, %s, %s)
+                    RETURNING *;
+                    """,
+                    (name, description, user_id, datetime.now(timezone.utc)),
+                )
+                conn.commit()
+                row = cur.fetchone()
+                return dict(row) if row else None
+        except Exception as e:
+            conn.rollback()
+            print(f"[Database] Failed to create location: {e}")
+            return None
 
 
 def get_user_locations(user_id: str) -> List[Dict[str, Any]]:
-    if not supabase or not user_id:
+    if not user_id:
         return []
-    try:
-        res = (
-            supabase.table("locations")
-            .select("*")
-            .eq("user_id", user_id)
-            .is_("deleted_at", "null")
-            .order("created_at", desc=True)
-            .execute()
-        )
-        return res.data or []
-    except Exception as e:
-        print(f"[Database] Failed to fetch locations for user {user_id}: {e}")
-        return []
+    with get_db() as conn:
+        if not conn:
+            return []
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(
+                    """
+                    SELECT * FROM locations
+                    WHERE user_id = %s AND deleted_at IS NULL
+                    ORDER BY created_at DESC;
+                    """,
+                    (user_id,),
+                )
+                rows = cur.fetchall()
+                return [dict(r) for r in rows] if rows else []
+        except Exception as e:
+            print(f"[Database] Failed to fetch locations for user {user_id}: {e}")
+            return []
 
 
 def get_location_by_id(location_id: str) -> Optional[Dict[str, Any]]:
-    if not supabase:
-        return None
-    try:
-        res = (
-            supabase.table("locations")
-            .select("*")
-            .eq("location_id", location_id)
-            .is_("deleted_at", "null")
-            .execute()
-        )
-        return res.data[0] if res.data else None
-    except Exception as e:
-        print(f"[Database] Failed to fetch location {location_id}: {e}")
-        return None
+    with get_db() as conn:
+        if not conn:
+            return None
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(
+                    """
+                    SELECT * FROM locations
+                    WHERE location_id = %s AND deleted_at IS NULL;
+                    """,
+                    (location_id,),
+                )
+                row = cur.fetchone()
+                return dict(row) if row else None
+        except Exception as e:
+            print(f"[Database] Failed to fetch location {location_id}: {e}")
+            return None
 
 
 def soft_delete_location(location_id: str) -> bool:
-    if not supabase:
-        return False
-    try:
-        res = (
-            supabase.table("locations")
-            .update({"deleted_at": datetime.now(timezone.utc).isoformat()})
-            .eq("location_id", location_id)
-            .is_("deleted_at", "null")
-            .execute()
-        )
-        return bool(res.data)
-    except Exception as e:
-        print(f"[Database] Failed to delete location {location_id}: {e}")
-        return False
+    with get_db() as conn:
+        if not conn:
+            return False
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE locations
+                    SET deleted_at = %s
+                    WHERE location_id = %s AND deleted_at IS NULL;
+                    """,
+                    (datetime.now(timezone.utc), location_id),
+                )
+                conn.commit()
+                return cur.rowcount > 0
+        except Exception as e:
+            conn.rollback()
+            print(f"[Database] Failed to delete location {location_id}: {e}")
+            return False
 
-
-# ==============================================================================
-# SENSOR MODULE PAIRING REPOSITORY
-# ==============================================================================
 
 def register_module(
     module_id: str,
@@ -110,119 +145,183 @@ def register_module(
     user_id: str,
     location_id: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
-    if not supabase:
-        return None
-    payload = {
-        "module_id": module_id.lower().replace(":", "").replace("-", ""),
-        "device_name": device_name or "ESP32 S3 Node",
-        "user_id": user_id,
-        "last_seen": datetime.now(timezone.utc).isoformat(),
-        "is_active": True,
-    }
-    if location_id:
-        payload["location_id"] = location_id
-
-    try:
-        # Upsert module
-        res = supabase.table("sensor_modules").upsert(payload).execute()
-        return res.data[0] if res.data else None
-    except Exception as e:
-        print(f"[Database] Failed to register module: {e}")
-        return None
+    clean_id = module_id.lower().replace(":", "").replace("-", "").strip()
+    with get_db() as conn:
+        if not conn:
+            return None
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(
+                    """
+                    INSERT INTO sensor_modules
+                        (module_id, device_name, user_id, location_id, last_seen, is_active, created_at)
+                    VALUES (%s, %s, %s, %s, %s, TRUE, %s)
+                    ON CONFLICT (module_id) DO UPDATE
+                    SET device_name = EXCLUDED.device_name,
+                        user_id = EXCLUDED.user_id,
+                        location_id = EXCLUDED.location_id,
+                        last_seen = EXCLUDED.last_seen,
+                        is_active = TRUE
+                    RETURNING *;
+                    """,
+                    (
+                        clean_id,
+                        device_name or "ESP32 S3 Node",
+                        user_id,
+                        location_id,
+                        datetime.now(timezone.utc),
+                        datetime.now(timezone.utc),
+                    ),
+                )
+                conn.commit()
+                row = cur.fetchone()
+                return dict(row) if row else None
+        except Exception as e:
+            conn.rollback()
+            print(f"[Database] Failed to register module: {e}")
+            return None
 
 
 def get_user_modules(user_id: str) -> List[Dict[str, Any]]:
-    if not supabase or not user_id:
+    if not user_id:
         return []
-    try:
-        res = (
-            supabase.table("sensor_modules")
-            .select("*, locations(*)")
-            .eq("user_id", user_id)
-            .order("created_at", desc=True)
-            .execute()
-        )
-        return res.data or []
-    except Exception as e:
-        print(f"[Database] Failed to fetch modules for user {user_id}: {e}")
-        return []
+    with get_db() as conn:
+        if not conn:
+            return []
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(
+                    """
+                    SELECT m.*, l.location_name
+                    FROM sensor_modules m
+                    LEFT JOIN locations l ON m.location_id = l.location_id
+                    WHERE m.user_id = %s
+                    ORDER BY m.created_at DESC;
+                    """,
+                    (user_id,),
+                )
+                rows = cur.fetchall()
+                return [dict(r) for r in rows] if rows else []
+        except Exception as e:
+            print(f"[Database] Failed to fetch modules for user {user_id}: {e}")
+            return []
 
 
 def update_module_last_seen(module_id: str):
-    if not supabase:
-        return
-    clean_id = module_id.lower().replace(":", "").replace("-", "")
-    try:
-        supabase.table("sensor_modules").update({
-            "last_seen": datetime.now(timezone.utc).isoformat(),
-        }).eq("module_id", clean_id).execute()
-    except Exception as e:
-        print(f"[Database] Could not update last_seen for {clean_id}: {e}")
+    clean_id = module_id.lower().replace(":", "").replace("-", "").strip()
+    with get_db() as conn:
+        if not conn:
+            return
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE sensor_modules
+                    SET last_seen = %s
+                    WHERE module_id = %s;
+                    """,
+                    (datetime.now(timezone.utc), clean_id),
+                )
+                conn.commit()
+        except Exception as e:
+            print(f"[Database] Could not update last_seen for {clean_id}: {e}")
 
-
-# ==============================================================================
-# AMBIENT TELEMETRY & ANALYSIS TEST RECORDS
-# ==============================================================================
 
 def save_ambient_reading(module_id: str, temperature: float, humidity: float, lux: float):
-    if not supabase:
-        return
-    clean_id = module_id.lower().replace(":", "").replace("-", "")
-    try:
-        supabase.table("ambient_telemetry").insert({
-            "module_id": clean_id,
-            "temperature": float(temperature),
-            "humidity": float(humidity),
-            "lux": float(lux),
-            "created_at": datetime.now(timezone.utc).isoformat(),
-        }).execute()
-        update_module_last_seen(clean_id)
-    except Exception as e:
-        print(f"[Database] Failed to record ambient reading: {e}")
+    clean_id = module_id.lower().replace(":", "").replace("-", "").strip()
+    with get_db() as conn:
+        if not conn:
+            return
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO ambient_telemetry (module_id, temperature, humidity, lux, created_at)
+                    VALUES (%s, %s, %s, %s, %s);
+                    """,
+                    (clean_id, float(temperature), float(humidity), float(lux), datetime.now(timezone.utc)),
+                )
+                conn.commit()
+            update_module_last_seen(clean_id)
+        except Exception as e:
+            conn.rollback()
+            print(f"[Database] Failed to record ambient reading: {e}")
 
 
 def get_latest_ambient(module_id: str) -> Optional[Dict[str, Any]]:
-    if not supabase:
-        return None
-    clean_id = module_id.lower().replace(":", "").replace("-", "")
-    try:
-        res = (
-            supabase.table("ambient_telemetry")
-            .select("*")
-            .eq("module_id", clean_id)
-            .order("created_at", desc=True)
-            .limit(1)
-            .execute()
-        )
-        return res.data[0] if res.data else None
-    except Exception as e:
-        print(f"[Database] Could not fetch latest ambient for {clean_id}: {e}")
-        return None
+    clean_id = module_id.lower().replace(":", "").replace("-", "").strip()
+    with get_db() as conn:
+        if not conn:
+            return None
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(
+                    """
+                    SELECT * FROM ambient_telemetry
+                    WHERE module_id = %s
+                    ORDER BY created_at DESC
+                    LIMIT 1;
+                    """,
+                    (clean_id,),
+                )
+                row = cur.fetchone()
+                return dict(row) if row else None
+        except Exception as e:
+            print(f"[Database] Could not fetch latest ambient for {clean_id}: {e}")
+            return None
 
 
 def save_analysis_record(payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    if not supabase:
-        return None
-    try:
-        res = supabase.table("location_analysis_records").insert(payload).execute()
-        return res.data[0] if res.data else None
-    except Exception as e:
-        print(f"[Database] Failed to save location test record: {e}")
-        return None
+    with get_db() as conn:
+        if not conn:
+            return None
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(
+                    """
+                    INSERT INTO location_analysis_records
+                        (user_id, module_id, species, readings, averages, verdict, recommendation, created_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING *;
+                    """,
+                    (
+                        payload.get("user_id"),
+                        payload.get("module_id"),
+                        payload.get("species", "Dendrobium"),
+                        Json(payload.get("readings")) if payload.get("readings") is not None else None,
+                        Json(payload.get("averages")) if payload.get("averages") is not None else None,
+                        payload.get("verdict"),
+                        payload.get("recommendation"),
+                        datetime.now(timezone.utc),
+                    ),
+                )
+                conn.commit()
+                row = cur.fetchone()
+                return dict(row) if row else None
+        except Exception as e:
+            conn.rollback()
+            print(f"[Database] Failed to save location test record: {e}")
+            return None
 
 
 def get_user_analysis_history(user_id: str) -> List[Dict[str, Any]]:
-    if not supabase or not user_id:
+    if not user_id:
         return []
-    try:
-        res = (
-            supabase.table("location_analysis_records")
-            .select("*")
-            .eq("user_id", user_id)
-            .order("created_at", desc=True)
-            .execute()
-        )
-        return res.data or []
-    except Exception as e:
-        print(f"[Database] Failed to fetch analysis history: {e}")
-        return []
+    with get_db() as conn:
+        if not conn:
+            return []
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(
+                    """
+                    SELECT * FROM location_analysis_records
+                    WHERE user_id = %s
+                    ORDER BY created_at DESC;
+                    """,
+                    (user_id,),
+                )
+                rows = cur.fetchall()
+                return [dict(r) for r in rows] if rows else []
+        except Exception as e:
+            print(f"[Database] Failed to fetch analysis history: {e}")
+            return []

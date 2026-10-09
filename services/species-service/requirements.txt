@@ -8,6 +8,6 @@ ultralytics-opencv-headless>=8.0.0
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch
 torchvision
-supabase>=2.0.0
+psycopg2-binary>=2.9.9
 python-dotenv>=1.0.0
 pydantic>=2.0.0
