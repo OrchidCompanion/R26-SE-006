@@ -1,0 +1,158 @@
+services:
+  # ---------------------------------------------------------------------------
+  # MQTT Message Broker (Local Development)
+  # ---------------------------------------------------------------------------
+  mqtt-broker:
+    image: eclipse-mosquitto:2
+    container_name: orchid-mqtt-broker
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./mosquitto/config/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    networks:
+      - orchid-network
+
+  # ---------------------------------------------------------------------------
+  # Microservice 1: Species Identification Service (IT22140616)
+  # ---------------------------------------------------------------------------
+  species-service:
+    build:
+      context: ./services/species-service
+      dockerfile: Dockerfile
+    container_name: orchid-species-service
+    restart: unless-stopped
+    ports:
+      - "7860:7860"
+    environment:
+      - PORT=7860
+      - SPECIES_SUPABASE_URL=${SPECIES_SUPABASE_URL:-}
+      - SPECIES_SUPABASE_KEY=${SPECIES_SUPABASE_KEY:-}
+      - CONF_THRESHOLD=${CONF_THRESHOLD:-0.35}
+    networks:
+      - orchid-network
+
+  # ---------------------------------------------------------------------------
+  # Microservice 2: Disease & Treatment Service (IT22250124)
+  # ---------------------------------------------------------------------------
+  disease-service:
+    build:
+      context: ./services/disease-service
+      dockerfile: Dockerfile
+    container_name: orchid-disease-service
+    restart: unless-stopped
+    ports:
+      - "7861:7860"
+    environment:
+      - PORT=7860
+      - DISEASE_SUPABASE_URL=${DISEASE_SUPABASE_URL:-}
+      - DISEASE_SUPABASE_KEY=${DISEASE_SUPABASE_KEY:-}
+      - ENABLE_MQTT=true
+      - MQTT_BROKER_HOST=mqtt-broker
+      - MQTT_BROKER_PORT=1883
+    depends_on:
+      - mqtt-broker
+    networks:
+      - orchid-network
+
+  # ---------------------------------------------------------------------------
+  # Microservice 3: Flowering Lifecycle Service (IT22190598)
+  # ---------------------------------------------------------------------------
+  flowering-service:
+    build:
+      context: ./services/flowering-service
+      dockerfile: Dockerfile
+    container_name: orchid-flowering-service
+    restart: unless-stopped
+    ports:
+      - "7862:7860"
+    environment:
+      - PORT=7860
+      - FLOWERING_SUPABASE_URL=${FLOWERING_SUPABASE_URL:-}
+      - FLOWERING_SUPABASE_KEY=${FLOWERING_SUPABASE_KEY:-}
+      - ENABLE_MQTT=true
+      - MQTT_BROKER_HOST=mqtt-broker
+      - MQTT_BROKER_PORT=1883
+    depends_on:
+      - mqtt-broker
+    networks:
+      - orchid-network
+
+  # ---------------------------------------------------------------------------
+  # Microservice 4: Growth Stage & Fertilizer Service (IT22085726)
+  # ---------------------------------------------------------------------------
+  fertilizer-service:
+    build:
+      context: ./services/fertilizer-service
+      dockerfile: Dockerfile
+    container_name: orchid-fertilizer-service
+    restart: unless-stopped
+    ports:
+      - "7863:7860"
+    environment:
+      - PORT=7860
+      - FERTILIZER_SUPABASE_URL=${FERTILIZER_SUPABASE_URL:-}
+      - FERTILIZER_SUPABASE_KEY=${FERTILIZER_SUPABASE_KEY:-}
+      - ENABLE_MQTT=true
+      - MQTT_BROKER_HOST=mqtt-broker
+      - MQTT_BROKER_PORT=1883
+    depends_on:
+      - mqtt-broker
+    networks:
+      - orchid-network
+
+  # ---------------------------------------------------------------------------
+  # Microservice 5: Plant Placement Analysis Service
+  # ---------------------------------------------------------------------------
+  placement-service:
+    build:
+      context: ./services/placement-service
+      dockerfile: Dockerfile
+    container_name: orchid-placement-service
+    restart: unless-stopped
+    ports:
+      - "7864:7860"
+    environment:
+      - PORT=7860
+      - PLACEMENT_SUPABASE_URL=${PLACEMENT_SUPABASE_URL:-}
+      - PLACEMENT_SUPABASE_KEY=${PLACEMENT_SUPABASE_KEY:-}
+      - ENABLE_MQTT=true
+      - MQTT_BROKER_HOST=mqtt-broker
+      - MQTT_BROKER_PORT=1883
+    depends_on:
+      - mqtt-broker
+    networks:
+      - orchid-network
+
+  # ---------------------------------------------------------------------------
+  # API Gateway
+  # ---------------------------------------------------------------------------
+  gateway:
+    build:
+      context: ./services/gateway
+      dockerfile: Dockerfile
+    container_name: orchid-api-gateway
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - SPECIES_SERVICE_URL=http://species-service:7860
+      - DISEASE_SERVICE_URL=http://disease-service:7860
+      - FLOWERING_SERVICE_URL=http://flowering-service:7860
+      - FERTILIZER_SERVICE_URL=http://fertilizer-service:7860
+      - PLACEMENT_SERVICE_URL=http://placement-service:7860
+      - LEGACY_BACKEND_URL=${LEGACY_BACKEND_URL:-https://r26-se-006.onrender.com}
+    depends_on:
+      - species-service
+      - disease-service
+      - flowering-service
+      - fertilizer-service
+      - placement-service
+    networks:
+      - orchid-network
+
+networks:
+  orchid-network:
+    driver: bridge
