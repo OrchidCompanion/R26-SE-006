@@ -16,9 +16,18 @@
 #define DHTPIN 5
 #define DHTTYPE DHT11
 
-// FASTAPI RENDER BACKEND CONFIGURATION
-const char* WS_HOST = "r26-se-006.onrender.com";
+// =============================================================================
+// BACKEND VPS SERVER CONFIGURATION
+// =============================================================================
+// Mode 1: Production VPS with SSL (via Caddy reverse proxy) - RECOMMENDED
+const char* WS_HOST = "169-58-119-186.sslip.io";
 const int WS_PORT = 443;
+const bool USE_SSL = true;
+
+// Mode 2: Direct VPS IP (Without SSL, connects directly to Placement Service)
+// const char* WS_HOST = "169.58.119.186";
+// const int WS_PORT = 7864;
+// const bool USE_SSL = false;
 
 // OBJECTS & GLOBAL INSTANCES
 LiquidCrystal_I2C lcd(0x27, 16, 4);
@@ -295,9 +304,13 @@ void setup() {
   Serial.print("[Hardware] MAC: ");
   Serial.println(macAddress);
 
-  // Setup Secure WebSocket connection (WSS)
+  // Setup WebSocket connection
   wsPath = "/api/sensors/ws/" + macAddress;
-  webSocket.beginSSL(WS_HOST, WS_PORT, wsPath.c_str());
+  if (USE_SSL) {
+    webSocket.beginSSL(WS_HOST, WS_PORT, wsPath.c_str());
+  } else {
+    webSocket.begin(WS_HOST, WS_PORT, wsPath.c_str());
+  }
   webSocket.onEvent(webSocketEvent);
   webSocket.setReconnectInterval(5000);
 

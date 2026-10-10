@@ -1,3 +1,5 @@
 169-58-119-186.sslip.io {
+    reverse_proxy /api/sensors/ws/* placement-service:7860
+    reverse_proxy /ws/* placement-service:7860
     reverse_proxy gateway:8000
 }
