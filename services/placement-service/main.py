@@ -8,6 +8,7 @@ from database import (
     create_location,
     get_user_locations,
     get_location_by_id,
+    update_location,
     soft_delete_location,
     register_module,
     get_user_modules,
@@ -277,6 +278,19 @@ def get_location(location_id: str):
         raise HTTPException(status_code=404, detail="Location not found.")
     return loc
 
+
+
+class LocationUpdate(BaseModel):
+    location_name: Optional[str] = None
+    description: Optional[str] = None
+
+@app.put("/locations/{location_id}", tags=["Locations"])
+@app.put("/api/locations/{location_id}", tags=["Locations"])
+def update_location_zone(location_id: str, data: LocationUpdate):
+    loc = update_location(location_id, data.location_name, data.description)
+    if not loc:
+        raise HTTPException(status_code=404, detail="Location not found or update failed.")
+    return loc
 
 
 @app.delete("/locations/{location_id}", tags=["Locations"])

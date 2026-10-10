@@ -139,6 +139,31 @@ def soft_delete_location(location_id: str) -> bool:
             return False
 
 
+def update_location(location_id: str, name: Optional[str] = None, description: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    with get_db() as conn:
+        if not conn:
+            return None
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(
+                    """
+                    UPDATE locations
+                    SET location_name = COALESCE(%s, location_name),
+                        description = COALESCE(%s, description)
+                    WHERE location_id = %s AND deleted_at IS NULL
+                    RETURNING *;
+                    """,
+                    (name, description, location_id),
+                )
+                conn.commit()
+                row = cur.fetchone()
+                return dict(row) if row else None
+        except Exception as e:
+            conn.rollback()
+            print(f"[Database] Failed to update location {location_id}: {e}")
+            return None
+
+
 def register_module(
     module_id: str,
     device_name: str,
