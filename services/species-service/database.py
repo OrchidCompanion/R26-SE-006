@@ -180,6 +180,29 @@ def get_plants_list(user_id: Optional[str] = None, is_admin: bool = False) -> Li
             return []
 
 
+def get_plants_by_location(location_id: str) -> List[Dict[str, Any]]:
+    """Fetch all active plants for a given location."""
+    with get_db() as conn:
+        if not conn:
+            return []
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(
+                    """
+                    SELECT * FROM plants
+                    WHERE CAST(location_id AS TEXT) = %s AND deleted_at IS NULL
+                    ORDER BY created_at DESC;
+                    """,
+                    (str(location_id),),
+                )
+                rows = cur.fetchall()
+                return [dict(r) for r in rows] if rows else []
+        except Exception as e:
+            print(f"[Database] Failed to fetch plants for location: {e}")
+            return []
+
+
+
 def get_plant_by_id(plant_id: str) -> Optional[Dict[str, Any]]:
     """Fetch single plant details by plant_id."""
     with get_db() as conn:

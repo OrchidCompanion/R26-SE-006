@@ -15,6 +15,7 @@ from database import (
     get_user_identification_history,
     create_plant_record,
     get_plants_list,
+    get_plants_by_location,
     get_plant_by_id,
     update_plant_record,
     soft_delete_plant_record,
@@ -281,9 +282,30 @@ def get_plants(
     return plants
 
 
+@app.get("/plants/user/{user_id}", tags=["Plants"])
+@app.get("/api/plants/user/{user_id}", tags=["Plants"])
+def get_user_plants(user_id: str):
+    """Admin / User: Get all plants belonging to a specific user."""
+    plants = get_plants_list(user_id=user_id, is_admin=False)
+    for p in plants:
+        p["plant_id"] = str(p.get("plant_id"))
+    return plants
+
+
+@app.get("/plants/location/{location_id}", tags=["Plants"])
+@app.get("/api/plants/location/{location_id}", tags=["Plants"])
+def get_location_plants(location_id: str):
+    """Get all plants placed under a specific location/shelf."""
+    plants = get_plants_by_location(location_id=location_id)
+    for p in plants:
+        p["plant_id"] = str(p.get("plant_id"))
+    return plants
+
+
 @app.get("/plants/{plant_id}", tags=["Plants"])
 @app.get("/api/plants/{plant_id}", tags=["Plants"])
 def get_plant_details(plant_id: str):
+
     plant = get_plant_by_id(plant_id)
     if not plant:
         raise HTTPException(status_code=404, detail="Plant not found.")
