@@ -350,3 +350,180 @@ def get_user_analysis_history(user_id: str) -> List[Dict[str, Any]]:
         except Exception as e:
             print(f"[Database] Failed to fetch analysis history: {e}")
             return []
+
+
+# ==============================================================================
+# DHT11 & BH1750 SENSOR TELEMETRY HISTORY
+# ==============================================================================
+
+def save_dht11_reading(
+    temperature: float,
+    humidity: float,
+    location_id: Optional[str] = None,
+    module_id: Optional[str] = None,
+    time_slot: str = "morning",
+    user_id: Optional[str] = None,
+    plant_id: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    with get_db() as conn:
+        if not conn:
+            return None
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(
+                    """
+                    INSERT INTO dht11_environment_history
+                        (temperature, humidity, location_id, module_id, time_slot, user_id, plant_id, created_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING *;
+                    """,
+                    (temperature, humidity, location_id, module_id, time_slot, user_id, plant_id, datetime.now(timezone.utc)),
+                )
+                conn.commit()
+                row = cur.fetchone()
+                return dict(row) if row else None
+        except Exception as e:
+            conn.rollback()
+            print(f"[Database] Failed to save DHT11 reading: {e}")
+            return None
+
+
+def get_dht11_readings(
+    plant_id: Optional[str] = None,
+    location_id: Optional[str] = None,
+    page: int = 1,
+    limit: int = 10,
+) -> Dict[str, Any]:
+    with get_db() as conn:
+        if not conn:
+            return {"data": [], "total": 0, "page": page, "limit": limit}
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                offset = (page - 1) * limit
+                query = "SELECT * FROM dht11_environment_history WHERE 1=1"
+                count_query = "SELECT COUNT(*) as total FROM dht11_environment_history WHERE 1=1"
+                params = []
+                count_params = []
+
+                if plant_id:
+                    query += " AND (plant_id = %s"
+                    count_query += " AND (plant_id = %s"
+                    params.append(plant_id)
+                    count_params.append(plant_id)
+                    if location_id:
+                        query += " OR location_id = %s)"
+                        count_query += " OR location_id = %s)"
+                        params.append(location_id)
+                        count_params.append(location_id)
+                    else:
+                        query += ")"
+                        count_query += ")"
+                elif location_id:
+                    query += " AND location_id = %s"
+                    count_query += " AND location_id = %s"
+                    params.append(location_id)
+                    count_params.append(location_id)
+
+                cur.execute(count_query, tuple(count_params))
+                total = cur.fetchone()["total"]
+
+                query += " ORDER BY created_at DESC LIMIT %s OFFSET %s;"
+                params.extend([limit, offset])
+                cur.execute(query, tuple(params))
+                rows = cur.fetchall()
+
+                return {
+                    "data": [dict(r) for r in rows] if rows else [],
+                    "total": total,
+                    "page": page,
+                    "limit": limit,
+                }
+        except Exception as e:
+            print(f"[Database] Failed to get DHT11 readings: {e}")
+            return {"data": [], "total": 0, "page": page, "limit": limit}
+
+
+def save_bh1750_reading(
+    lux: float,
+    location_id: Optional[str] = None,
+    module_id: Optional[str] = None,
+    time_slot: str = "morning",
+    user_id: Optional[str] = None,
+    plant_id: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    with get_db() as conn:
+        if not conn:
+            return None
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(
+                    """
+                    INSERT INTO bh1750_environment_history
+                        (lux, location_id, module_id, time_slot, user_id, plant_id, created_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    RETURNING *;
+                    """,
+                    (lux, location_id, module_id, time_slot, user_id, plant_id, datetime.now(timezone.utc)),
+                )
+                conn.commit()
+                row = cur.fetchone()
+                return dict(row) if row else None
+        except Exception as e:
+            conn.rollback()
+            print(f"[Database] Failed to save BH1750 reading: {e}")
+            return None
+
+
+def get_bh1750_readings(
+    plant_id: Optional[str] = None,
+    location_id: Optional[str] = None,
+    page: int = 1,
+    limit: int = 10,
+) -> Dict[str, Any]:
+    with get_db() as conn:
+        if not conn:
+            return {"data": [], "total": 0, "page": page, "limit": limit}
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                offset = (page - 1) * limit
+                query = "SELECT * FROM bh1750_environment_history WHERE 1=1"
+                count_query = "SELECT COUNT(*) as total FROM bh1750_environment_history WHERE 1=1"
+                params = []
+                count_params = []
+
+                if plant_id:
+                    query += " AND (plant_id = %s"
+                    count_query += " AND (plant_id = %s"
+                    params.append(plant_id)
+                    count_params.append(plant_id)
+                    if location_id:
+                        query += " OR location_id = %s)"
+                        count_query += " OR location_id = %s)"
+                        params.append(location_id)
+                        count_params.append(location_id)
+                    else:
+                        query += ")"
+                        count_query += ")"
+                elif location_id:
+                    query += " AND location_id = %s"
+                    count_query += " AND location_id = %s"
+                    params.append(location_id)
+                    count_params.append(location_id)
+
+                cur.execute(count_query, tuple(count_params))
+                total = cur.fetchone()["total"]
+
+                query += " ORDER BY created_at DESC LIMIT %s OFFSET %s;"
+                params.extend([limit, offset])
+                cur.execute(query, tuple(params))
+                rows = cur.fetchall()
+
+                return {
+                    "data": [dict(r) for r in rows] if rows else [],
+                    "total": total,
+                    "page": page,
+                    "limit": limit,
+                }
+        except Exception as e:
+            print(f"[Database] Failed to get BH1750 readings: {e}")
+            return {"data": [], "total": 0, "page": page, "limit": limit}

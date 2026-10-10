@@ -305,8 +305,14 @@ async def route_locations(request: Request, path: str = ""):
     tags=["Placement Service"],
 )
 async def route_sensors(request: Request, path: str = ""):
-    """Routes directly to Plant Placement Analysis Microservice (Modules & Ambient Telemetry)."""
-    return await forward_request(PLACEMENT_SERVICE_URL, f"/modules/{path.replace('modules/', '')}" if path.startswith("modules/") else (f"/{path}" if path else "/modules"), request)
+    """Routes sensor telemetry requests: NPK to fertilizer-service, ambient/modules to placement-service."""
+    if path.startswith("npk"):
+        return await forward_request(FERTILIZER_SERVICE_URL, f"/{path}", request)
+    return await forward_request(
+        PLACEMENT_SERVICE_URL,
+        f"/modules/{path.replace('modules/', '')}" if path.startswith("modules/") else (f"/{path}" if path else "/modules"),
+        request,
+    )
 
 
 

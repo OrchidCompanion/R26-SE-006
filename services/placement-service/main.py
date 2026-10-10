@@ -15,6 +15,10 @@ from database import (
     save_ambient_reading,
     save_analysis_record,
     get_user_analysis_history,
+    save_dht11_reading,
+    get_dht11_readings,
+    save_bh1750_reading,
+    get_bh1750_readings,
 )
 from mqtt_hub import (
     start_mqtt_hub,
@@ -358,3 +362,91 @@ def get_placement_history(
     if not effective_user_id:
         raise HTTPException(status_code=400, detail="user_id query param or X-User-Id header required.")
     return get_user_analysis_history(effective_user_id)
+
+
+# ==============================================================================
+# DHT11 & BH1750 SENSOR TELEMETRY ENDPOINTS
+# ==============================================================================
+
+class DHT11Create(BaseModel):
+    temperature: float
+    humidity: float
+    location_id: Optional[str] = None
+    module_id: Optional[str] = None
+    time_slot: Optional[str] = "morning"
+    user_id: Optional[str] = None
+    plant_id: Optional[str] = None
+
+
+@app.post("/dht11", status_code=status.HTTP_201_CREATED, tags=["Sensor Telemetry"])
+@app.post("/api/sensors/dht11", status_code=status.HTTP_201_CREATED, tags=["Sensor Telemetry"])
+def log_dht11_reading(
+    data: DHT11Create,
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+):
+    """Logs a DHT11 environmental reading."""
+    user = data.user_id or x_user_id
+    record = save_dht11_reading(
+        temperature=data.temperature,
+        humidity=data.humidity,
+        location_id=data.location_id,
+        module_id=data.module_id,
+        time_slot=data.time_slot or "morning",
+        user_id=user,
+        plant_id=data.plant_id,
+    )
+    if not record:
+        raise HTTPException(status_code=500, detail="Failed to save DHT11 reading.")
+    return record
+
+
+@app.get("/dht11/plant/{plant_id}", tags=["Sensor Telemetry"])
+@app.get("/api/sensors/dht11/plant/{plant_id}", tags=["Sensor Telemetry"])
+def fetch_dht11_readings(
+    plant_id: str,
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+):
+    """Retrieves DHT11 telemetry records for a plant."""
+    return get_dht11_readings(plant_id=plant_id, page=page, limit=limit)
+
+
+class BH1750Create(BaseModel):
+    lux: float
+    location_id: Optional[str] = None
+    module_id: Optional[str] = None
+    time_slot: Optional[str] = "morning"
+    user_id: Optional[str] = None
+    plant_id: Optional[str] = None
+
+
+@app.post("/bh1750", status_code=status.HTTP_201_CREATED, tags=["Sensor Telemetry"])
+@app.post("/api/sensors/bh1750", status_code=status.HTTP_201_CREATED, tags=["Sensor Telemetry"])
+def log_bh1750_reading(
+    data: BH1750Create,
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+):
+    """Logs a BH1750 light lux reading."""
+    user = data.user_id or x_user_id
+    record = save_bh1750_reading(
+        lux=data.lux,
+        location_id=data.location_id,
+        module_id=data.module_id,
+        time_slot=data.time_slot or "morning",
+        user_id=user,
+        plant_id=data.plant_id,
+    )
+    if not record:
+        raise HTTPException(status_code=500, detail="Failed to save BH1750 reading.")
+    return record
+
+
+@app.get("/bh1750/plant/{plant_id}", tags=["Sensor Telemetry"])
+@app.get("/api/sensors/bh1750/plant/{plant_id}", tags=["Sensor Telemetry"])
+def fetch_bh1750_readings(
+    plant_id: str,
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+):
+    """Retrieves BH1750 telemetry records for a plant."""
+    return get_bh1750_readings(plant_id=plant_id, page=page, limit=limit)
