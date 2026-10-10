@@ -1,1 +1,1 @@
-# OrchidCompanion - Admin Fronted Web Application
+# OrchidCompanion - Fronted Web Application for Admin

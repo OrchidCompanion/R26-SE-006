@@ -18,9 +18,9 @@
 
 // =============================================================================
 // MQTT & NETWORK CONFIGURATION
-// Replace MQTT_SERVER with your VPS public IP (e.g. "123.45.67.89")
+// Contabo VPS public IP: 169.58.119.186
 // =============================================================================
-const char* MQTT_SERVER = "YOUR_VPS_IP_HERE";
+const char* MQTT_SERVER = "169.58.119.186";
 const int   MQTT_PORT   = 1883;
 const char* MQTT_USER   = ""; // Leave empty if anonymous
 const char* MQTT_PASS   = "";

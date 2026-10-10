@@ -1,4 +1,6 @@
 -- Database Schema: orchid_fertilizer_db
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
 CREATE TABLE IF NOT EXISTS fertilizer_requirements (
     requirement_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     plant_id VARCHAR(255),
@@ -30,3 +32,19 @@ CREATE TABLE IF NOT EXISTS npk_history (
 
 CREATE INDEX IF NOT EXISTS idx_fert_npk_plant ON npk_history(plant_id);
 CREATE INDEX IF NOT EXISTS idx_fert_npk_created ON npk_history(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS npk_assessments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    plant_id VARCHAR(255),
+    user_id VARCHAR(255),
+    nitrogen NUMERIC,
+    phosphorus NUMERIC,
+    potassium NUMERIC,
+    status VARCHAR(100),
+    recommendation TEXT,
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_fert_assess_plant ON npk_assessments(plant_id);
+CREATE INDEX IF NOT EXISTS idx_fert_assess_created ON npk_assessments(created_at DESC);

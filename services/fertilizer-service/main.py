@@ -15,6 +15,7 @@ from database import (
     soft_delete_fertilizer_requirement,
     get_latest_npk_reading,
     save_npk_reading,
+    get_npk_readings_by_plant,
 )
 from mqtt_consumer import start_mqtt_subscriber
 
@@ -226,3 +227,44 @@ def ingest_npk_reading(
         user_id=user_id or x_user_id,
     )
     return {"status": "success", "record": saved}
+
+
+class NPKCreate(BaseModel):
+    nitrogen_n: float
+    phosphorus_p: float
+    potassium_k: float
+    plant_id: Optional[str] = None
+    module_id: Optional[str] = None
+    time_slot: Optional[str] = "morning"
+    user_id: Optional[str] = None
+
+
+@app.post("/npk", status_code=status.HTTP_201_CREATED, tags=["NPK Telemetry"])
+@app.post("/api/sensors/npk", status_code=status.HTTP_201_CREATED, tags=["NPK Telemetry"])
+def log_npk_json_reading(
+    data: NPKCreate,
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+):
+    """Logs an NPK soil telemetry reading (JSON payload from frontend/ESP32)."""
+    user = data.user_id or x_user_id
+    record = save_npk_reading(
+        nitrogen=data.nitrogen_n,
+        phosphorus=data.phosphorus_p,
+        potassium=data.potassium_k,
+        plant_id=data.plant_id,
+        user_id=user,
+    )
+    if not record:
+        raise HTTPException(status_code=500, detail="Failed to save NPK reading.")
+    return record
+
+
+@app.get("/npk/plant/{plant_id}", tags=["NPK Telemetry"])
+@app.get("/api/sensors/npk/plant/{plant_id}", tags=["NPK Telemetry"])
+def fetch_npk_readings_for_plant(
+    plant_id: str,
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+):
+    """Retrieves NPK telemetry records for a plant."""
+    return get_npk_readings_by_plant(plant_id=plant_id, page=page, limit=limit)
