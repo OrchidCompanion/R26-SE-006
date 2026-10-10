@@ -147,6 +147,26 @@ services:
       - orchid-network
 
   # ---------------------------------------------------------------------------
+  # Microservice 6: Authentication & User Service
+  # ---------------------------------------------------------------------------
+  auth-service:
+    build:
+      context: ./services/auth-service
+      dockerfile: Dockerfile
+    container_name: orchid-auth-service
+    restart: unless-stopped
+    ports:
+      - "7865:7860"
+    environment:
+      - PORT=7860
+      - AUTH_DB_URL=postgresql://${POSTGRES_USER:-orchid_admin}:${POSTGRES_PASSWORD:-orchid_secret_2026}@postgres-db:5432/orchid_auth_db
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-orchid_super_secret_jwt_key_2026_orchidcompanion}
+    depends_on:
+      - postgres-db
+    networks:
+      - orchid-network
+
+  # ---------------------------------------------------------------------------
   # API Gateway
   # ---------------------------------------------------------------------------
   gateway:
@@ -159,6 +179,7 @@ services:
       - "8000:8000"
     environment:
       - PORT=8000
+      - AUTH_SERVICE_URL=http://auth-service:7860
       - SPECIES_SERVICE_URL=http://species-service:7860
       - DISEASE_SERVICE_URL=http://disease-service:7860
       - FLOWERING_SERVICE_URL=http://flowering-service:7860
@@ -166,6 +187,7 @@ services:
       - PLACEMENT_SERVICE_URL=http://placement-service:7860
       - LEGACY_BACKEND_URL=${LEGACY_BACKEND_URL:-https://r26-se-006.onrender.com}
     depends_on:
+      - auth-service
       - species-service
       - disease-service
       - flowering-service
@@ -181,3 +203,4 @@ volumes:
 networks:
   orchid-network:
     driver: bridge
+

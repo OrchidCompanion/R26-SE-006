@@ -113,3 +113,147 @@ def get_user_identification_history(user_id: str, limit: int = 20) -> List[Dict[
         except Exception as e:
             print(f"[Database] Failed to fetch species history: {e}")
             return []
+
+
+# ==============================================================================
+# Plants Management (Domain: Species & Botanical Catalog)
+# ==============================================================================
+
+def create_plant_record(
+    plant_name: str,
+    plant_species: str,
+    user_id: str,
+    plant_location: Optional[str] = None,
+    location_id: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    """Insert a new orchid plant record into orchid_species_db."""
+    with get_db() as conn:
+        if not conn:
+            return None
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(
+                    """
+                    INSERT INTO plants (plant_name, plant_species, user_id, plant_location, location_id, created_at)
+                    VALUES (%s, %s, %s, %s, %s, NOW())
+                    RETURNING *;
+                    """,
+                    (plant_name.strip(), plant_species.strip(), str(user_id), plant_location, location_id),
+                )
+                conn.commit()
+                row = cur.fetchone()
+                return dict(row) if row else None
+        except Exception as e:
+            conn.rollback()
+            print(f"[Database] Failed to insert plant: {e}")
+            return None
+
+
+def get_plants_list(user_id: Optional[str] = None, is_admin: bool = False) -> List[Dict[str, Any]]:
+    """Fetch all active plants for a user or all if admin."""
+    with get_db() as conn:
+        if not conn:
+            return []
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                if is_admin or not user_id:
+                    cur.execute(
+                        """
+                        SELECT * FROM plants
+                        WHERE deleted_at IS NULL
+                        ORDER BY created_at DESC;
+                        """
+                    )
+                else:
+                    cur.execute(
+                        """
+                        SELECT * FROM plants
+                        WHERE user_id = %s AND deleted_at IS NULL
+                        ORDER BY created_at DESC;
+                        """,
+                        (str(user_id),),
+                    )
+                rows = cur.fetchall()
+                return [dict(r) for r in rows] if rows else []
+        except Exception as e:
+            print(f"[Database] Failed to fetch plants: {e}")
+            return []
+
+
+def get_plant_by_id(plant_id: str) -> Optional[Dict[str, Any]]:
+    """Fetch single plant details by plant_id."""
+    with get_db() as conn:
+        if not conn:
+            return None
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(
+                    """
+                    SELECT * FROM plants
+                    WHERE CAST(plant_id AS TEXT) = %s AND deleted_at IS NULL
+                    LIMIT 1;
+                    """,
+                    (str(plant_id),),
+                )
+                row = cur.fetchone()
+                return dict(row) if row else None
+        except Exception as e:
+            print(f"[Database] Failed to fetch plant by id: {e}")
+            return None
+
+
+def update_plant_record(plant_id: str, fields: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Update plant fields."""
+    with get_db() as conn:
+        if not conn:
+            return None
+        try:
+            set_clauses = []
+            values = []
+            for k, v in fields.items():
+                if k in ["plant_name", "plant_species", "plant_location", "location_id"]:
+                    set_clauses.append(f"{k} = %s")
+                    values.append(v)
+            if not set_clauses:
+                return get_plant_by_id(plant_id)
+
+            values.append(str(plant_id))
+            query = f"""
+                UPDATE plants
+                SET {', '.join(set_clauses)}
+                WHERE CAST(plant_id AS TEXT) = %s AND deleted_at IS NULL
+                RETURNING *;
+            """
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(query, tuple(values))
+                conn.commit()
+                row = cur.fetchone()
+                return dict(row) if row else None
+        except Exception as e:
+            conn.rollback()
+            print(f"[Database] Failed to update plant: {e}")
+            return None
+
+
+def soft_delete_plant_record(plant_id: str) -> bool:
+    """Soft delete plant."""
+    with get_db() as conn:
+        if not conn:
+            return False
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE plants
+                    SET deleted_at = NOW()
+                    WHERE CAST(plant_id AS TEXT) = %s AND deleted_at IS NULL;
+                    """,
+                    (str(plant_id),),
+                )
+                conn.commit()
+                return cur.rowcount > 0
+        except Exception as e:
+            conn.rollback()
+            print(f"[Database] Failed to delete plant: {e}")
+            return False
+

@@ -6,10 +6,19 @@ from typing import List, Optional, Dict, Any
 
 from fastapi import FastAPI, File, UploadFile, Form, Header, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from PIL import Image
 from ultralytics import YOLO
 
-from database import save_identification_log, get_user_identification_history
+from database import (
+    save_identification_log,
+    get_user_identification_history,
+    create_plant_record,
+    get_plants_list,
+    get_plant_by_id,
+    update_plant_record,
+    soft_delete_plant_record,
+)
 
 app = FastAPI(
     title="Orchid Species Identification Service",
@@ -24,6 +33,20 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+class PlantCreate(BaseModel):
+    plant_name: str
+    plant_species: str
+    plant_location: Optional[str] = None
+    location_id: Optional[str] = None
+    user_id: Optional[str] = None
+
+class PlantUpdate(BaseModel):
+    plant_name: Optional[str] = None
+    plant_species: Optional[str] = None
+    plant_location: Optional[str] = None
+    location_id: Optional[str] = None
+
 
 BASE_DIR = Path(__file__).resolve().parent
 MODEL_PATH = BASE_DIR / "models" / "species-identification.pt"
@@ -215,3 +238,75 @@ def get_history(
             detail="user_id query parameter or X-User-Id header is required.",
         )
     return get_user_identification_history(user_id=effective_user_id, limit=limit)
+
+
+# ==============================================================================
+# Plants Catalog API Endpoints
+# ==============================================================================
+
+@app.post("/plants", status_code=status.HTTP_201_CREATED, tags=["Plants"])
+@app.post("/api/plants", status_code=status.HTTP_201_CREATED, tags=["Plants"])
+def create_plant(
+    plant: PlantCreate,
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+):
+    effective_user_id = plant.user_id or x_user_id
+    if not effective_user_id:
+        raise HTTPException(status_code=400, detail="user_id is required.")
+    
+    created = create_plant_record(
+        plant_name=plant.plant_name,
+        plant_species=plant.plant_species,
+        user_id=effective_user_id,
+        plant_location=plant.plant_location,
+        location_id=plant.location_id,
+    )
+    if not created:
+        raise HTTPException(status_code=500, detail="Failed to create plant.")
+    created["plant_id"] = str(created.get("plant_id"))
+    return created
+
+
+@app.get("/plants", tags=["Plants"])
+@app.get("/api/plants", tags=["Plants"])
+def get_plants(
+    user_id: Optional[str] = Query(None),
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+    is_admin: bool = Query(False),
+):
+    effective_user_id = user_id or x_user_id
+    plants = get_plants_list(user_id=effective_user_id, is_admin=is_admin)
+    for p in plants:
+        p["plant_id"] = str(p.get("plant_id"))
+    return plants
+
+
+@app.get("/plants/{plant_id}", tags=["Plants"])
+@app.get("/api/plants/{plant_id}", tags=["Plants"])
+def get_plant_details(plant_id: str):
+    plant = get_plant_by_id(plant_id)
+    if not plant:
+        raise HTTPException(status_code=404, detail="Plant not found.")
+    plant["plant_id"] = str(plant.get("plant_id"))
+    return plant
+
+
+@app.put("/plants/{plant_id}", tags=["Plants"])
+@app.put("/api/plants/{plant_id}", tags=["Plants"])
+def update_plant(plant_id: str, data: PlantUpdate):
+    update_data = {k: v for k, v in data.dict().items() if v is not None}
+    updated = update_plant_record(plant_id, update_data)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Plant not found or update failed.")
+    updated["plant_id"] = str(updated.get("plant_id"))
+    return updated
+
+
+@app.delete("/plants/{plant_id}", tags=["Plants"])
+@app.delete("/api/plants/{plant_id}", tags=["Plants"])
+def delete_plant(plant_id: str):
+    success = soft_delete_plant_record(plant_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Plant not found.")
+    return {"message": "Plant deleted successfully."}
+
