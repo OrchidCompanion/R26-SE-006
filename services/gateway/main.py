@@ -131,6 +131,11 @@ async def route_auth(path: str, request: Request):
 
 # 1. Species Identification & Plants Catalog Microservice
 @app.api_route(
+    "/species/{path:path}",
+    methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    tags=["Species Service"],
+)
+@app.api_route(
     "/api/species/{path:path}",
     methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     tags=["Species Service"],
@@ -157,6 +162,11 @@ async def route_plants(path: str, request: Request):
 
 # 2. Disease & Treatment Microservice
 @app.api_route(
+    "/disease/{path:path}",
+    methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    tags=["Disease Service"],
+)
+@app.api_route(
     "/api/disease/{path:path}",
     methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     tags=["Disease Service"],
@@ -167,6 +177,11 @@ async def route_disease(path: str, request: Request):
 
 
 # 3. Flowering Lifecycle Microservice
+@app.api_route(
+    "/bloom/{path:path}",
+    methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    tags=["Flowering Service"],
+)
 @app.api_route(
     "/api/bloom/{path:path}",
     methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
@@ -179,6 +194,11 @@ async def route_flowering(path: str, request: Request):
 
 # 4. Growth Stage & Fertilizer Microservice
 @app.api_route(
+    "/fertilizer/{path:path}",
+    methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    tags=["Fertilizer Service"],
+)
+@app.api_route(
     "/api/fertilizer/{path:path}",
     methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     tags=["Fertilizer Service"],
@@ -190,6 +210,11 @@ async def route_fertilizer(path: str, request: Request):
 
 # 5. Plant Placement Analysis & Sensors Microservice
 @app.api_route(
+    "/locations/{path:path}",
+    methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    tags=["Placement Service"],
+)
+@app.api_route(
     "/api/locations/{path:path}",
     methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     tags=["Placement Service"],
@@ -200,6 +225,11 @@ async def route_locations(path: str, request: Request):
 
 
 @app.api_route(
+    "/sensors/{path:path}",
+    methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    tags=["Placement Service"],
+)
+@app.api_route(
     "/api/sensors/{path:path}",
     methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     tags=["Placement Service"],
@@ -207,6 +237,7 @@ async def route_locations(path: str, request: Request):
 async def route_sensors(path: str, request: Request):
     """Routes directly to Plant Placement Analysis Microservice (Modules & Ambient Telemetry)."""
     return await forward_request(PLACEMENT_SERVICE_URL, f"/modules/{path.replace('modules/', '')}" if path.startswith("modules/") else f"/{path}", request)
+
 
 
 # 6. Fallback route
