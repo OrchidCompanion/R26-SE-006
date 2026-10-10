@@ -26,6 +26,7 @@ DISEASE_SERVICE_URL = os.getenv("DISEASE_SERVICE_URL", "http://localhost:7861")
 FLOWERING_SERVICE_URL = os.getenv("FLOWERING_SERVICE_URL", "http://localhost:7862")
 FERTILIZER_SERVICE_URL = os.getenv("FERTILIZER_SERVICE_URL", "http://localhost:7863")
 PLACEMENT_SERVICE_URL = os.getenv("PLACEMENT_SERVICE_URL", "http://localhost:7864")
+AUTH_SERVICE_URL = os.getenv("AUTH_SERVICE_URL", "http://localhost:7865")
 LEGACY_BACKEND_URL = os.getenv("LEGACY_BACKEND_URL", "https://r26-se-006.onrender.com")
 
 HOP_BY_HOP_HEADERS = {
@@ -97,6 +98,7 @@ def health_check():
         "service": "OrchidCompanion API Gateway",
         "status": "healthy",
         "routes": {
+            "auth": AUTH_SERVICE_URL,
             "species": SPECIES_SERVICE_URL,
             "disease": DISEASE_SERVICE_URL,
             "flowering": FLOWERING_SERVICE_URL,
@@ -111,7 +113,23 @@ def health_check():
 # MICROSERVICE ROUTES
 # ==============================================================================
 
-# 1. Species Identification Microservice
+# 0. Authentication Microservice (Self-hosted)
+@app.api_route(
+    "/auth/{path:path}",
+    methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    tags=["Auth Service"],
+)
+@app.api_route(
+    "/api/auth/{path:path}",
+    methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    tags=["Auth Service"],
+)
+async def route_auth(path: str, request: Request):
+    """Routes directly to Authentication & User Microservice."""
+    return await forward_request(AUTH_SERVICE_URL, f"/{path}", request)
+
+
+# 1. Species Identification & Plants Catalog Microservice
 @app.api_route(
     "/api/species/{path:path}",
     methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
@@ -120,6 +138,21 @@ def health_check():
 async def route_species(path: str, request: Request):
     """Routes directly to Species Identification Microservice."""
     return await forward_request(SPECIES_SERVICE_URL, f"/identify" if path == "identify" else f"/{path}", request)
+
+
+@app.api_route(
+    "/plants/{path:path}",
+    methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    tags=["Species Service"],
+)
+@app.api_route(
+    "/api/plants/{path:path}",
+    methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    tags=["Species Service"],
+)
+async def route_plants(path: str, request: Request):
+    """Routes plant registry requests directly to Species & Plants Microservice."""
+    return await forward_request(SPECIES_SERVICE_URL, f"/plants/{path}" if path else "/plants", request)
 
 
 # 2. Disease & Treatment Microservice
@@ -176,12 +209,13 @@ async def route_sensors(path: str, request: Request):
     return await forward_request(PLACEMENT_SERVICE_URL, f"/modules/{path.replace('modules/', '')}" if path.startswith("modules/") else f"/{path}", request)
 
 
-# 6. Strangler Pattern: Route remaining traffic (plants, auth) to backend while extracting
+# 6. Fallback route
 @app.api_route(
     "/api/{path:path}",
     methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     tags=["Legacy Backend Fallback"],
 )
 async def route_fallback(path: str, request: Request):
-    """Routes to current backend services until they are extracted into microservices."""
+    """Routes any unassigned routes to legacy backend fallback."""
     return await forward_request(LEGACY_BACKEND_URL, f"/api/{path}", request)
+
