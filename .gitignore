@@ -23,3 +23,7 @@ env/
 
 # Preserve model directory structure
 !**/.gitkeep
+
+# Supabase exports & temp data
+supabase_data/
+

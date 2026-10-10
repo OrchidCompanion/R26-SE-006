@@ -196,11 +196,35 @@ services:
     networks:
       - orchid-network
 
+  # ---------------------------------------------------------------------------
+  # Reverse Proxy & Automatic SSL (Caddy)
+  # ---------------------------------------------------------------------------
+  caddy:
+    image: caddy:2-alpine
+    container_name: orchid-caddy-proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - gateway
+    networks:
+      - orchid-network
+
 volumes:
   postgres_data:
+    driver: local
+  caddy_data:
+    driver: local
+  caddy_config:
     driver: local
 
 networks:
   orchid-network:
     driver: bridge
+
 
