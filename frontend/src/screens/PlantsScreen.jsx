@@ -28,6 +28,8 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onBack }) {
   const [showAddLocationModal, setShowAddLocationModal] = useState(false);
   const [newLocationName, setNewLocationName] = useState("");
   const [newLocationDesc, setNewLocationDesc] = useState("");
+  const [savingLocation, setSavingLocation] = useState(false);
+  const [locationModalError, setLocationModalError] = useState("");
 
   const [showAddPlantModal, setShowAddPlantModal] = useState(false);
   const [targetLocationId, setTargetLocationId] = useState("");
@@ -35,6 +37,8 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onBack }) {
     plant_name: "",
     plant_species: "Dendrobium",
   });
+  const [savingPlant, setSavingPlant] = useState(false);
+  const [plantModalError, setPlantModalError] = useState("");
 
   const [editingLocationId, setEditingLocationId] = useState(null);
   const [editLocName, setEditLocName] = useState("");
@@ -266,7 +270,22 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onBack }) {
 
   const handleCreateLocation = async (e) => {
     e.preventDefault();
+    if (!newLocationName.trim()) {
+      setLocationModalError("Please enter a location name.");
+      return;
+    }
+
+    setSavingLocation(true);
+    setLocationModalError("");
+
     const token = localStorage.getItem("admin_token");
+    const targetUserId =
+      selectedUser?.user_id ||
+      selectedUser?.id ||
+      (localStorage.getItem("admin_user")
+        ? JSON.parse(localStorage.getItem("admin_user")).user_id
+        : "");
+
     try {
       const res = await fetch(`${API_BASE_URL}/locations`, {
         method: "POST",
@@ -275,20 +294,26 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onBack }) {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          location_name: newLocationName,
-          description: newLocationDesc,
-          user_id: selectedUser.user_id,
+          location_name: newLocationName.trim(),
+          description: newLocationDesc.trim(),
+          user_id: targetUserId,
         }),
       });
 
-      if (res.ok) {
-        setShowAddLocationModal(false);
-        setNewLocationName("");
-        setNewLocationDesc("");
-        loadUserData();
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || "Failed to create location zone.");
       }
+
+      setShowAddLocationModal(false);
+      setNewLocationName("");
+      setNewLocationDesc("");
+      loadUserData();
     } catch (err) {
-      console.error(err);
+      console.error("Error creating location:", err);
+      setLocationModalError(err.message || "Failed to save location.");
+    } finally {
+      setSavingLocation(false);
     }
   };
 
@@ -332,7 +357,22 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onBack }) {
 
   const handleCreatePlant = async (e) => {
     e.preventDefault();
+    if (!newPlant.plant_name.trim()) {
+      setPlantModalError("Please enter a plant name.");
+      return;
+    }
+
+    setSavingPlant(true);
+    setPlantModalError("");
+
     const token = localStorage.getItem("admin_token");
+    const targetUserId =
+      selectedUser?.user_id ||
+      selectedUser?.id ||
+      (localStorage.getItem("admin_user")
+        ? JSON.parse(localStorage.getItem("admin_user")).user_id
+        : "");
+
     try {
       const res = await fetch(`${API_BASE_URL}/plants`, {
         method: "POST",
@@ -342,18 +382,25 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onBack }) {
         },
         body: JSON.stringify({
           ...newPlant,
+          plant_name: newPlant.plant_name.trim(),
           location_id: targetLocationId || null,
-          user_id: selectedUser.user_id,
+          user_id: targetUserId,
         }),
       });
 
-      if (res.ok) {
-        setShowAddPlantModal(false);
-        setNewPlant({ plant_name: "", plant_species: "Dendrobium" });
-        loadUserData();
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || "Failed to create orchid plant.");
       }
+
+      setShowAddPlantModal(false);
+      setNewPlant({ plant_name: "", plant_species: "Dendrobium" });
+      loadUserData();
     } catch (err) {
-      console.error(err);
+      console.error("Error creating plant:", err);
+      setPlantModalError(err.message || "Failed to save plant.");
+    } finally {
+      setSavingPlant(false);
     }
   };
 
@@ -764,11 +811,30 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onBack }) {
       {showAddLocationModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex justify-center items-center p-4 z-50">
           <div className="bg-white p-6 rounded-2xl max-w-md w-full shadow-2xl space-y-4">
-            <h3 className="text-lg font-extrabold text-gray-800">Add Location Zone</h3>
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-extrabold text-gray-800">Add Location Zone</h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddLocationModal(false);
+                  setLocationModalError("");
+                }}
+                className="text-gray-400 hover:text-gray-600 text-lg font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {locationModalError && (
+              <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs p-3 rounded-xl font-medium">
+                {locationModalError}
+              </div>
+            )}
+
             <form onSubmit={handleCreateLocation} className="space-y-3">
               <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">
-                  Location Name
+                  Location Name <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -794,16 +860,20 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onBack }) {
               <div className="flex justify-end space-x-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowAddLocationModal(false)}
+                  onClick={() => {
+                    setShowAddLocationModal(false);
+                    setLocationModalError("");
+                  }}
                   className="px-4 py-2 text-xs bg-gray-100 hover:bg-gray-200 font-semibold rounded-xl text-gray-700 transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 text-xs bg-emerald-600 hover:bg-emerald-700 font-bold rounded-xl text-white transition"
+                  disabled={savingLocation}
+                  className="px-4 py-2 text-xs bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 font-bold rounded-xl text-white transition flex items-center gap-1.5 cursor-pointer"
                 >
-                  Save Location
+                  {savingLocation ? "Saving Location..." : "Save Location"}
                 </button>
               </div>
             </form>
@@ -815,11 +885,30 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onBack }) {
       {showAddPlantModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex justify-center items-center p-4 z-50">
           <div className="bg-white p-6 rounded-2xl max-w-md w-full shadow-2xl space-y-4">
-            <h3 className="text-lg font-extrabold text-gray-800">Add Orchid Plant</h3>
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-extrabold text-gray-800">Add Orchid Plant</h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddPlantModal(false);
+                  setPlantModalError("");
+                }}
+                className="text-gray-400 hover:text-gray-600 text-lg font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {plantModalError && (
+              <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs p-3 rounded-xl font-medium">
+                {plantModalError}
+              </div>
+            )}
+
             <form onSubmit={handleCreatePlant} className="space-y-3">
               <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">
-                  Plant Name / Identifier
+                  Plant Name / Identifier <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -870,16 +959,20 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onBack }) {
               <div className="flex justify-end space-x-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowAddPlantModal(false)}
+                  onClick={() => {
+                    setShowAddPlantModal(false);
+                    setPlantModalError("");
+                  }}
                   className="px-4 py-2 text-xs bg-gray-100 hover:bg-gray-200 font-semibold rounded-xl text-gray-700 transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 text-xs bg-emerald-600 hover:bg-emerald-700 font-bold rounded-xl text-white transition"
+                  disabled={savingPlant}
+                  className="px-4 py-2 text-xs bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 font-bold rounded-xl text-white transition flex items-center gap-1.5 cursor-pointer"
                 >
-                  Save Plant
+                  {savingPlant ? "Adding Plant..." : "Save Plant"}
                 </button>
               </div>
             </form>
