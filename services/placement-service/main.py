@@ -135,6 +135,13 @@ def list_locations(
     return get_user_locations(effective_user_id)
 
 
+@app.get("/locations/user/{user_id}", tags=["Locations"])
+@app.get("/api/locations/user/{user_id}", tags=["Locations"])
+def get_locations_for_user(user_id: str):
+    """Admin / User: Get all locations for a specific user."""
+    return get_user_locations(user_id)
+
+
 @app.get("/locations/{location_id}", tags=["Locations"])
 @app.get("/api/locations/{location_id}", tags=["Locations"])
 def get_location(location_id: str):
@@ -142,6 +149,7 @@ def get_location(location_id: str):
     if not loc:
         raise HTTPException(status_code=404, detail="Location not found.")
     return loc
+
 
 
 @app.delete("/locations/{location_id}", tags=["Locations"])
