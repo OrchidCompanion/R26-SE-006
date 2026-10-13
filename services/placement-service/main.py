@@ -24,6 +24,7 @@ from mqtt_hub import (
     start_mqtt_hub,
     get_latest_sensor_data,
     get_sensor_module_status,
+    trigger_mqtt_ambient_read,
     latest_readings,
 )
 from ws_manager import ws_manager
@@ -145,6 +146,18 @@ async def check_module_status(module_id: str):
                 "msg": "Connected via WebSocket.",
             }
 
+    # Active MQTT ping if not connected via WebSocket
+    mqtt_live = trigger_mqtt_ambient_read(clean_id, timeout_seconds=1.5)
+    if mqtt_live and "temperature" in mqtt_live and mqtt_live.get("temperature") is not None:
+        return {
+            "module_id": clean_id,
+            "online": True,
+            "dht11": True,
+            "bh1750": True,
+            "latest_reading": mqtt_live,
+            "msg": "Sensors operational over MQTT.",
+        }
+
     # Fallback: check MQTT hub or DB
     return get_sensor_module_status(module_id)
 
@@ -188,7 +201,18 @@ async def read_ambient_telemetry(module_id: str):
         except Exception as e:
             print(f"[WS Ambient Read Error] {clean_id}: {e}")
 
-    # Fallback to MQTT/DB cached data
+    # Active MQTT Trigger: Command ESP32 to read sensors immediately
+    mqtt_live = trigger_mqtt_ambient_read(clean_id, timeout_seconds=3.0)
+    if mqtt_live and "temperature" in mqtt_live and mqtt_live.get("temperature") is not None:
+        return {
+            "temperature": float(mqtt_live["temperature"]),
+            "humidity": float(mqtt_live["humidity"]),
+            "lux": float(mqtt_live["lux"]),
+            "module_id": clean_id,
+            "timestamp": mqtt_live.get("timestamp", datetime.now(timezone.utc).isoformat()),
+        }
+
+    # Fallback to DB cached data
     return get_latest_sensor_data(module_id)
 
 

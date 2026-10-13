@@ -31,6 +31,7 @@ def normalize_mac(mac: str) -> str:
 def on_connect(client, userdata, flags, rc, properties=None):
     if rc == 0:
         print(f"[MQTT] Placement Service connected to broker at {MQTT_HOST}:{MQTT_PORT}")
+        client.subscribe("orchid/+/env")
         client.subscribe("orchid/+/+/env")
         client.subscribe("orchid/sensors/env")
         client.subscribe("orchid/telemetry/env")
@@ -44,10 +45,14 @@ def on_message(client, userdata, msg):
         payload = json.loads(msg.payload.decode("utf-8"))
         parts = msg.topic.split("/")
 
-        # Extract MAC address
-        module_id = payload.get("module_id") or payload.get("mac_address")
-        if not module_id and len(parts) >= 3 and parts[1] != "sensors":
-            module_id = parts[2]
+        # Extract MAC address / identifier
+        module_id = (
+            payload.get("module_id")
+            or payload.get("mac_address")
+            or payload.get("device_id")
+        )
+        if not module_id and len(parts) >= 3 and parts[1] != "sensors" and parts[1] != "commands":
+            module_id = parts[1]  # e.g., orchid/<mac>/env
         if not module_id and len(parts) == 3 and parts[0] == "orchid" and parts[2] == "status":
             module_id = parts[1]
 
@@ -55,6 +60,14 @@ def on_message(client, userdata, msg):
             return
 
         clean_mac = normalize_mac(module_id)
+
+        # Handle online status heartbeats
+        if "status" in payload:
+            is_online = payload.get("status") == "online"
+            if clean_mac not in latest_readings:
+                latest_readings[clean_mac] = {"online": is_online}
+            else:
+                latest_readings[clean_mac]["online"] = is_online
 
         temp = payload.get("temperature") or payload.get("temp")
         hum = payload.get("humidity") or payload.get("hum")
@@ -78,6 +91,29 @@ def on_message(client, userdata, msg):
             print(f"[MQTT] Ambient reading recorded for {clean_mac}: T={temp}°C, H={hum}%, L={lux} Lux")
     except Exception as e:
         print(f"[MQTT] Error handling message on {msg.topic}: {e}")
+
+
+def trigger_mqtt_ambient_read(module_id: str, timeout_seconds: float = 3.0) -> Optional[Dict[str, Any]]:
+    """Publishes a trigger command over MQTT to the ESP32 and waits for response."""
+    global _client
+    if not _client or not _client.is_connected():
+        return None
+
+    clean_mac = normalize_mac(module_id)
+    prev_time = latest_readings.get(clean_mac, {}).get("timestamp")
+
+    cmd = json.dumps({"action": "read_now"})
+    _client.publish(f"orchid/{clean_mac}/command", cmd)
+    _client.publish("orchid/commands/env", cmd)
+
+    start = time.time()
+    while time.time() - start < timeout_seconds:
+        time.sleep(0.2)
+        curr = latest_readings.get(clean_mac)
+        if curr and curr.get("timestamp") != prev_time and "temperature" in curr:
+            return curr
+
+    return latest_readings.get(clean_mac)
 
 
 def start_mqtt_hub():
