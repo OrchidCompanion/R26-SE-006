@@ -1,0 +1,1441 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>OrchidCompanion - AI-Powered Mobile Companion for Home Orchid Care</title>
+  <meta name="description"
+    content="OrchidCompanion is an AI-powered and IoT-integrated mobile precision horticulture platform tailored for domestic orchid care — species identification, microclimate placement, bloom forecasting, disease diagnosis with NPK sensing, and stage-adapted fertilizer balancing." />
+
+  <!-- Favicon -->
+  <link rel="icon" href="assets/images/orchid-logo.png" type="image/png" />
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet" />
+
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+
+  <!-- Main Stylesheet -->
+  <link rel="stylesheet" href="assets/css/styles.css" />
+</head>
+
+<body class="motion-med">
+  <!-- Preloader -->
+  <div class="preloader" id="preloader">
+    <div class="logo-loader">
+      <div class="ring"></div>
+      <span>OrchidCompanion</span>
+    </div>
+  </div>
+
+  <!-- Scroll progress -->
+  <div class="progress-bar" id="progressBar"></div>
+
+  <!-- Ambient background -->
+  <div class="bg-fx"></div>
+  <div class="grain"></div>
+
+  <!-- Cursor -->
+  <div class="cursor" id="cursor"></div>
+  <div class="cursor-dot" id="cursorDot"></div>
+
+  <!-- ============================================================
+       DOCK NAVIGATION (Desktop Floating Dock)
+       ============================================================ -->
+  <nav class="dock-nav" id="dockNav">
+    <a href="#home" class="dk-brand">
+      <span class="mk"><i class="fa-solid fa-seedling"></i></span>
+      <span>OrchidCompanion</span>
+    </a>
+    <div class="dk-items">
+      <a href="#home" class="dk-item active"><i class="fa-solid fa-house"></i><span>Home</span></a>
+      <a href="#about" class="dk-item"><i class="fa-solid fa-circle-info"></i><span>Problem</span></a>
+      <a href="#components" class="dk-item"><i class="fa-solid fa-cubes"></i><span>Components</span></a>
+      <a href="#technology" class="dk-item"><i class="fa-solid fa-microchip"></i><span>Technologies</span></a>
+      <a href="#roadmap" class="dk-item"><i class="fa-solid fa-timeline"></i><span>Timeline</span></a>
+      <a href="#team" class="dk-item"><i class="fa-solid fa-users"></i><span>Team</span></a>
+      <button class="dk-menu-btn" id="dockMenuToggle" data-popover="moreMenu" aria-label="More navigation items">
+        <i class="fa-solid fa-ellipsis"></i>
+      </button>
+    </div>
+    <a href="#documents" class="dk-cta">
+      <i class="fa-solid fa-folder-open" style="margin-right: 5px"></i>Downloads
+    </a>
+  </nav>
+
+  <!-- Dock Menu Popover -->
+  <div class="dk-popover" id="moreMenu">
+    <a href="#technology"><i class="fa-solid fa-microchip"></i>Technologies</a>
+    <a href="#roadmap"><i class="fa-solid fa-timeline"></i>Milestones &amp; Timeline</a>
+    <a href="#documents"><i class="fa-solid fa-file-lines"></i>Research Documents</a>
+    <a href="#presentations"><i class="fa-solid fa-chalkboard-user"></i>Presentations</a>
+    <a href="#team"><i class="fa-solid fa-users"></i>Research Team</a>
+    <a href="#contact"><i class="fa-solid fa-envelope"></i>Contact</a>
+  </div>
+
+  <!-- Mobile Bottom Tabbar -->
+  <nav class="tabbar">
+    <div class="tabbar-inner">
+      <a href="#home" class="active"><i class="fa-solid fa-house"></i>Home</a>
+      <a href="#components"><i class="fa-solid fa-cubes"></i>Modules</a>
+      <a href="#roadmap"><i class="fa-solid fa-timeline"></i>Timeline</a>
+      <a href="#documents"><i class="fa-solid fa-folder-open"></i>Docs</a>
+      <a href="#team"><i class="fa-solid fa-users"></i>Team</a>
+    </div>
+  </nav>
+
+  <!-- ============================================================
+       HERO SECTION
+       ============================================================ -->
+  <header class="hero variant-v1" id="home">
+    <div class="container hero-v1">
+      <div class="hero-grid">
+        <div class="hero-copy">
+          <div class="badge-live reveal">
+            <span class="pulse"></span>
+            <span>SLIIT Final Year Research · R26-SE-006</span>
+            <span class="divider-v"></span>
+            <span>2026 Batch</span>
+          </div>
+
+          <h1 class="display reveal">
+            <span class="l">AI-Powered Companion</span>
+            <span class="l">for
+              <span class="typed-wrap"><em id="typedText">Home Orchids</em><span class="typed-cursor"></span></span>
+            </span>
+          </h1>
+
+          <p class="lede-big reveal">
+            <strong>OrchidCompanion</strong> bridges the divide between capital-intensive greenhouse technology and
+            domestic floriculture. By uniting lightweight computer vision with real-time edge microclimate and soil NPK
+            telemetry, our platform delivers non-blooming genus identification, optimal household placement, bloom
+            forecasting, multimodal disease diagnosis, and stage-tailored fertilizer recommendations.
+          </p>
+
+          <div class="hero-ctas reveal">
+            <a href="#components" class="btn-x btn-primary-x">
+              <span class="bx-shine"></span>
+              <span class="bx-inner"><i class="fa-solid fa-cubes"></i>Explore 4 Core Modules
+                <span class="arrow">→</span></span>
+            </a>
+            <a href="#documents" class="btn-x btn-ghost-x">
+              <span class="bx-inner"><span class="play-ic"><i class="fa-solid fa-file-pdf"></i></span>Research Papers
+                &amp; Reports</span>
+            </a>
+          </div>
+
+        </div>
+
+        <!-- Phone Stage / Interactive Mockup -->
+        <div class="phone-stage reveal reveal-r">
+          <div class="ring-orbit ro-a"></div>
+          <div class="ring-orbit ro-b"></div>
+
+          <!-- Orbit Sensor Chips -->
+          <div class="orbit-chip oc-1">
+            <i class="fa-solid fa-temperature-three-quarters"></i>
+            <div>
+              <strong>27.2°C · 72% RH</strong>
+              <small>DHT11 · Optimal Range</small>
+            </div>
+          </div>
+          <div class="orbit-chip oc-2">
+            <i class="fa-solid fa-sun"></i>
+            <div>
+              <strong>22,400 Lux</strong>
+              <small>BH1750 · Placement Safe</small>
+            </div>
+          </div>
+          <div class="orbit-chip oc-3">
+            <i class="fa-solid fa-vial"></i>
+            <div>
+              <strong>NPK: 120-45-160</strong>
+              <small>RS-485 Modbus Sensor</small>
+            </div>
+          </div>
+          <div class="orbit-chip oc-4">
+            <i class="fa-solid fa-certificate"></i>
+            <div>
+              <strong>Dendrobium (96.3%)</strong>
+              <small>YOLOv8n Non-blooming</small>
+            </div>
+          </div>
+
+          <!-- Stylized Phone Container -->
+          <div class="phone-x">
+            <div class="ph-glow"></div>
+            <div class="ph-frame">
+              <div class="ph-notch"></div>
+              <div class="ph-screen">
+                <div class="ph-status">
+                  <span>09:41</span>
+                  <span class="ph-bars">
+                    <i class="fa-solid fa-signal"></i>
+                    <i class="fa-solid fa-wifi"></i>
+                    <i class="fa-solid fa-battery-full"></i>
+                  </span>
+                </div>
+
+                <div class="ph-slides" id="phoneSlides">
+                  <!-- Slide 1: Genus & Placement -->
+                  <div class="ph-slide active" data-slide="0">
+                    <div class="ps-cover">
+                      <img src="assets/images/species-tall-segmented-canes.png" alt="Dendrobium genus identification" />
+                      <div class="ps-cover-over">
+                        <div class="ps-tag">Module 1 · YOLOv8n + ESP32</div>
+                        <div class="ps-head">Dendrobium Genus Detected</div>
+                      </div>
+                    </div>
+                    <div class="ps-body">
+                      <div class="ai-typing">
+                        <span>Live Microclimate Analysis</span>
+                        <span class="dots"><i></i><i></i><i></i></span>
+                      </div>
+                      <ul class="ps-plan">
+                        <li>
+                          <span class="pp-t">Canes</span>
+                          <span class="pp-ic c1"><i class="fa-solid fa-dna"></i></span>
+                          <span class="pp-tx">Confidence: 96.34%<small>Jointed cane nodes identified</small></span>
+                        </li>
+                        <li>
+                          <span class="pp-t">Climate</span>
+                          <span class="pp-ic c2"><i class="fa-solid fa-cloud-sun"></i></span>
+                          <span class="pp-tx">Suitability: Optimal<small>22.4k Lux · 27.2°C · 72% RH</small></span>
+                        </li>
+                        <li>
+                          <span class="pp-t">Action</span>
+                          <span class="pp-ic c3"><i class="fa-solid fa-circle-check"></i></span>
+                          <span class="pp-tx">Placement approved<small>Morning eastern veranda verified</small></span>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  <!-- Slide 2: Bloom Forecasting -->
+                  <div class="ph-slide" data-slide="1">
+                    <div class="ps-cover">
+                      <img src="assets/images/species-oval-pseudobulb.png" alt="Bloom stage analysis" />
+                      <div class="ps-cover-over">
+                        <div class="ps-tag">Module 2 · RF-DETR + GBR</div>
+                        <div class="ps-head">Bud Formation Detected</div>
+                      </div>
+                    </div>
+                    <div class="ps-body">
+                      <div class="ai-typing">
+                        <span>Timeline Regressor Forecast</span>
+                        <span class="dots"><i></i><i></i><i></i></span>
+                      </div>
+                      <ul class="ps-plan">
+                        <li>
+                          <span class="pp-t">Stage</span>
+                          <span class="pp-ic c1"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+                          <span class="pp-tx">Stage 4 of 5<small>Bud expansion stage (mAP 94.7%)</small></span>
+                        </li>
+                        <li>
+                          <span class="pp-t">Window</span>
+                          <span class="pp-ic c2"><i class="fa-solid fa-calendar-check"></i></span>
+                          <span class="pp-tx">Expected: 18 ± 3 Days<small>Peak flowering ~ Nov 2, 2026</small></span>
+                        </li>
+                        <li>
+                          <span class="pp-t">Advisory</span>
+                          <span class="pp-ic c3"><i class="fa-solid fa-bell"></i></span>
+                          <span class="pp-tx">Prevent flower bud drop<small>Maintain &gt;70% relative
+                              humidity</small></span>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  <!-- Slide 3: Disease Diagnosis -->
+                  <div class="ph-slide" data-slide="2">
+                    <div class="ps-cover">
+                      <img src="assets/images/species-leaf-rosette.png" alt="Foliar lesion diagnosis" />
+                      <div class="ps-cover-over">
+                        <div class="ps-tag">Module 3 · Ensemble CNN + YOLO26</div>
+                        <div class="ps-head">Bacterial Brown Spot Detected</div>
+                      </div>
+                    </div>
+                    <div class="ps-body">
+                      <div class="ai-typing">
+                        <span>Cross-Referencing Soil NPK</span>
+                        <span class="dots"><i></i><i></i><i></i></span>
+                      </div>
+                      <ul class="ps-plan">
+                        <li>
+                          <span class="pp-t">Vision</span>
+                          <span class="pp-ic c1"><i class="fa-solid fa-virus"></i></span>
+                          <span class="pp-tx">Confidence: 91.4%<small>WBF Ensemble + Grad-CAM Heatmap</small></span>
+                        </li>
+                        <li>
+                          <span class="pp-t">Telemetry</span>
+                          <span class="pp-ic c2"><i class="fa-solid fa-flask-vial"></i></span>
+                          <span class="pp-tx">NPK normal: 120-45-160<small>Eliminates nutrient burn false
+                              positive</small></span>
+                        </li>
+                        <li>
+                          <span class="pp-t">Safety</span>
+                          <span class="pp-ic c3"><i class="fa-solid fa-triangle-exclamation"></i></span>
+                          <span class="pp-tx">Hydrogen Peroxide Spotting<small>Avoid copper bactericides on
+                              Dendrobium</small></span>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  <!-- Slide 4: Fertilizer Balancing -->
+                  <div class="ph-slide" data-slide="3">
+                    <div class="ps-cover">
+                      <img src="assets/images/orchid-logo.png" alt="Morphometrics & Fertilizer" />
+                      <div class="ps-cover-over">
+                        <div class="ps-tag">Module 4 · YOLOv11 + RS-485</div>
+                        <div class="ps-head">Stage-Adapted Fertilizer</div>
+                      </div>
+                    </div>
+                    <div class="ps-body">
+                      <div class="ai-typing">
+                        <span>Coin Reference Leaf Calibration</span>
+                        <span class="dots"><i></i><i></i><i></i></span>
+                      </div>
+                      <ul class="ps-plan">
+                        <li>
+                          <span class="pp-t">Morph</span>
+                          <span class="pp-ic c1"><i class="fa-solid fa-ruler-combined"></i></span>
+                          <span class="pp-tx">Leaf Area: 48.2 cm²<small>±6.4% precision · Pre-Flowering
+                              stage</small></span>
+                        </li>
+                        <li>
+                          <span class="pp-t">Formula</span>
+                          <span class="pp-ic c2"><i class="fa-solid fa-vial-circle-check"></i></span>
+                          <span class="pp-tx">20-20-20 Balanced NPK<small>100% Sri Lanka Agronomic
+                              Compliance</small></span>
+                        </li>
+                        <li>
+                          <span class="pp-t">Dosage</span>
+                          <span class="pp-ic c3"><i class="fa-solid fa-droplet"></i></span>
+                          <span class="pp-tx">1.5 g/L weekly spray<small>Prevent substrate salt
+                              accumulation</small></span>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Phone Slider Dots -->
+                <div class="ph-dots" id="phoneDots">
+                  <i class="active" data-idx="0"></i>
+                  <i data-idx="1"></i>
+                  <i data-idx="2"></i>
+                  <i data-idx="3"></i>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="scroll-hint">
+      <span>Scroll to discover</span>
+      <div class="mouse"></div>
+    </div>
+  </header>
+
+  <!-- Ticker Section -->
+  <div class="ticker">
+    <div class="ticker-track">
+      <span><i class="fa-solid fa-seedling"></i>Dendrobium Canes</span>
+      <span><i class="fa-solid fa-seedling"></i>Phalaenopsis Monopodial</span>
+      <span><i class="fa-solid fa-seedling"></i>Oncidium Pseudobulbs</span>
+      <span><i class="fa-solid fa-microchip"></i>ESP32-S3 Telemetry</span>
+      <span><i class="fa-solid fa-temperature-half"></i>DHT11 Climate Sensing</span>
+      <span><i class="fa-solid fa-sun"></i>BH1750 Lux Profiling</span>
+      <span><i class="fa-solid fa-flask"></i>RS-485 Modbus Soil NPK</span>
+      <span><i class="fa-solid fa-brain"></i>YOLOv8 Nano Genus Classifier</span>
+      <span><i class="fa-solid fa-wand-magic-sparkles"></i>RF-DETR Bloom Transformer</span>
+      <span><i class="fa-solid fa-shield-virus"></i>Ensemble CNN &amp; YOLO26</span>
+      <span><i class="fa-solid fa-chart-line"></i>Random Forest Morphometrics</span>
+      <span><i class="fa-solid fa-server"></i>FastAPI Microservices &amp; Caddy</span>
+      <!-- Repeat for continuous scroll -->
+      <span><i class="fa-solid fa-seedling"></i>Dendrobium Canes</span>
+      <span><i class="fa-solid fa-seedling"></i>Phalaenopsis Monopodial</span>
+      <span><i class="fa-solid fa-seedling"></i>Oncidium Pseudobulbs</span>
+      <span><i class="fa-solid fa-microchip"></i>ESP32-S3 Telemetry</span>
+      <span><i class="fa-solid fa-temperature-half"></i>DHT11 Climate Sensing</span>
+      <span><i class="fa-solid fa-sun"></i>BH1750 Lux Profiling</span>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       ABOUT & RESEARCH PROBLEM
+       ============================================================ -->
+  <section class="section" id="about">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow">The Research Problem &amp; Scope</span>
+        <h2 class="title">
+          Commercial greenhouses thrive. <br /><span class="hl">Domestic orchids perish.</span>
+        </h2>
+        <p class="lede">
+          Orchids are among the most prized yet fragile houseplants worldwide. Over 80% of domestic growers struggle
+          with species-specific care, improper light placement, misdiagnosed foliar damage, and unpredicted flowering
+          cycles.
+        </p>
+      </div>
+
+      <div class="prob-grid">
+        <div class="prob-card reveal reveal-l">
+          <span class="badge"><i class="fa-solid fa-triangle-exclamation"></i>Current Research Gaps</span>
+          <h3>Disconnected apps, generic data, and fatal misdiagnoses.</h3>
+          <p>
+            • <strong>Floral Dependency in Vision:</strong> Commercial plant identifiers rely strictly on open floral
+            petals and labellum morphology. During non-blooming vegetative phases, these tools fail completely, leaving
+            cultivators blind to species-specific requirements.
+          </p>
+          <p>
+            • <strong>Subjective Placement &amp; Inaccurate Weather:</strong> Home growers rely on vague instructions
+            like "bright indirect light". Apps pull regional city weather forecasts that ignore the real indoor window
+            shelf or shaded veranda microclimate.
+          </p>
+          <p>
+            • <strong>Isolated Diagnostic Modalities:</strong> Foliar bacterial brown spot and black rot present visual
+            symptoms identical to fertilizer chemical burns. Vision-only apps regularly prescribe toxic treatments
+            without checking substrate NPK fertility.
+          </p>
+          <p>
+            • <strong>Static Cultivation Schedules:</strong> Traditional tools recommend static monthly calendar
+            reminders without forecasting flower emergence or matching leaf physical development.
+          </p>
+        </div>
+
+        <div class="prob-card solution reveal reveal-r">
+          <span class="badge"><i class="fa-solid fa-sparkles"></i>The OrchidCompanion Solution</span>
+          <h3>Multimodal AI coupled with real-time edge IoT sensors.</h3>
+          <p>
+            <strong>OrchidCompanion</strong> establishes an edge-to-cloud precision horticulture platform specifically
+            formulated for household environments. By combining specialized deep learning models with physical
+            microclimate and substrate telemetry:
+          </p>
+          <p>
+            1. <strong>Vegetative Genus Identification:</strong> YOLOv8 Nano recognizes non-blooming vegetative
+            structures (jointed cane nodes, monopodial crowns, pseudobulbs).
+          </p>
+          <p>
+            2. <strong>Quantitative Placement Guidance:</strong> ESP32-S3 burst telemetry (lux, °C, % RH) benchmarked
+            against certified Sri Lanka agronomic standards.
+          </p>
+          <p>
+            3. <strong>Intelligent Bloom Forecasting:</strong> RF-DETR stage detection coupled with a Gradient Boosting
+            Regressor predicts the flowering timeline window.
+          </p>
+          <p>
+            4. <strong>Multimodal Disease &amp; NPK Fusion:</strong> Vision ensemble cross-referenced with live soil NPK
+            readings eliminates nutrient-burn misdiagnoses and forbids phytotoxic chemical treatments.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       THE FOUR CORE RESEARCH COMPONENTS
+       ============================================================ -->
+  <section class="section" id="components">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow">Core Research Modules</span>
+        <h2 class="title">
+          Four specialized components. <br /><span class="hl">One integrated platform.</span>
+        </h2>
+        <p class="lede">
+          Each research component tackles an independent subproblem, developed and validated by our four team members
+          under a collaborative microservice architecture.
+        </p>
+      </div>
+
+      <div class="comp-grid">
+        <!-- Component 1 -->
+        <div class="comp-card reveal">
+          <div class="comp-header">
+            <span class="comp-num">01</span>
+            <span class="comp-member-badge">
+              <i class="fa-solid fa-user-graduate"></i>
+              Rathnayake R. M. S. D. · IT22140616
+            </span>
+          </div>
+          <h3 class="comp-title">Orchid Species Identification and Placement Guidance</h3>
+          <p class="comp-desc">
+            Solves the inability of existing systems to classify orchids without flowers. Features a custom YOLOv8 Nano
+            detector trained on non-blooming vegetative morphology (Dendrobium canes, Phalaenopsis crowns, Oncidium
+            pseudobulbs). Simultaneously interfaces with an ESP32-S3 IoT node (DHT11 and BH1750 sensors) performing
+            60-second burst telemetry over WebSockets to benchmark ambient illumination, temperature, and humidity
+            against certified agronomic standards from the Ministry of Agriculture, Central Province, Sri Lanka.
+          </p>
+          <div class="comp-tags">
+            <span class="comp-tag"><i class="fa-solid fa-microchip"></i> ESP32-S3 Node 1</span>
+            <span class="comp-tag"><i class="fa-solid fa-brain"></i> YOLOv8 Nano</span>
+            <span class="comp-tag"><i class="fa-solid fa-sun"></i> BH1750 Lux Sensor</span>
+            <span class="comp-tag"><i class="fa-solid fa-temperature-half"></i> DHT11 Sensor</span>
+            <span class="comp-tag"><i class="fa-solid fa-network-wired"></i> WebSockets &amp; MQTT</span>
+          </div>
+        </div>
+
+        <!-- Component 2 -->
+        <div class="comp-card reveal">
+          <div class="comp-header">
+            <span class="comp-num">02</span>
+            <span class="comp-member-badge">
+              <i class="fa-solid fa-user-graduate"></i>
+              Gamalath K. H. · IT22190598
+            </span>
+          </div>
+          <h3 class="comp-title">Predict Blooming Time according to Plant Stage</h3>
+          <p class="comp-desc">
+            Overcomes the unpredictability of flower spike emergence and blooming duration for Dendrobium orchids. Uses
+            an advanced Roboflow Detection Transformer (RF-DETR) to localize and identify five consecutive developmental
+            phases: Seedling, Vegetative, Mature Pseudobulb, Bud Formation, and Flowering. The visual stage is paired
+            with aggregated historical microclimate telemetry (mean, min, max, std dev of temperature, humidity, and
+            illumination) inside a tuned Gradient Boosting Regressor to predict stage duration and calendar bloom dates.
+          </p>
+          <div class="comp-tags">
+            <span class="comp-tag"><i class="fa-solid fa-eye"></i> RF-DETR Transformer</span>
+            <span class="comp-tag"><i class="fa-solid fa-chart-line"></i> Gradient Boosting Regressor</span>
+            <span class="comp-tag"><i class="fa-solid fa-images"></i> Multi-View Stage Input</span>
+            <span class="comp-tag"><i class="fa-solid fa-database"></i> Microclimate Timeseries</span>
+            <span class="comp-tag"><i class="fa-solid fa-calendar-days"></i> Bloom Calendar Output</span>
+          </div>
+        </div>
+
+        <!-- Component 3 -->
+        <div class="comp-card reveal">
+          <div class="comp-header">
+            <span class="comp-num">03</span>
+            <span class="comp-member-badge">
+              <i class="fa-solid fa-user-graduate"></i>
+              Perera M. I. S. · IT22250124
+            </span>
+          </div>
+          <h3 class="comp-title">Vision Based Orchid Disease Diagnosis and Care Support</h3>
+          <p class="comp-desc">
+            Resolves the frequent misdiagnosis between pathogen infections and nutrient deficiencies. Employs a
+            multi-model deep learning ensemble (Custom CNN, MobileNetV2, and NMS-free YOLO26) fused via Weighted Box
+            Fusion (WBF) with IoU-based NMS for lesion localization and classification (Bacterial Brown Spot, Black Rot,
+            Healthy). Incorporates Grad-CAM visual explainability and queries 7-day soil NPK telemetry to differentiate
+            nutrient burns from active infections, prescribing tailored remedies while banning phytotoxic copper on
+            Dendrobiums.
+          </p>
+          <div class="comp-tags">
+            <span class="comp-tag"><i class="fa-solid fa-layer-group"></i> CNN + YOLO26 Ensemble</span>
+            <span class="comp-tag"><i class="fa-solid fa-boxes-stacked"></i> Weighted Box Fusion</span>
+            <span class="comp-tag"><i class="fa-solid fa-wand-magic"></i> Grad-CAM Heatmaps</span>
+            <span class="comp-tag"><i class="fa-solid fa-vial"></i> 7-Day NPK Cross-Ref</span>
+            <span class="comp-tag"><i class="fa-solid fa-shield-halved"></i> Genus-Safe Treatments</span>
+          </div>
+        </div>
+
+        <!-- Component 4 -->
+        <div class="comp-card reveal">
+          <div class="comp-header">
+            <span class="comp-num">04</span>
+            <span class="comp-member-badge">
+              <i class="fa-solid fa-user-graduate"></i>
+              Ranasinghe W. R. A. D. P. N. · IT22085726
+            </span>
+          </div>
+          <h3 class="comp-title">IoT and Image Based Health Monitoring and Fertilizer Recommendation System</h3>
+          <p class="comp-desc">
+            Replaces arbitrary fertilization schedules with empirical phenotyping and substrate sensing. Interrogates an
+            industrial SN-3002-TR-NPK-N01 probe via RS-485 Modbus RTU on ESP32-S3 Node 2 to capture Nitrogen,
+            Phosphorus, and Potassium in real time. Simultaneously processes leaf imagery using YOLOv11 instance
+            segmentation and OpenCV with a reference coin for pixel-to-metric dimension extraction. A Random Forest
+            classifier determines growth stage (Vegetative, Pre-Flowering, Matured) and calculates stage-adapted NPK
+            fertilizer dosages.
+          </p>
+          <div class="comp-tags">
+            <span class="comp-tag"><i class="fa-solid fa-microchip"></i> ESP32-S3 Node 2</span>
+            <span class="comp-tag"><i class="fa-solid fa-plug"></i> RS-485 Modbus RTU</span>
+            <span class="comp-tag"><i class="fa-solid fa-scissors"></i> YOLOv11 Segmentation</span>
+            <span class="comp-tag"><i class="fa-solid fa-coins"></i> OpenCV Coin Reference</span>
+            <span class="comp-tag"><i class="fa-solid fa-tree"></i> Random Forest Classifier</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ============================================================
+       TECHNOLOGY STACK
+       ============================================================ -->
+  <section class="section" id="technology">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow">Technologies Used</span>
+        <h2 class="title">
+          The Engineering Core of <br /><span class="hl">OrchidCompanion.</span>
+        </h2>
+        <p class="lede">
+          Enterprise tools, cutting-edge machine learning libraries, industrial sensors, and modern containerized cloud
+          services.
+        </p>
+      </div>
+
+      <div class="tech-orbit reveal">
+        <div class="to-ring to-r1"></div>
+        <div class="to-ring to-r2"></div>
+
+        <div class="to-center">Orchid<br />Core</div>
+
+        <div class="tchip" style="top: 50%; left: 5%">
+          <i class="fa-brands fa-react"></i>React Native
+        </div>
+
+        <div class="tchip" style="top: 15%; left: 25%">
+          <i class="fa-brands fa-python"></i>PyTorch
+        </div>
+
+        <div class="tchip" style="top: 15%; left: 75%">
+          <i class="fa-solid fa-microchip"></i>ESP32-S3 IoT
+        </div>
+
+        <div class="tchip" style="top: 50%; left: 95%">
+          <i class="fa-solid fa-bolt"></i>FastAPI Gateway
+        </div>
+
+        <div class="tchip" style="top: 85%; left: 75%">
+          <i class="fa-solid fa-database"></i>PostgreSQL
+        </div>
+
+        <div class="tchip" style="top: 85%; left: 25%">
+          <i class="fa-solid fa-scissors"></i>Ultralytics YOLO
+        </div>
+
+        <div class="tchip" style="top: 32%; left: 50%">
+          <i class="fa-solid fa-camera"></i>OpenCV
+        </div>
+
+        <div class="tchip" style="top: 68%; left: 50%">
+          <i class="fa-brands fa-docker"></i>Docker Compose
+        </div>
+      </div>
+
+      <div class="tech-grid reveal" style="margin-top: 40px">
+        <div class="tech"><i class="fa-solid fa-brain"></i>Scikit-learn</div>
+        <div class="tech"><i class="fa-solid fa-network-wired"></i>Mosquitto MQTT</div>
+        <div class="tech"><i class="fa-solid fa-shield-halved"></i>Caddy Proxy</div>
+        <div class="tech"><i class="fa-solid fa-vial"></i>RS-485 Modbus</div>
+        <div class="tech"><i class="fa-brands fa-github"></i>GitHub Actions</div>
+        <div class="tech"><i class="fa-solid fa-server"></i>Contabo VPS</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       PROJECT ROADMAP & TIMELINE
+       Updated for 2026 Regular Batch (Current Semester)
+       ============================================================ -->
+  <section class="section" id="roadmap">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow">Project Roadmap &amp; Milestones</span>
+        <h2 class="title">
+          2026 Regular Batch — <br /><span class="hl-ocean">Timeline of the RP Project.</span>
+        </h2>
+        <p class="lede">
+          Official milestone schedule and deadlines for the current academic semester.
+        </p>
+      </div>
+
+      <div class="timeline reveal">
+        <!-- Milestone 1 -->
+        <div class="tl-item">
+          <div class="tl-card">
+            <div class="tl-date">
+              <i class="fa-regular fa-calendar-check"></i> 15th March 2026
+              <span class="tl-status done">Completed</span>
+            </div>
+            <h4>Proposal Submission</h4>
+            <p>Submission of the initial research proposal, literature review scope, and system architecture design.</p>
+          </div>
+          <div class="tl-dot"></div>
+        </div>
+
+        <!-- Milestone 2 -->
+        <div class="tl-item">
+          <div class="tl-card">
+            <div class="tl-date">
+              <i class="fa-regular fa-calendar-check"></i> 16th – 18th March 2026
+              <span class="tl-status done">Completed</span>
+            </div>
+            <h4>Proposal Presentation</h4>
+            <p>Defense of the research scope, feasibility, and four individual component methodologies before the
+              evaluation panel.</p>
+          </div>
+          <div class="tl-dot"></div>
+        </div>
+
+
+        <!-- Milestone 4 -->
+        <div class="tl-item">
+          <div class="tl-card">
+            <div class="tl-date">
+              <i class="fa-regular fa-calendar-check"></i> 11th – 13th May 2026
+              <span class="tl-status done">Completed</span>
+            </div>
+            <h4>Progress Presentation 1</h4>
+            <p>Demonstration of 50% project completion: dataset curations, baseline model training, and edge IoT circuit
+              assembly.</p>
+          </div>
+          <div class="tl-dot"></div>
+        </div>
+
+        <!-- Milestone 5 -->
+        <div class="tl-item">
+          <div class="tl-card">
+            <div class="tl-date">
+              <i class="fa-regular fa-calendar-check"></i> 31st August – 02nd September 2026
+              <span class="tl-status done">Completed</span>
+            </div>
+            <h4>Progress Presentation 2</h4>
+            <p>Demonstration of 90% project progress: end-to-end microservices integration, IoT telemetry
+              synchronization, and model optimization.</p>
+          </div>
+          <div class="tl-dot"></div>
+        </div>
+
+        <!-- Milestone 6 -->
+        <div class="tl-item">
+          <div class="tl-card">
+            <div class="tl-date">
+              <i class="fa-regular fa-calendar-check"></i> 11th October 2026
+              <span class="tl-status done">Completed</span>
+            </div>
+            <h4>Draft Thesis Submission</h4>
+            <p>Submission of the complete draft thesis comprising individual research dissertations and group solution
+              reports.</p>
+          </div>
+          <div class="tl-dot"></div>
+        </div>
+
+        <!-- Milestone 7 -->
+        <div class="tl-item">
+          <div class="tl-card" style="border: 2px solid var(--c-emerald); background: var(--bg-2)">
+            <div class="tl-date">
+              <i class="fa-solid fa-flag-checkered"></i> 11th October 2026
+              <span class="tl-status current">Current Milestone</span>
+            </div>
+            <h4>Website Submission</h4>
+            <p>Deployment and submission of the official OrchidCompanion promotional research platform and public
+              showcase.</p>
+          </div>
+          <div class="tl-dot"></div>
+        </div>
+
+
+        <!-- Milestone 9 -->
+        <div class="tl-item">
+          <div class="tl-card">
+            <div class="tl-date">
+              <i class="fa-regular fa-clock"></i> 19th – 21st October 2026
+              <span class="tl-status upcoming">Scheduled</span>
+            </div>
+            <h4>Final Presentation and Viva</h4>
+            <p>Final oral defense and live system demonstration before the SLIIT faculty examination board.</p>
+          </div>
+          <div class="tl-dot"></div>
+        </div>
+
+        <!-- Milestone 10 -->
+        <div class="tl-item">
+          <div class="tl-card">
+            <div class="tl-date">
+              <i class="fa-regular fa-clock"></i> 19th – 21st October 2026
+              <span class="tl-status upcoming">Scheduled</span>
+            </div>
+            <h4>Website Evaluation &amp; Logbook Submission</h4>
+            <p>Formal evaluation of the promotional website alongside individual research diary logbook assessments.</p>
+          </div>
+          <div class="tl-dot"></div>
+        </div>
+
+        <!-- Milestone 11 -->
+        <div class="tl-item">
+          <div class="tl-card">
+            <div class="tl-date">
+              <i class="fa-regular fa-clock"></i> 23rd October 2026
+              <span class="tl-status upcoming">Scheduled</span>
+            </div>
+            <h4>Research Paper Submission</h4>
+            <p>Submission of the IEEE-formatted research paper synthesizing multi-modal findings and experimental
+              validation.</p>
+          </div>
+          <div class="tl-dot"></div>
+        </div>
+
+        <!-- Milestone 12 -->
+        <div class="tl-item">
+          <div class="tl-card">
+            <div class="tl-date">
+              <i class="fa-regular fa-clock"></i> 28th October 2026
+              <span class="tl-status upcoming">Scheduled</span>
+            </div>
+            <h4>Final Thesis Submission</h4>
+            <p>Final binding and archival submission of all dissertations incorporating panel review modifications.</p>
+          </div>
+          <div class="tl-dot"></div>
+        </div>
+
+        <!-- Milestone 13 -->
+        <div class="tl-item">
+          <div class="tl-card">
+            <div class="tl-date">
+              <i class="fa-regular fa-clock"></i> 1st December 2026
+              <span class="tl-status upcoming">Scheduled</span>
+            </div>
+            <h4>Research Paper Publication Evidence Submission</h4>
+            <p>Submission of peer-reviewed conference or journal acceptance letters and publication camera-ready proof.
+            </p>
+          </div>
+          <div class="tl-dot"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       DELIVERABLES & DOWNLOADS (GOOGLE DRIVE LINK SLOTS)
+       ============================================================ -->
+  <section class="section" id="documents">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow">Deliverables &amp; Downloads</span>
+        <h2 class="title">Project Documents &amp; <br /><span class="hl">Presentations.</span></h2>
+        <p class="lede">
+          Access our academic publications, reports, slide decks, and code repositories via the dedicated Google Drive
+          link slots below.
+        </p>
+      </div>
+
+      <!-- Research Papers & Reports -->
+      <div style="max-width: 1080px; margin: 0 auto 48px">
+        <h4 style="
+              margin-bottom: 16px;
+              font-family: 'Fraunces', serif;
+              font-style: italic;
+              font-weight: 500;
+              color: var(--c-emerald);
+              font-size: 1.2rem;
+              letter-spacing: 0;
+            ">
+          <i class="fa-solid fa-file-contract" style="margin-right: 8px"></i>Research Papers &amp; Reports
+        </h4>
+        <div class="doc-grid">
+          <!-- Topic Assessment Form -->
+          <a href="https://drive.google.com/drive/folders/1cViplKP-cjczo1X6yxMlBo3D_MDR3hwk?usp=sharing"
+            class="doc reveal" data-hover data-slot="topic-assessment-form" target="_blank" rel="noopener noreferrer">
+            <span class="doc-tag">PDF</span>
+            <div class="doc-ic"><i class="fa-solid fa-file-lines"></i></div>
+            <div class="doc-t">Topic Assessment Form</div>
+            <span class="slot-badge"><i class="fa-brands fa-google-drive"></i> Google Drive</span>
+          </a>
+
+          <!-- Project Proposal Report -->
+          <a href="https://drive.google.com/drive/folders/1jz7CYNR8CtlvY_77C_2oMUQewevGS0Ol?usp=sharing"
+            class="doc reveal" data-hover data-slot="project-proposal-report" target="_blank" rel="noopener noreferrer">
+            <span class="doc-tag">PDF</span>
+            <div class="doc-ic"><i class="fa-solid fa-book-open"></i></div>
+            <div class="doc-t">Project Proposal Report</div>
+            <span class="slot-badge"><i class="fa-brands fa-google-drive"></i> Google Drive</span>
+          </a>
+
+          <!-- Final Report -->
+          <a href="https://drive.google.com/drive/folders/1JP1H53JzOBqxhxNBgkuAoF0dE2XCjMJ4?usp=sharing"
+            class="doc reveal" data-hover data-slot="final-report" target="_blank" rel="noopener noreferrer">
+            <span class="doc-tag">PDF</span>
+            <div class="doc-ic"><i class="fa-solid fa-trophy"></i></div>
+            <div class="doc-t">Final Report</div>
+            <span class="slot-badge"><i class="fa-brands fa-google-drive"></i> Google Drive</span>
+          </a>
+
+          <!-- Research Paper -->
+          <a href="https://drive.google.com/drive/folders/1YdmwHKdB_YQknBwHyE44I6KfXf4oXU9A?usp=sharing"
+            class="doc reveal" data-hover data-slot="research-paper" target="_blank" rel="noopener noreferrer">
+            <span class="doc-tag">PDF</span>
+            <div class="doc-ic"><i class="fa-solid fa-file-pdf"></i></div>
+            <div class="doc-t">Research Paper</div>
+            <span class="slot-badge"><i class="fa-brands fa-google-drive"></i> Google Drive</span>
+          </a>
+
+          <!-- Source Code -->
+          <a href="https://github.com/OrchidCompanion/R26-SE-006" class="doc reveal" data-hover data-slot="source-code"
+            target="_blank" rel="noopener noreferrer">
+            <span class="doc-tag">GIT</span>
+            <div class="doc-ic"><i class="fa-brands fa-github"></i></div>
+            <div class="doc-t">Source Code</div>
+            <span class="slot-badge"><i class="fa-solid fa-code-branch"></i> GitHub Repo</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Presentations -->
+      <div id="presentations" style="max-width: 1080px; margin: 0 auto">
+        <h4 style="
+              margin-bottom: 16px;
+              font-family: 'Fraunces', serif;
+              font-style: italic;
+              font-weight: 500;
+              color: var(--c-emerald);
+              font-size: 1.2rem;
+              letter-spacing: 0;
+            ">
+          <i class="fa-solid fa-chalkboard" style="margin-right: 8px"></i>Presentations
+        </h4>
+        <div class="doc-grid pres-grid">
+          <!-- Proposal Presentation -->
+          <a href="https://drive.google.com/drive/folders/1YZTqdl3K98muwauwRMkOtD1WsDIDDglk?usp=sharing"
+            class="doc reveal" data-hover data-slot="proposal-presentation" target="_blank" rel="noopener noreferrer">
+            <span class="doc-tag">PPT</span>
+            <div class="doc-ic"><i class="fa-solid fa-display"></i></div>
+            <div class="doc-t">Proposal Presentation</div>
+            <span class="slot-badge"><i class="fa-brands fa-google-drive"></i> Google Drive</span>
+          </a>
+
+          <!-- Progress Presentation 1 -->
+          <a href="https://drive.google.com/drive/folders/1ugYjODgDPsRwQpz3hGad1-qNBkxAvELZ?usp=sharing"
+            class="doc reveal" data-hover data-slot="progress-presentation-1" target="_blank" rel="noopener noreferrer">
+            <span class="doc-tag">PPT</span>
+            <div class="doc-ic"><i class="fa-solid fa-display"></i></div>
+            <div class="doc-t">Progress Presentation 1</div>
+            <span class="slot-badge"><i class="fa-brands fa-google-drive"></i> Google Drive</span>
+          </a>
+
+          <!-- Progress Presentation 2 -->
+          <a href="https://drive.google.com/drive/folders/1wQw7h5prJ7B0Sd2SlutDlaIf0PFeLISR?usp=sharing"
+            class="doc reveal" data-hover data-slot="progress-presentation-2" target="_blank" rel="noopener noreferrer">
+            <span class="doc-tag">PPT</span>
+            <div class="doc-ic"><i class="fa-solid fa-display"></i></div>
+            <div class="doc-t">Progress Presentation 2</div>
+            <span class="slot-badge"><i class="fa-brands fa-google-drive"></i> Google Drive</span>
+          </a>
+
+          <!-- Final Presentation -->
+          <a href="https://drive.google.com/drive/folders/19bl9npLHRkkeSd89HkDoN2EzgOWUhYQ9?usp=sharing"
+            class="doc reveal" data-hover data-slot="final-presentation" target="_blank" rel="noopener noreferrer">
+            <span class="doc-tag">PPT</span>
+            <div class="doc-ic"><i class="fa-solid fa-display"></i></div>
+            <div class="doc-t">Final Presentation</div>
+            <span class="slot-badge"><i class="fa-brands fa-google-drive"></i> Google Drive</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       RESEARCH TEAM & SUPERVISORY PANEL
+       ============================================================ -->
+  <section class="section" id="team">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow">The Research Team</span>
+        <h2 class="title">
+          The Minds Behind <br /><span class="hl-gold">OrchidCompanion.</span>
+        </h2>
+        <p class="lede">
+          Carried out by undergraduate student researchers in the Department of Software Engineering, SLIIT, under the
+          guidance of academic faculty.
+        </p>
+      </div>
+
+      <div class="team-grid">
+        <!-- Member 1: Rathnayake R. M. S. D. -->
+        <div class="mate reveal">
+          <div class="mate-photo">
+            <img src="assets/images/team_images/dinuka.jpg" alt="Rathnayake R. M. S. D." />
+          </div>
+          <div class="mate-body">
+            <span class="role">Team Member · IT22140616</span>
+            <h4>Rathnayake R. M. S. D.</h4>
+            <p class="affil">Orchid Species Identification &amp; Placement Guidance</p>
+            <div class="mate-social">
+              <a href="https://www.linkedin.com/" target="_blank" rel="noopener noreferrer" title="LinkedIn">
+                <i class="fa-brands fa-linkedin-in"></i>
+              </a>
+              <a href="https://github.com/" target="_blank" rel="noopener noreferrer" title="GitHub">
+                <i class="fa-brands fa-github"></i>
+              </a>
+              <a href="mailto:it22140616@my.sliit.lk" title="Email">
+                <i class="fa-solid fa-envelope"></i>
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Member 2: Gamalath K. H. -->
+        <div class="mate reveal">
+          <div class="mate-photo">
+            <img src="assets/images/team_images/kavini.jpg" alt="Gamalath K. H." />
+          </div>
+          <div class="mate-body">
+            <span class="role">Team Member · IT22190598</span>
+            <h4>Gamalath K. H.</h4>
+            <p class="affil">Predict Blooming Time according to Plant Stage</p>
+            <div class="mate-social">
+              <a href="https://www.linkedin.com/" target="_blank" rel="noopener noreferrer" title="LinkedIn">
+                <i class="fa-brands fa-linkedin-in"></i>
+              </a>
+              <a href="https://github.com/" target="_blank" rel="noopener noreferrer" title="GitHub">
+                <i class="fa-brands fa-github"></i>
+              </a>
+              <a href="mailto:it22190598@my.sliit.lk" title="Email">
+                <i class="fa-solid fa-envelope"></i>
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Member 3: Perera M. I. S. -->
+        <div class="mate reveal">
+          <div class="mate-photo">
+            <img src="assets/images/team_images/isini.jpg" alt="Perera M. I. S." />
+          </div>
+          <div class="mate-body">
+            <span class="role">Team Member · IT22250124</span>
+            <h4>Perera M. I. S.</h4>
+            <p class="affil">Vision Based Orchid Disease Diagnosis &amp; Care Support</p>
+            <div class="mate-social">
+              <a href="https://www.linkedin.com/" target="_blank" rel="noopener noreferrer" title="LinkedIn">
+                <i class="fa-brands fa-linkedin-in"></i>
+              </a>
+              <a href="https://github.com/" target="_blank" rel="noopener noreferrer" title="GitHub">
+                <i class="fa-brands fa-github"></i>
+              </a>
+              <a href="mailto:it22250124@my.sliit.lk" title="Email">
+                <i class="fa-solid fa-envelope"></i>
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Member 4: Ranasinghe W. R. A. D. P. N. -->
+        <div class="mate reveal">
+          <div class="mate-photo">
+            <img src="assets/images/team_images/piyushi.jpg" alt="Ranasinghe W. R. A. D. P. N." />
+          </div>
+          <div class="mate-body">
+            <span class="role">Team Member · IT22085726</span>
+            <h4>Ranasinghe W. R. A. D. P. N.</h4>
+            <p class="affil">IoT &amp; Image Based Health Monitoring &amp; Fertilizer Recommendation</p>
+            <div class="mate-social">
+              <a href="https://www.linkedin.com/" target="_blank" rel="noopener noreferrer" title="LinkedIn">
+                <i class="fa-brands fa-linkedin-in"></i>
+              </a>
+              <a href="https://github.com/" target="_blank" rel="noopener noreferrer" title="GitHub">
+                <i class="fa-brands fa-github"></i>
+              </a>
+              <a href="mailto:it22085726@my.sliit.lk" title="Email">
+                <i class="fa-solid fa-envelope"></i>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       CONTACT SECTION
+       ============================================================ -->
+  <section class="section" id="contact">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow">Connect With Us</span>
+        <h2 class="title">
+          Have Questions About <br /><span class="hl">OrchidCompanion?</span>
+        </h2>
+        <p class="lede">
+          Reach out to our research group for collaboration inquiries, dataset sharing, or academic consultation.
+        </p>
+      </div>
+
+      <div class="contact-grid">
+        <div class="contact-card accent reveal reveal-l">
+          <h4>OrchidCompanion Research Initiative</h4>
+          <p>
+            Department of Software Engineering, Faculty of Computing, Sri Lanka Institute of Information Technology
+            (SLIIT).
+          </p>
+          <ul class="contact-info">
+            <li>
+              <i class="fa-solid fa-location-dot"></i>
+              <span>SLIIT Malabe Campus, New Kandy Road, Malabe, Sri Lanka</span>
+            </li>
+            <li>
+              <i class="fa-solid fa-envelope"></i>
+              <a href="mailto:sdinukarathnayake@gmail.com">sdinukarathnayake@gmail.com</a>
+            </li>
+            <li>
+              <i class="fa-solid fa-code-branch"></i>
+              <a href="https://github.com/OrchidCompanion/R26-SE-006" target="_blank" rel="noopener noreferrer">GitHub:
+                OrchidCompanion/R26-SE-006</a>
+            </li>
+          </ul>
+        </div>
+
+        <div class="contact-card reveal reveal-r">
+          <h4>Send Us a Message</h4>
+          <form id="contactForm" class="contact-form">
+            <div class="field">
+              <input type="text" name="name" id="userName" placeholder="Your Name" required />
+            </div>
+            <div class="field">
+              <input type="email" name="email" id="userEmail" placeholder="Your Email Address" required />
+            </div>
+            <div class="field">
+              <input type="text" name="subject" id="userSubject" placeholder="Subject / Inquiry Topic" required />
+            </div>
+            <div class="field">
+              <textarea name="message" id="userMessage" rows="4" placeholder="Your message or research inquiry..."
+                required></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">
+              <span>Send Message</span>
+              <i class="fa-solid fa-arrow-right arrow"></i>
+            </button>
+            <div id="formNote" class="form-note"></div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       FOOTER
+       ============================================================ -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-col">
+          <div class="brand">
+            <span class="brand-mark"><i class="fa-solid fa-seedling"></i></span>
+            OrchidCompanion
+          </div>
+          <p class="f-about">
+            An AI-powered and IoT-integrated mobile precision companion tailored for domestic orchid care — transforming
+            visual imagery and edge sensor telemetry into intelligent botanical guidance.
+          </p>
+          <div class="footer-social">
+            <a href="https://github.com/OrchidCompanion/R26-SE-006" target="_blank" rel="noopener noreferrer"
+              title="GitHub"><i class="fa-brands fa-github"></i></a>
+            <a href="#documents" title="Documents"><i class="fa-solid fa-file-pdf"></i></a>
+            <a href="#team" title="Team"><i class="fa-solid fa-users"></i></a>
+            <a href="#contact" title="Contact"><i class="fa-solid fa-envelope"></i></a>
+          </div>
+        </div>
+        <div class="footer-col">
+          <h5>Research Modules</h5>
+          <ul>
+            <li><a href="#components">Species Identification</a></li>
+            <li><a href="#components">Microclimate Placement</a></li>
+            <li><a href="#components">Bloom Time Prediction</a></li>
+            <li><a href="#components">Disease Diagnosis &amp; NPK</a></li>
+            <li><a href="#components">Fertilizer Balancing</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h5>Deliverables</h5>
+          <ul>
+            <li><a href="#documents">Topic Assessment Form</a></li>
+            <li><a href="#documents">Project Proposal Report</a></li>
+            <li><a href="#documents">Final Thesis Report</a></li>
+            <li><a href="#documents">IEEE Research Paper</a></li>
+            <li><a href="#presentations">Presentations (PPT)</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h5>Affiliation</h5>
+          <p><i class="fa-solid fa-building-columns"></i>SLIIT · Faculty of Computing</p>
+          <p><i class="fa-solid fa-graduation-cap"></i>Dept. of Software Engineering</p>
+          <p><i class="fa-solid fa-calendar-days"></i>Academic Year: 2026</p>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 OrchidCompanion Project (R26-SE-006) · SLIIT Research Initiative</span>
+        <span>Made for Domestic Precision Horticulture &amp; Botanical Care</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Back to top -->
+  <a href="#home" class="back-top" id="backTop" aria-label="Back to top">
+    <i class="fa-solid fa-arrow-up"></i>
+  </a>
+
+  <!-- ============================================================
+       INLINE JAVASCRIPT
+       All client logic kept inside the same HTML file
+       ============================================================ -->
+  <script>
+    (function () {
+      'use strict';
+
+      /* ---------- 1. Preloader ---------- */
+      window.addEventListener('load', function () {
+        const pl = document.getElementById('preloader');
+        if (pl) {
+          setTimeout(function () {
+            pl.classList.add('hide');
+          }, 300);
+        }
+      });
+
+      /* ---------- 2. Scroll Progress & Active Nav ---------- */
+      const progressBar = document.getElementById('progressBar');
+      const backTop = document.getElementById('backTop');
+
+      function handleScroll() {
+        const h = document.documentElement;
+        const scrolled = h.scrollTop / (h.scrollHeight - h.clientHeight);
+        if (progressBar) progressBar.style.width = scrolled * 100 + '%';
+        if (backTop) backTop.classList.toggle('show', h.scrollTop > 500);
+
+        // Update active navigation item
+        const sections = document.querySelectorAll('section[id], header[id]');
+        let currentSectionId = '';
+        sections.forEach(function (s) {
+          const rect = s.getBoundingClientRect();
+          if (rect.top <= 140) currentSectionId = s.id;
+        });
+
+        document.querySelectorAll('.dk-item, .tabbar a').forEach(function (a) {
+          const href = a.getAttribute('href');
+          if (href && href === '#' + currentSectionId) {
+            a.classList.add('active');
+          } else {
+            a.classList.remove('active');
+          }
+        });
+      }
+      window.addEventListener('scroll', handleScroll, { passive: true });
+
+      /* ---------- 3. Custom Desktop Cursor ---------- */
+      if (window.matchMedia('(pointer: fine)').matches) {
+        const cursor = document.getElementById('cursor');
+        const dot = document.getElementById('cursorDot');
+        if (cursor && dot) {
+          let mx = 0, my = 0, cx = 0, cy = 0;
+          document.addEventListener('mousemove', function (e) {
+            mx = e.clientX;
+            my = e.clientY;
+            dot.style.transform = 'translate(' + mx + 'px, ' + my + 'px) translate(-50%, -50%)';
+          });
+          function animCursor() {
+            cx += (mx - cx) * 0.18;
+            cy += (my - cy) * 0.18;
+            cursor.style.transform = 'translate(' + cx + 'px, ' + cy + 'px) translate(-50%, -50%)';
+            requestAnimationFrame(animCursor);
+          }
+          animCursor();
+          document.querySelectorAll('a, button, [data-hover], input, textarea').forEach(function (el) {
+            el.addEventListener('mouseenter', function () {
+              cursor.classList.add('hover');
+            });
+            el.addEventListener('mouseleave', function () {
+              cursor.classList.remove('hover');
+            });
+          });
+        }
+      }
+
+      /* ---------- 4. Reveal-on-Scroll Observer ---------- */
+      if ('IntersectionObserver' in window) {
+        const revealIO = new IntersectionObserver(
+          function (entries) {
+            entries.forEach(function (e) {
+              if (e.isIntersecting) {
+                e.target.classList.add('in');
+                revealIO.unobserve(e.target);
+              }
+            });
+          },
+          { threshold: 0.1, rootMargin: '0px 0px -40px' }
+        );
+        document.querySelectorAll('.reveal').forEach(function (el) {
+          revealIO.observe(el);
+        });
+      } else {
+        document.querySelectorAll('.reveal').forEach(function (el) {
+          el.classList.add('in');
+        });
+      }
+
+      /* ---------- 5. Animated Number Counters ---------- */
+      const counters = document.querySelectorAll('[data-count]');
+      if ('IntersectionObserver' in window) {
+        const countIO = new IntersectionObserver(
+          function (ents) {
+            ents.forEach(function (e) {
+              if (!e.isIntersecting) return;
+              const el = e.target;
+              const end = +el.dataset.count;
+              let start = 0;
+              const duration = 1200;
+              const t0 = performance.now();
+              function tick(t) {
+                const p = Math.min((t - t0) / duration, 1);
+                const easeOut = 1 - Math.pow(1 - p, 3);
+                el.textContent = Math.floor(start + (end - start) * easeOut);
+                if (p < 1) requestAnimationFrame(tick);
+              }
+              requestAnimationFrame(tick);
+              countIO.unobserve(el);
+            });
+          },
+          { threshold: 0.5 }
+        );
+        counters.forEach(function (c) {
+          countIO.observe(c);
+        });
+      }
+
+      /* ---------- 6. Typed Text in Hero ---------- */
+      const typedEl = document.getElementById('typedText');
+      if (typedEl) {
+        const words = ['Home Orchids', 'Dendrobiums', 'Phalaenopsis', 'Oncidiums', 'Plant Care'];
+        let wi = 0, ci = 0, del = false;
+        function typeLoop() {
+          const currentWord = words[wi];
+          if (!del) {
+            ci++;
+            typedEl.textContent = currentWord.slice(0, ci);
+            if (ci === currentWord.length) {
+              del = true;
+              setTimeout(typeLoop, 1600);
+              return;
+            }
+          } else {
+            ci--;
+            typedEl.textContent = currentWord.slice(0, ci);
+            if (ci === 0) {
+              del = false;
+              wi = (wi + 1) % words.length;
+            }
+          }
+          setTimeout(typeLoop, del ? 50 : 90);
+        }
+        setTimeout(typeLoop, 500);
+      }
+
+      /* ---------- 7. Interactive Phone Slideshow ---------- */
+      const slides = document.querySelectorAll('.ph-slide');
+      const dots = document.querySelectorAll('.ph-dots i');
+      let currentSlide = 0;
+      let slideTimer = null;
+
+      function setSlide(idx) {
+        slides.forEach(function (s, i) {
+          s.classList.toggle('active', i === idx);
+        });
+        dots.forEach(function (d, i) {
+          d.classList.toggle('active', i === idx);
+        });
+        currentSlide = idx;
+      }
+
+      function nextSlide() {
+        const next = (currentSlide + 1) % slides.length;
+        setSlide(next);
+      }
+
+      dots.forEach(function (d) {
+        d.addEventListener('click', function () {
+          const idx = parseInt(d.getAttribute('data-idx') || '0', 10);
+          setSlide(idx);
+          resetSlideTimer();
+        });
+      });
+
+      function resetSlideTimer() {
+        if (slideTimer) clearInterval(slideTimer);
+        slideTimer = setInterval(nextSlide, 4200);
+      }
+      resetSlideTimer();
+
+      /* ---------- 8. Dock Popover Toggle ---------- */
+      const dockMenuToggle = document.getElementById('dockMenuToggle');
+      const moreMenu = document.getElementById('moreMenu');
+
+      if (dockMenuToggle && moreMenu) {
+        dockMenuToggle.addEventListener('click', function (e) {
+          e.stopPropagation();
+          moreMenu.classList.toggle('open');
+        });
+
+        document.addEventListener('click', function (e) {
+          if (!moreMenu.contains(e.target) && e.target !== dockMenuToggle) {
+            moreMenu.classList.remove('open');
+          }
+        });
+
+        moreMenu.querySelectorAll('a').forEach(function (a) {
+          a.addEventListener('click', function () {
+            moreMenu.classList.remove('open');
+          });
+        });
+      }
+
+      /* ---------- 9. Google Drive Slots Click Helper ---------- */
+      document.querySelectorAll('a[data-slot]').forEach(function (link) {
+        link.addEventListener('click', function (e) {
+          const href = link.getAttribute('href');
+          if (!href || href.includes('YOUR_') || href === '#') {
+            e.preventDefault();
+            alert(
+              'Google Drive Link Slot:\nThis document slot is prepared for the upcoming Google Drive link. You can replace the placeholder URL with your actual Google Drive file or folder URL.'
+            );
+          }
+        });
+      });
+
+      /* ---------- 10. Contact Form Submission ---------- */
+      const form = document.getElementById('contactForm');
+      const note = document.getElementById('formNote');
+      if (form && note) {
+        form.addEventListener('submit', function (e) {
+          e.preventDefault();
+          const name = document.getElementById('userName').value.trim();
+          const email = document.getElementById('userEmail').value.trim();
+          const message = document.getElementById('userMessage').value.trim();
+
+          const subject = (document.getElementById('userSubject') && document.getElementById('userSubject').value.trim()) || 'OrchidCompanion Inquiry';
+
+          if (!name || !email || !message) {
+            note.textContent = 'Please fill out all required fields.';
+            note.style.color = '#d9401f';
+            return;
+          }
+
+          const btn = form.querySelector('button[type="submit"]');
+          if (btn) btn.disabled = true;
+          note.textContent = 'Preparing email to sdinukarathnayake@gmail.com...';
+          note.style.color = 'var(--c-emerald)';
+
+          setTimeout(function () {
+            note.textContent = 'Thank you, ' + name + '! Opening your email client to send to sdinukarathnayake@gmail.com...';
+            note.style.color = 'var(--c-emerald)';
+            window.location.href = 'mailto:sdinukarathnayake@gmail.com?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent('Name: ' + name + '\nEmail: ' + email + '\n\nMessage:\n' + message);
+            form.reset();
+            if (btn) btn.disabled = false;
+          }, 600);
+        });
+      }
+    })();
+  </script>
+</body>
+
+</html>

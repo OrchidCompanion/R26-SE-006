@@ -1,0 +1,7 @@
+# Arduino IDE local project folders containing real Wi-Fi credentials
+esp32-s3-env/
+esp32-s3-npk/
+
+# Local custom write/flash sketches
+esp32-s3-env-mqtt-write.ino
+esp32-s3-npk-mqtt-write.ino
