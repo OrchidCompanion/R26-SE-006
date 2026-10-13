@@ -10,9 +10,9 @@
 
 // =============================================================================
 // MQTT & NETWORK CONFIGURATION
-// Replace MQTT_SERVER with your VPS public IP (e.g. "123.45.67.89")
+// Contabo VPS public IP: 169.58.119.186
 // =============================================================================
-const char* MQTT_SERVER = "YOUR_VPS_IP_HERE";
+const char* MQTT_SERVER = "169.58.119.186";
 const int   MQTT_PORT   = 1883;
 const char* MQTT_USER   = ""; // Leave empty if anonymous
 const char* MQTT_PASS   = "";
@@ -49,12 +49,10 @@ void setRGB_Orange()  { setRGB(255, 80, 0); }     // Error
 
 // UTILITY FUNCTIONS
 String getFormattedMacAddress() {
-  uint8_t baseMac[6];
-  esp_read_mac(baseMac, ESP_MAC_WIFI_STA);
-  char baseMacChr[13] = {0};
-  snprintf(baseMacChr, 13, "%02x%02x%02x%02x%02x%02x",
-           baseMac[0], baseMac[1], baseMac[2], baseMac[3], baseMac[4], baseMac[5]);
-  return String(baseMacChr);
+  String mac = WiFi.macAddress();
+  mac.replace(":", "");
+  mac.toLowerCase();
+  return mac;
 }
 
 // RS485 MODBUS COMMUNICATION

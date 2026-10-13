@@ -269,3 +269,38 @@ def get_latest_npk_reading(
         except Exception as e:
             print(f"[Database] Could not fetch latest NPK ({e}), using standard fallback.")
             return fallback
+
+
+def get_npk_readings_by_plant(plant_id: str, page: int = 1, limit: int = 10) -> Dict[str, Any]:
+    with get_db() as conn:
+        if not conn:
+            return {"data": [], "total": 0, "page": page, "limit": limit}
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                offset = (page - 1) * limit
+                cur.execute(
+                    "SELECT COUNT(*) as total FROM npk_history WHERE plant_id = %s;",
+                    (plant_id,),
+                )
+                total = cur.fetchone()["total"]
+
+                cur.execute(
+                    """
+                    SELECT * FROM npk_history
+                    WHERE plant_id = %s
+                    ORDER BY created_at DESC
+                    LIMIT %s OFFSET %s;
+                    """,
+                    (plant_id, limit, offset),
+                )
+                rows = cur.fetchall()
+                data = []
+                for r in rows:
+                    item = dict(r)
+                    if "reading_id" in item:
+                        item["reading_id"] = str(item["reading_id"])
+                    data.append(item)
+                return {"data": data, "total": total, "page": page, "limit": limit}
+        except Exception as e:
+            print(f"[Database] Failed to get NPK readings for plant {plant_id}: {e}")
+            return {"data": [], "total": 0, "page": page, "limit": limit}

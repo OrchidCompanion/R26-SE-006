@@ -18,16 +18,12 @@
 
 // =============================================================================
 // MQTT & NETWORK CONFIGURATION
-// Replace MQTT_SERVER with your VPS public IP (e.g. "123.45.67.89")
+// Contabo VPS public IP: 169.58.119.186
 // =============================================================================
-const char* MQTT_SERVER = "YOUR_VPS_IP_HERE";
+const char* MQTT_SERVER = "169.58.119.186";
 const int   MQTT_PORT   = 1883;
 const char* MQTT_USER   = ""; // Leave empty if anonymous
 const char* MQTT_PASS   = "";
-
-// TELEMETRY INTERVAL (Milliseconds)
-const unsigned long TELEMETRY_INTERVAL = 30000; // Publish every 30 seconds
-unsigned long lastPublishTime = 0;
 
 // OBJECTS & GLOBAL INSTANCES
 LiquidCrystal_I2C lcd(0x27, 16, 4);
@@ -56,12 +52,10 @@ void setRGB_Violet() { setRGB(180, 0, 255); }
 
 // FORMAT MAC ADDRESS
 String getFormattedMacAddress() {
-  uint8_t baseMac[6];
-  esp_read_mac(baseMac, ESP_MAC_WIFI_STA);
-  char baseMacChr[13] = {0};
-  snprintf(baseMacChr, 13, "%02x%02x%02x%02x%02x%02x",
-           baseMac[0], baseMac[1], baseMac[2], baseMac[3], baseMac[4], baseMac[5]);
-  return String(baseMacChr);
+  String mac = WiFi.macAddress();
+  mac.replace(":", "");
+  mac.toLowerCase();
+  return mac;
 }
 
 // LCD UI HELPER FUNCTIONS
@@ -108,6 +102,7 @@ void publishSensorData() {
 
   StaticJsonDocument<256> doc;
   doc["device_id"] = macAddress;
+  doc["module_id"] = macAddress;
   doc["temperature"] = dht_ok ? round(temp * 10.0) / 10.0 : 0.0;
   doc["humidity"]    = dht_ok ? round(hum * 10.0) / 10.0 : 0.0;
   doc["lux"]         = round(lux * 10.0) / 10.0;
@@ -148,7 +143,9 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   deserializeJson(doc, payload, length);
 
   const char* action = doc["action"];
-  if (action && strcmp(action, "read_now") == 0) {
+  if (action && (strcmp(action, "read_now") == 0 || 
+                 strcmp(action, "read_sensors") == 0 || 
+                 strcmp(action, "read_ambient") == 0)) {
     publishSensorData();
   }
 }
@@ -183,6 +180,9 @@ void reconnectMQTT() {
       char statusBuf[128];
       serializeJson(statusDoc, statusBuf);
       mqttClient.publish(statusTopic.c_str(), statusBuf);
+
+      // Publish initial boot reading so backend immediately sees module is live
+      publishSensorData();
     } else {
       setRGB_Red();
       Serial.print(" FAILED, rc=");
@@ -200,13 +200,32 @@ void setup() {
 
   // LCD Setup
   Wire.begin(LCD_SDA_PIN, LCD_SCL_PIN);
+  delay(100);
+
+  Serial.println("\n[I2C] Scanning I2C bus on GPIO 1 (SDA) & GPIO 2 (SCL)...");
+  int nDevices = 0;
+  for (byte address = 1; address < 127; ++address) {
+    Wire.beginTransmission(address);
+    byte error = Wire.endTransmission();
+    if (error == 0) {
+      Serial.printf("[I2C] Device FOUND at address 0x%02X!\n", address);
+      nDevices++;
+    }
+  }
+  if (nDevices == 0) {
+    Serial.println("[I2C] WARNING: No devices found on GPIO 1 & GPIO 2!");
+  }
+
   lcd.init();
+  Wire.begin(LCD_SDA_PIN, LCD_SCL_PIN); // Re-assert custom pins
   lcd.backlight();
   lcd.clear();
+  delay(50);
   lcd.setCursor(0, 0);
   lcd.print("ORCHID COMPANION");
   lcd.setCursor(0, 1);
   lcd.print("BOOTING SYSTEM...");
+
 
   // BH1750 Setup
   I2C_BH1750.begin(BH1750_SDA_PIN, BH1750_SCL_PIN);
@@ -221,11 +240,7 @@ void setup() {
   dht.begin();
 
   // WiFi Setup
-  macAddress = getFormattedMacAddress();
-  telemetryTopic = "orchid/" + macAddress + "/env";
-  statusTopic    = "orchid/" + macAddress + "/status";
-  commandTopic   = "orchid/" + macAddress + "/command";
-
+  WiFi.mode(WIFI_STA);
   wifiMulti.addAP("Dialog_4G_WiFi", "12345678");
   wifiMulti.addAP("SLT_FIBRE", "password");
   wifiMulti.addAP("Mobile_Hotspot", "hotspotpass");
@@ -240,6 +255,14 @@ void setup() {
   }
 
   Serial.println("\nWiFi Connected! IP: " + WiFi.localIP().toString());
+
+  // Format MAC Address AFTER WiFi radio is initialized!
+  macAddress = getFormattedMacAddress();
+  telemetryTopic = "orchid/" + macAddress + "/env";
+  statusTopic    = "orchid/" + macAddress + "/status";
+  commandTopic   = "orchid/" + macAddress + "/command";
+  Serial.println("Device MAC Address: " + macAddress);
+
   setRGB_Blue();
 
   // MQTT Client Setup
@@ -259,12 +282,6 @@ void loop() {
   if (!mqttClient.connected()) {
     reconnectMQTT();
   }
-  mqttClient.loop();
-
-  // Periodic sensor reading and publish
-  unsigned long now = millis();
-  if (now - lastPublishTime > TELEMETRY_INTERVAL) {
-    lastPublishTime = now;
-    publishSensorData();
-  }
+  mqttClient.loop(); // Listens for on-demand trigger commands from mobile app
 }
+

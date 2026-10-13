@@ -26,6 +26,7 @@ DISEASE_SERVICE_URL = os.getenv("DISEASE_SERVICE_URL", "http://localhost:7861")
 FLOWERING_SERVICE_URL = os.getenv("FLOWERING_SERVICE_URL", "http://localhost:7862")
 FERTILIZER_SERVICE_URL = os.getenv("FERTILIZER_SERVICE_URL", "http://localhost:7863")
 PLACEMENT_SERVICE_URL = os.getenv("PLACEMENT_SERVICE_URL", "http://localhost:7864")
+AUTH_SERVICE_URL = os.getenv("AUTH_SERVICE_URL", "http://localhost:7865")
 LEGACY_BACKEND_URL = os.getenv("LEGACY_BACKEND_URL", "https://r26-se-006.onrender.com")
 
 HOP_BY_HOP_HEADERS = {
@@ -97,6 +98,7 @@ def health_check():
         "service": "OrchidCompanion API Gateway",
         "status": "healthy",
         "routes": {
+            "auth": AUTH_SERVICE_URL,
             "species": SPECIES_SERVICE_URL,
             "disease": DISEASE_SERVICE_URL,
             "flowering": FLOWERING_SERVICE_URL,
@@ -111,77 +113,216 @@ def health_check():
 # MICROSERVICE ROUTES
 # ==============================================================================
 
-# 1. Species Identification Microservice
+# 0. Authentication Microservice (Self-hosted)
+@app.api_route(
+    "/auth/{path:path}",
+    methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    tags=["Auth Service"],
+)
+@app.api_route(
+    "/api/auth/{path:path}",
+    methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    tags=["Auth Service"],
+)
+async def route_auth(request: Request, path: str = ""):
+    """Routes directly to Authentication & User Microservice."""
+    return await forward_request(AUTH_SERVICE_URL, f"/{path}", request)
+
+
+# 1. Species Identification & Plants Catalog Microservice
+@app.api_route(
+    "/species",
+    methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    tags=["Species Service"],
+)
+@app.api_route(
+    "/api/species",
+    methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    tags=["Species Service"],
+)
+@app.api_route(
+    "/species/{path:path}",
+    methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    tags=["Species Service"],
+)
 @app.api_route(
     "/api/species/{path:path}",
     methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     tags=["Species Service"],
 )
-async def route_species(path: str, request: Request):
+async def route_species(request: Request, path: str = ""):
     """Routes directly to Species Identification Microservice."""
-    return await forward_request(SPECIES_SERVICE_URL, f"/identify" if path == "identify" else f"/{path}", request)
+    return await forward_request(SPECIES_SERVICE_URL, "/identify" if path == "identify" else (f"/{path}" if path else "/"), request)
+
+
+@app.api_route(
+    "/plants",
+    methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    tags=["Species Service"],
+)
+@app.api_route(
+    "/api/plants",
+    methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    tags=["Species Service"],
+)
+@app.api_route(
+    "/plants/{path:path}",
+    methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    tags=["Species Service"],
+)
+@app.api_route(
+    "/api/plants/{path:path}",
+    methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    tags=["Species Service"],
+)
+async def route_plants(request: Request, path: str = ""):
+    """Routes plant registry requests directly to Species & Plants Microservice."""
+    return await forward_request(SPECIES_SERVICE_URL, f"/plants/{path}" if path else "/plants", request)
 
 
 # 2. Disease & Treatment Microservice
+@app.api_route(
+    "/disease",
+    methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    tags=["Disease Service"],
+)
+@app.api_route(
+    "/api/disease",
+    methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    tags=["Disease Service"],
+)
+@app.api_route(
+    "/disease/{path:path}",
+    methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    tags=["Disease Service"],
+)
 @app.api_route(
     "/api/disease/{path:path}",
     methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     tags=["Disease Service"],
 )
-async def route_disease(path: str, request: Request):
+async def route_disease(request: Request, path: str = ""):
     """Routes directly to Disease & Treatment Microservice."""
-    return await forward_request(DISEASE_SERVICE_URL, f"/{path}", request)
+    return await forward_request(DISEASE_SERVICE_URL, f"/{path}" if path else "/", request)
 
 
 # 3. Flowering Lifecycle Microservice
+@app.api_route(
+    "/bloom",
+    methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    tags=["Flowering Service"],
+)
+@app.api_route(
+    "/api/bloom",
+    methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    tags=["Flowering Service"],
+)
+@app.api_route(
+    "/bloom/{path:path}",
+    methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    tags=["Flowering Service"],
+)
 @app.api_route(
     "/api/bloom/{path:path}",
     methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     tags=["Flowering Service"],
 )
-async def route_flowering(path: str, request: Request):
+async def route_flowering(request: Request, path: str = ""):
     """Routes directly to Flowering Lifecycle Microservice."""
-    return await forward_request(FLOWERING_SERVICE_URL, f"/{path}", request)
+    return await forward_request(FLOWERING_SERVICE_URL, f"/{path}" if path else "/", request)
 
 
 # 4. Growth Stage & Fertilizer Microservice
+@app.api_route(
+    "/fertilizer",
+    methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    tags=["Fertilizer Service"],
+)
+@app.api_route(
+    "/api/fertilizer",
+    methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    tags=["Fertilizer Service"],
+)
+@app.api_route(
+    "/fertilizer/{path:path}",
+    methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    tags=["Fertilizer Service"],
+)
 @app.api_route(
     "/api/fertilizer/{path:path}",
     methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     tags=["Fertilizer Service"],
 )
-async def route_fertilizer(path: str, request: Request):
+async def route_fertilizer(request: Request, path: str = ""):
     """Routes directly to Growth Stage & Fertilizer Microservice."""
-    return await forward_request(FERTILIZER_SERVICE_URL, f"/{path}", request)
+    return await forward_request(FERTILIZER_SERVICE_URL, f"/{path}" if path else "/", request)
 
 
 # 5. Plant Placement Analysis & Sensors Microservice
+@app.api_route(
+    "/locations",
+    methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    tags=["Placement Service"],
+)
+@app.api_route(
+    "/api/locations",
+    methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    tags=["Placement Service"],
+)
+@app.api_route(
+    "/locations/{path:path}",
+    methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    tags=["Placement Service"],
+)
 @app.api_route(
     "/api/locations/{path:path}",
     methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     tags=["Placement Service"],
 )
-async def route_locations(path: str, request: Request):
+async def route_locations(request: Request, path: str = ""):
     """Routes directly to Plant Placement Analysis Microservice."""
     return await forward_request(PLACEMENT_SERVICE_URL, f"/locations/{path}" if path else "/locations", request)
 
 
 @app.api_route(
+    "/sensors",
+    methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    tags=["Placement Service"],
+)
+@app.api_route(
+    "/api/sensors",
+    methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    tags=["Placement Service"],
+)
+@app.api_route(
+    "/sensors/{path:path}",
+    methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    tags=["Placement Service"],
+)
+@app.api_route(
     "/api/sensors/{path:path}",
     methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     tags=["Placement Service"],
 )
-async def route_sensors(path: str, request: Request):
-    """Routes directly to Plant Placement Analysis Microservice (Modules & Ambient Telemetry)."""
-    return await forward_request(PLACEMENT_SERVICE_URL, f"/modules/{path.replace('modules/', '')}" if path.startswith("modules/") else f"/{path}", request)
+async def route_sensors(request: Request, path: str = ""):
+    """Routes sensor telemetry requests: NPK to fertilizer-service, ambient/modules to placement-service."""
+    if path.startswith("npk"):
+        return await forward_request(FERTILIZER_SERVICE_URL, f"/{path}", request)
+    return await forward_request(
+        PLACEMENT_SERVICE_URL,
+        f"/modules/{path.replace('modules/', '')}" if path.startswith("modules/") else (f"/{path}" if path else "/modules"),
+        request,
+    )
 
 
-# 6. Strangler Pattern: Route remaining traffic (plants, auth) to backend while extracting
+
+# 6. Fallback route
 @app.api_route(
     "/api/{path:path}",
     methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     tags=["Legacy Backend Fallback"],
 )
 async def route_fallback(path: str, request: Request):
-    """Routes to current backend services until they are extracted into microservices."""
+    """Routes any unassigned routes to legacy backend fallback."""
     return await forward_request(LEGACY_BACKEND_URL, f"/api/{path}", request)
+
