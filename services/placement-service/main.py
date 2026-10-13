@@ -25,6 +25,9 @@ from mqtt_hub import (
     get_latest_sensor_data,
     get_sensor_module_status,
     trigger_mqtt_ambient_read,
+    trigger_mqtt_session,
+    get_session_readings,
+    clear_session_readings,
     latest_readings,
 )
 from ws_manager import ws_manager
@@ -214,6 +217,41 @@ async def read_ambient_telemetry(module_id: str):
 
     # Fallback to DB cached data
     return get_latest_sensor_data(module_id)
+
+
+class SessionStartRequest(BaseModel):
+    samples: Optional[int] = 3
+    interval_sec: Optional[int] = 20
+
+
+@app.post("/modules/{module_id}/start-session", tags=["Hardware Modules"])
+@app.post("/api/sensors/modules/{module_id}/start-session", tags=["Hardware Modules"])
+async def start_autonomous_session(module_id: str, req: Optional[SessionStartRequest] = None):
+    """Triggers autonomous multi-sample recording session on ESP32 over MQTT."""
+    clean_id = ws_manager.normalize_mac(module_id)
+    samples = req.samples if req and req.samples else 3
+    interval = req.interval_sec if req and req.interval_sec else 20
+    clear_session_readings(clean_id)
+    sent = trigger_mqtt_session(clean_id, samples=samples, interval_sec=interval)
+    return {
+        "status": "session_started" if sent else "command_dispatched",
+        "module_id": clean_id,
+        "samples": samples,
+        "interval_sec": interval,
+    }
+
+
+@app.get("/modules/{module_id}/session-readings", tags=["Hardware Modules"])
+@app.get("/api/sensors/modules/{module_id}/session-readings", tags=["Hardware Modules"])
+async def get_module_session_readings(module_id: str):
+    """Returns collected readings for the current/most recent session."""
+    clean_id = ws_manager.normalize_mac(module_id)
+    readings = get_session_readings(clean_id)
+    return {
+        "module_id": clean_id,
+        "count": len(readings),
+        "readings": readings,
+    }
 
 
 @app.get("/modules/{module_id}/read-npk", tags=["Hardware Modules"])
