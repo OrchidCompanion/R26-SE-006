@@ -311,12 +311,31 @@ export default function AnalyseFertilizer({ selectedPlant, selectedUser, onBack 
             <div className="p-4 border rounded-xl bg-gray-50 space-y-3">
               <h4 className="font-bold text-sm text-gray-800">Actionable Fertilizer Instructions</h4>
               <ul className="space-y-2 text-xs text-gray-700">
-                {analysisResult.npk_recommendation.recommendation.map((step, idx) => (
-                  <li key={idx} className="flex items-start space-x-2 bg-white p-2.5 rounded-lg border">
+                {Array.isArray(analysisResult.npk_recommendation.recommendation) ? (
+                  analysisResult.npk_recommendation.recommendation.map((step, idx) => (
+                    <li key={idx} className="flex items-start space-x-2 bg-white p-2.5 rounded-lg border">
+                      <span className="font-bold text-amber-600">•</span>
+                      <span>{step}</span>
+                    </li>
+                  ))
+                ) : (
+                  <li className="flex items-start space-x-2 bg-white p-2.5 rounded-lg border">
                     <span className="font-bold text-amber-600">•</span>
-                    <span>{step}</span>
+                    <span>{analysisResult.npk_recommendation.recommendation}</span>
                   </li>
-                ))}
+                )}
+                {analysisResult.npk_recommendation?.frequency && (
+                  <li className="flex items-start space-x-2 bg-white p-2.5 rounded-lg border">
+                    <span className="font-bold text-amber-600">📅</span>
+                    <span><strong>Frequency:</strong> {analysisResult.npk_recommendation.frequency}</span>
+                  </li>
+                )}
+                {analysisResult.npk_recommendation?.notes && (
+                  <li className="flex items-start space-x-2 bg-white p-2.5 rounded-lg border">
+                    <span className="font-bold text-amber-600">💡</span>
+                    <span><strong>Notes:</strong> {analysisResult.npk_recommendation.notes}</span>
+                  </li>
+                )}
               </ul>
             </div>
           )}
