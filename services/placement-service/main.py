@@ -19,6 +19,7 @@ from database import (
     get_dht11_readings,
     save_bh1750_reading,
     get_bh1750_readings,
+    get_plant_environmental_summary,
 )
 from mqtt_hub import (
     start_mqtt_hub,
@@ -512,3 +513,14 @@ def fetch_bh1750_readings(
 ):
     """Retrieves BH1750 telemetry records for a plant."""
     return get_bh1750_readings(plant_id=plant_id, page=page, limit=limit)
+
+
+@app.get("/telemetry/plant/{plant_id}/summary", tags=["Sensor Telemetry"])
+@app.get("/api/sensors/summary/plant/{plant_id}", tags=["Sensor Telemetry"])
+def fetch_plant_environmental_summary(
+    plant_id: str,
+    days: int = Query(30, ge=1, le=365),
+    user_id: Optional[str] = Query(None),
+):
+    """Aggregates rolling 30-day DHT11 and BH1750 telemetry for flowering-service."""
+    return get_plant_environmental_summary(plant_id=plant_id, user_id=user_id, days=days)

@@ -182,8 +182,8 @@ def migrate_environment_history():
     conn = get_conn("orchid_placement_db")
     cur = conn.cursor()
 
-    cur.execute("ALTER TABLE dht11_environment_history ADD COLUMN IF NOT EXISTS reading_id UUID;")
-    cur.execute("ALTER TABLE bh1750_environment_history ADD COLUMN IF NOT EXISTS reading_id UUID;")
+    cur.execute("ALTER TABLE dht11_history ADD COLUMN IF NOT EXISTS reading_id UUID;")
+    cur.execute("ALTER TABLE bh1750_history ADD COLUMN IF NOT EXISTS reading_id UUID;")
 
     # DHT11
     _, dht_rows = read_csv("dht11_environment_history_rows.csv")
@@ -200,7 +200,7 @@ def migrate_environment_history():
 
         cur.execute(
             """
-            INSERT INTO dht11_environment_history (id, reading_id, temperature, humidity, time_slot, location_id, user_id, module_id, created_at)
+            INSERT INTO dht11_history (id, reading_id, temperature, humidity, time_slot, location_id, user_id, module_id, created_at)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (id) DO NOTHING;
             """,
@@ -223,7 +223,7 @@ def migrate_environment_history():
 
         cur.execute(
             """
-            INSERT INTO bh1750_environment_history (id, reading_id, lux, time_slot, location_id, user_id, module_id, created_at)
+            INSERT INTO bh1750_history (id, reading_id, lux, time_slot, location_id, user_id, module_id, created_at)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (id) DO NOTHING;
             """,
