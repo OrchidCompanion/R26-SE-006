@@ -27,6 +27,7 @@ from mqtt_hub import (
     get_latest_sensor_data,
     get_sensor_module_status,
     trigger_mqtt_ambient_read,
+    trigger_mqtt_npk_read,
     trigger_mqtt_session,
     get_session_readings,
     clear_session_readings,
@@ -298,15 +299,22 @@ async def trigger_live_npk_read(module_id: str):
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 
-    # Calibrated fallback if module is offline during test
-    return {
-        "nitrogen_n": 45.0,
-        "phosphorus_p": 25.0,
-        "potassium_k": 35.0,
-        "module_id": clean_id,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "simulated": True,
-    }
+    # Trigger live NPK read over MQTT
+    mqtt_npk = trigger_mqtt_npk_read(clean_id, timeout_seconds=4.0)
+    if mqtt_npk and "nitrogen_n" in mqtt_npk:
+        return {
+            "nitrogen_n": float(mqtt_npk["nitrogen_n"]),
+            "phosphorus_p": float(mqtt_npk["phosphorus_p"]),
+            "potassium_k": float(mqtt_npk["potassium_k"]),
+            "module_id": clean_id,
+            "timestamp": mqtt_npk.get("timestamp", datetime.now(timezone.utc).isoformat()),
+        }
+
+    # If neither WebSocket nor MQTT responded, raise error
+    raise HTTPException(
+        status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+        detail=f"Sensor module '{clean_id}' is offline or did not respond to the read command. Please ensure the ESP32 is powered on and connected.",
+    )
 
 
 # ==============================================================================
