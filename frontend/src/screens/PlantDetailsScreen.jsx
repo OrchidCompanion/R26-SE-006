@@ -333,7 +333,7 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
               Daily Plant NPK Sampling
             </h3>
             <p className="text-xs text-gray-500">
-              Trigger instant live NPK readings from the connected ESP32-S3 node over WebSockets.
+              Trigger instant live NPK readings from the connected ESP32-S3 node via MQTT.
             </p>
           </div>
 
