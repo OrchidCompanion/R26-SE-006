@@ -42,12 +42,15 @@ def on_message(client, userdata, msg):
         p = payload.get("phosphorus") or payload.get("phosphorus_p") or payload.get("P", 0)
         k = payload.get("potassium") or payload.get("potassium_k") or payload.get("K", 0)
 
+        module_id = payload.get("module_id") or payload.get("device_id")
+
         save_npk_reading(
             nitrogen=float(n),
             phosphorus=float(p),
             potassium=float(k),
             plant_id=plant_id,
             user_id=user_id,
+            module_id=module_id,
         )
         print(f"[MQTT] Ingested NPK reading for plant={plant_id} (N={n}, P={p}, K={k})")
     except Exception as e:

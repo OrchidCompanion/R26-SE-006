@@ -195,7 +195,7 @@ export default function SensorsScreen({ selectedUser, onBack }) {
           className="px-4 py-2.5 bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-1.5 shrink-0"
         >
           <Plus className="w-4 h-4" />
-          <span>+ Pair Sensor Module</span>
+          <span> Pair Sensor Module</span>
         </button>
       </div>
 
@@ -276,9 +276,8 @@ export default function SensorsScreen({ selectedUser, onBack }) {
                       </span>
                     ) : statusInfo?.data ? (
                       <span
-                        className={`font-bold flex items-center gap-1 ${
-                          isOnline ? "text-emerald-600" : "text-rose-600"
-                        }`}
+                        className={`font-bold flex items-center gap-1 ${isOnline ? "text-emerald-600" : "text-rose-600"
+                          }`}
                       >
                         {isOnline ? (
                           <>
@@ -300,9 +299,8 @@ export default function SensorsScreen({ selectedUser, onBack }) {
                       <div className="flex justify-between">
                         <span className="text-gray-500">DHT11 Temp/RH:</span>
                         <span
-                          className={`font-semibold ${
-                            statusInfo.data.dht11 ? "text-emerald-700" : "text-rose-600"
-                          }`}
+                          className={`font-semibold ${statusInfo.data.dht11 ? "text-emerald-700" : "text-rose-600"
+                            }`}
                         >
                           {statusInfo.data.dht11 ? "Operational" : "No Signal"}
                         </span>
@@ -310,9 +308,8 @@ export default function SensorsScreen({ selectedUser, onBack }) {
                       <div className="flex justify-between">
                         <span className="text-gray-500">BH1750 Lux:</span>
                         <span
-                          className={`font-semibold ${
-                            statusInfo.data.bh1750 ? "text-emerald-700" : "text-rose-600"
-                          }`}
+                          className={`font-semibold ${statusInfo.data.bh1750 ? "text-emerald-700" : "text-rose-600"
+                            }`}
                         >
                           {statusInfo.data.bh1750 ? "Operational" : "No Signal"}
                         </span>
