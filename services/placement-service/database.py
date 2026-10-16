@@ -253,107 +253,26 @@ def update_module_last_seen(module_id: str):
 
 
 def save_ambient_reading(module_id: str, temperature: float, humidity: float, lux: float):
+    """In-memory telemetry update; records last_seen on module without database table bloat."""
     clean_id = module_id.lower().replace(":", "").replace("-", "").strip()
-    with get_db() as conn:
-        if not conn:
-            return
-        try:
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    INSERT INTO ambient_telemetry (module_id, temperature, humidity, lux, created_at)
-                    VALUES (%s, %s, %s, %s, %s);
-                    """,
-                    (clean_id, float(temperature), float(humidity), float(lux), datetime.now(timezone.utc)),
-                )
-                conn.commit()
-            update_module_last_seen(clean_id)
-        except Exception as e:
-            conn.rollback()
-            print(f"[Database] Failed to record ambient reading: {e}")
+    update_module_last_seen(clean_id)
 
 
 def get_latest_ambient(module_id: str) -> Optional[Dict[str, Any]]:
-    clean_id = module_id.lower().replace(":", "").replace("-", "").strip()
-    with get_db() as conn:
-        if not conn:
-            return None
-        try:
-            with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute(
-                    """
-                    SELECT * FROM ambient_telemetry
-                    WHERE module_id = %s
-                    ORDER BY created_at DESC
-                    LIMIT 1;
-                    """,
-                    (clean_id,),
-                )
-                row = cur.fetchone()
-                return dict(row) if row else None
-        except Exception as e:
-            print(f"[Database] Could not fetch latest ambient for {clean_id}: {e}")
-            return None
+    return None
 
 
 def save_analysis_record(payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    with get_db() as conn:
-        if not conn:
-            return None
-        try:
-            with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute(
-                    """
-                    INSERT INTO location_analysis_records
-                        (user_id, module_id, species, readings, averages, verdict, recommendation, created_at)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                    RETURNING *;
-                    """,
-                    (
-                        payload.get("user_id"),
-                        payload.get("module_id"),
-                        payload.get("species", "Dendrobium"),
-                        Json(payload.get("readings")) if payload.get("readings") is not None else None,
-                        Json(payload.get("averages")) if payload.get("averages") is not None else None,
-                        payload.get("verdict"),
-                        payload.get("recommendation"),
-                        datetime.now(timezone.utc),
-                    ),
-                )
-                conn.commit()
-                row = cur.fetchone()
-                return dict(row) if row else None
-        except Exception as e:
-            conn.rollback()
-            print(f"[Database] Failed to save location test record: {e}")
-            return None
+    # Location analysis evaluations are delivered live to frontend without persisting to DB
+    return payload
 
 
 def get_user_analysis_history(user_id: str) -> List[Dict[str, Any]]:
-    if not user_id:
-        return []
-    with get_db() as conn:
-        if not conn:
-            return []
-        try:
-            with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute(
-                    """
-                    SELECT * FROM location_analysis_records
-                    WHERE user_id = %s
-                    ORDER BY created_at DESC;
-                    """,
-                    (user_id,),
-                )
-                rows = cur.fetchall()
-                return [dict(r) for r in rows] if rows else []
-        except Exception as e:
-            print(f"[Database] Failed to fetch analysis history: {e}")
-            return []
+    return []
 
 
 # ==============================================================================
-# DHT11 & BH1750 SENSOR TELEMETRY HISTORY
+# DHT11 & BH1750 SENSOR TELEMETRY HISTORY (Single Source of Truth)
 # ==============================================================================
 
 def save_dht11_reading(
@@ -372,7 +291,7 @@ def save_dht11_reading(
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute(
                     """
-                    INSERT INTO dht11_environment_history
+                    INSERT INTO dht11_history
                         (temperature, humidity, location_id, module_id, time_slot, user_id, plant_id, created_at)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                     RETURNING *;
@@ -400,8 +319,8 @@ def get_dht11_readings(
         try:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 offset = (page - 1) * limit
-                query = "SELECT * FROM dht11_environment_history WHERE 1=1"
-                count_query = "SELECT COUNT(*) as total FROM dht11_environment_history WHERE 1=1"
+                query = "SELECT * FROM dht11_history WHERE 1=1"
+                count_query = "SELECT COUNT(*) as total FROM dht11_history WHERE 1=1"
                 params = []
                 count_params = []
 
@@ -458,7 +377,7 @@ def save_bh1750_reading(
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute(
                     """
-                    INSERT INTO bh1750_environment_history
+                    INSERT INTO bh1750_history
                         (lux, location_id, module_id, time_slot, user_id, plant_id, created_at)
                     VALUES (%s, %s, %s, %s, %s, %s, %s)
                     RETURNING *;
@@ -486,8 +405,8 @@ def get_bh1750_readings(
         try:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 offset = (page - 1) * limit
-                query = "SELECT * FROM bh1750_environment_history WHERE 1=1"
-                count_query = "SELECT COUNT(*) as total FROM bh1750_environment_history WHERE 1=1"
+                query = "SELECT * FROM bh1750_history WHERE 1=1"
+                count_query = "SELECT COUNT(*) as total FROM bh1750_history WHERE 1=1"
                 params = []
                 count_params = []
 
@@ -527,3 +446,134 @@ def get_bh1750_readings(
         except Exception as e:
             print(f"[Database] Failed to get BH1750 readings: {e}")
             return {"data": [], "total": 0, "page": page, "limit": limit}
+
+
+def get_plant_environmental_summary(
+    plant_id: Optional[str] = None,
+    user_id: Optional[str] = None,
+    days: int = 30,
+) -> Dict[str, Any]:
+    """
+    Computes rolling environmental statistics (DHT11 temperature/humidity and BH1750 light lux)
+    for a given plant over the requested window (default: 30 days).
+    Used directly by flowering-service for its Gradient Boosting bloom timeline forecaster.
+    """
+    default_stats = {
+        "avg_temp_c": 27.5,
+        "min_temp_c": 25.0,
+        "max_temp_c": 30.0,
+        "temp_std_c": 1.5,
+        "avg_humidity_rh": 72.5,
+        "min_humidity_rh": 68.0,
+        "max_humidity_rh": 76.0,
+        "humidity_std_rh": 2.0,
+        "avg_light_lux": 20000.0,
+        "min_light_lux": 16000.0,
+        "max_light_lux": 26000.0,
+        "light_std_lux": 2500.0,
+        "data_window_days": days,
+        "telemetry_samples_count": 0,
+        "is_default_baseline": True,
+    }
+
+    with get_db() as conn:
+        if not conn:
+            return default_stats
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                from datetime import timedelta
+                cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+
+                # Fetch DHT11 readings
+                if plant_id:
+                    cur.execute(
+                        """
+                        SELECT temperature, humidity FROM dht11_history
+                        WHERE plant_id = %s AND created_at >= %s
+                        ORDER BY created_at DESC LIMIT 1000;
+                        """,
+                        (plant_id, cutoff),
+                    )
+                elif user_id:
+                    cur.execute(
+                        """
+                        SELECT temperature, humidity FROM dht11_history
+                        WHERE user_id = %s AND created_at >= %s
+                        ORDER BY created_at DESC LIMIT 1000;
+                        """,
+                        (user_id, cutoff),
+                    )
+                else:
+                    cur.execute(
+                        """
+                        SELECT temperature, humidity FROM dht11_history
+                        WHERE created_at >= %s
+                        ORDER BY created_at DESC LIMIT 1000;
+                        """,
+                        (cutoff,),
+                    )
+                dht_rows = cur.fetchall()
+
+                # Fetch BH1750 readings
+                if plant_id:
+                    cur.execute(
+                        """
+                        SELECT lux FROM bh1750_history
+                        WHERE plant_id = %s AND created_at >= %s
+                        ORDER BY created_at DESC LIMIT 1000;
+                        """,
+                        (plant_id, cutoff),
+                    )
+                elif user_id:
+                    cur.execute(
+                        """
+                        SELECT lux FROM bh1750_history
+                        WHERE user_id = %s AND created_at >= %s
+                        ORDER BY created_at DESC LIMIT 1000;
+                        """,
+                        (user_id, cutoff),
+                    )
+                else:
+                    cur.execute(
+                        """
+                        SELECT lux FROM bh1750_history
+                        WHERE created_at >= %s
+                        ORDER BY created_at DESC LIMIT 1000;
+                        """,
+                        (cutoff,),
+                    )
+                bh_rows = cur.fetchall()
+
+                if not dht_rows and not bh_rows:
+                    return default_stats
+
+                import numpy as np
+
+                temps = [float(r["temperature"]) for r in dht_rows if r.get("temperature") is not None]
+                hums = [float(r["humidity"]) for r in dht_rows if r.get("humidity") is not None]
+                luxs = [float(r["lux"]) for r in bh_rows if r.get("lux") is not None]
+
+                sample_count = max(len(temps), len(luxs))
+                if sample_count == 0:
+                    return default_stats
+
+                return {
+                    "avg_temp_c": round(float(np.mean(temps)), 2) if temps else 27.5,
+                    "min_temp_c": round(float(np.min(temps)), 2) if temps else 25.0,
+                    "max_temp_c": round(float(np.max(temps)), 2) if temps else 30.0,
+                    "temp_std_c": round(float(np.std(temps)), 2) if len(temps) > 1 else 1.5,
+                    "avg_humidity_rh": round(float(np.mean(hums)), 2) if hums else 72.5,
+                    "min_humidity_rh": round(float(np.min(hums)), 2) if hums else 68.0,
+                    "max_humidity_rh": round(float(np.max(hums)), 2) if hums else 76.0,
+                    "humidity_std_rh": round(float(np.std(hums)), 2) if len(hums) > 1 else 2.0,
+                    "avg_light_lux": round(float(np.mean(luxs)), 2) if luxs else 20000.0,
+                    "min_light_lux": round(float(np.min(luxs)), 2) if luxs else 16000.0,
+                    "max_light_lux": round(float(np.max(luxs)), 2) if luxs else 26000.0,
+                    "light_std_lux": round(float(np.std(luxs)), 2) if len(luxs) > 1 else 2500.0,
+                    "data_window_days": days,
+                    "telemetry_samples_count": sample_count,
+                    "is_default_baseline": False,
+                }
+        except Exception as e:
+            print(f"[Database] Could not aggregate environmental statistics: {e}")
+            return default_stats

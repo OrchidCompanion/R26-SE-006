@@ -21,7 +21,9 @@ _client: Optional[Any] = None
 _thread: Optional[threading.Thread] = None
 
 # In-memory fast cache for live sensor readings
+# In-memory fast cache for live sensor readings and session logs
 latest_readings: Dict[str, Dict[str, Any]] = {}
+session_records: Dict[str, List[Dict[str, Any]]] = {}
 
 
 def normalize_mac(mac: str) -> str:
@@ -81,6 +83,26 @@ def on_message(client, userdata, msg):
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "online": True,
             }
+
+            # Store in session records
+            sample_idx = payload.get("sample_index")
+            sample_data = {
+                "sample_index": int(sample_idx) if sample_idx is not None else (len(session_records.get(clean_mac, [])) + 1),
+                "total_samples": int(payload.get("total_samples", 3)),
+                "temperature": float(temp),
+                "humidity": float(hum),
+                "lux": float(lux),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "buffered": bool(payload.get("buffered", False)),
+            }
+            if clean_mac not in session_records:
+                session_records[clean_mac] = []
+            
+            # Avoid immediate duplicate if already logged with same sample_index
+            if not any(s.get("sample_index") == sample_data["sample_index"] for s in session_records[clean_mac]):
+                session_records[clean_mac].append(sample_data)
+                session_records[clean_mac] = session_records[clean_mac][-10:]
+
             # Persist to database
             save_ambient_reading(
                 module_id=clean_mac,
@@ -88,7 +110,7 @@ def on_message(client, userdata, msg):
                 humidity=float(hum),
                 lux=float(lux),
             )
-            print(f"[MQTT] Ambient reading recorded for {clean_mac}: T={temp}°C, H={hum}%, L={lux} Lux")
+            print(f"[MQTT] Ambient reading recorded for {clean_mac} (sample {sample_data['sample_index']}/{sample_data['total_samples']}): T={temp}°C, H={hum}%, L={lux} Lux, buffered={sample_data['buffered']}")
     except Exception as e:
         print(f"[MQTT] Error handling message on {msg.topic}: {e}")
 
@@ -114,6 +136,36 @@ def trigger_mqtt_ambient_read(module_id: str, timeout_seconds: float = 3.0) -> O
             return curr
 
     return latest_readings.get(clean_mac)
+
+
+def trigger_mqtt_session(module_id: str, samples: int = 3, interval_sec: int = 20) -> bool:
+    """Publishes a start_session command over MQTT to initiate autonomous sampling."""
+    global _client
+    if not _client or not _client.is_connected():
+        return False
+
+    clean_mac = normalize_mac(module_id)
+    cmd = json.dumps({
+        "action": "start_session",
+        "samples": samples,
+        "interval_sec": interval_sec,
+    })
+    _client.publish(f"orchid/{clean_mac}/command", cmd)
+    _client.publish("orchid/commands/env", cmd)
+    print(f"[MQTT] Sent start_session command to {clean_mac}: samples={samples}, interval={interval_sec}s")
+    return True
+
+
+def get_session_readings(module_id: str) -> List[Dict[str, Any]]:
+    """Returns list of session readings captured for module_id."""
+    clean_mac = normalize_mac(module_id)
+    return session_records.get(clean_mac, [])
+
+
+def clear_session_readings(module_id: str):
+    """Clears current session records for module_id."""
+    clean_mac = normalize_mac(module_id)
+    session_records[clean_mac] = []
 
 
 def start_mqtt_hub():

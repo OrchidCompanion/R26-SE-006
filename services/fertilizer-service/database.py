@@ -1,5 +1,5 @@
 import os
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 from datetime import datetime, timezone
 from contextlib import contextmanager
 from dotenv import load_dotenv
@@ -304,3 +304,158 @@ def get_npk_readings_by_plant(plant_id: str, page: int = 1, limit: int = 10) -> 
         except Exception as e:
             print(f"[Database] Failed to get NPK readings for plant {plant_id}: {e}")
             return {"data": [], "total": 0, "page": page, "limit": limit}
+
+
+NPK_THRESHOLDS = {
+    "N": {"low": 25, "high": 65},
+    "P": {"low": 15, "high": 35},
+    "K": {"low": 50, "high": 130},
+}
+
+ADVICE_MAP = {
+    "N_low": "Apply nitrogen-rich fertilizer",
+    "N_high": "Reduce nitrogen application",
+    "P_low": "Apply phosphorus fertilizer",
+    "P_high": "Reduce phosphorus application",
+    "K_low": "Apply potassium fertilizer",
+    "K_high": "Leach cocopeat with water",
+    "N_ok": "Nitrogen OK",
+    "P_ok": "Phosphorus OK",
+    "K_ok": "Potassium OK",
+}
+
+
+def _classify_npk_val(val: Any, nutrient: str) -> str:
+    if val is None:
+        return "unknown"
+    try:
+        val = float(val)
+    except (TypeError, ValueError):
+        return "unknown"
+    low = NPK_THRESHOLDS[nutrient]["low"]
+    high = NPK_THRESHOLDS[nutrient]["high"]
+    if val < low:
+        return "low"
+    if val > high:
+        return "high"
+    return "ok"
+
+
+def _analyze_npk_pack(npk: Dict[str, Any]) -> Tuple[Dict[str, str], List[str]]:
+    status: Dict[str, str] = {}
+    advice: List[str] = []
+    for nutrient in ("N", "P", "K"):
+        key = _classify_npk_val(npk.get(nutrient), nutrient)
+        status[nutrient] = key
+        advice.append(ADVICE_MAP.get(f"{nutrient}_{key}", f"{nutrient} unknown"))
+    return status, advice
+
+
+def get_npk_window_for_plant(plant_id: Optional[str] = None, user_id: Optional[str] = None, days: int = 7) -> Dict[str, Any]:
+    """
+    Computes rolling NPK status and nutrient deficiency analysis for a plant over a window (default 7 days).
+    Used by disease-service to cross-reference plant disease susceptibility with soil nutrient levels.
+    """
+    from datetime import timedelta
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    rows: List[Dict[str, Any]] = []
+
+    with get_db() as conn:
+        if conn:
+            try:
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    if plant_id:
+                        cur.execute(
+                            """
+                            SELECT * FROM npk_history
+                            WHERE plant_id = %s AND created_at >= %s
+                            ORDER BY created_at DESC LIMIT 500;
+                            """,
+                            (plant_id, cutoff),
+                        )
+                    elif user_id:
+                        cur.execute(
+                            """
+                            SELECT * FROM npk_history
+                            WHERE user_id = %s AND created_at >= %s
+                            ORDER BY created_at DESC LIMIT 500;
+                            """,
+                            (user_id, cutoff),
+                        )
+                    else:
+                        cur.execute(
+                            """
+                            SELECT * FROM npk_history
+                            WHERE created_at >= %s
+                            ORDER BY created_at DESC LIMIT 500;
+                            """,
+                            (cutoff,),
+                        )
+                    fetched = cur.fetchall()
+                    rows = [dict(r) for r in fetched] if fetched else []
+            except Exception as e:
+                print(f"[Database] Failed to query {days}-day NPK window: {e}")
+                rows = []
+
+    if not rows:
+        empty = {"N": None, "P": None, "K": None, "time": None}
+        return {
+            "rows": [],
+            "latest": empty,
+            "latest_status": {"N": "unknown", "P": "unknown", "K": "unknown"},
+            "latest_advice": [f"No recent NPK readings found in {days}-day window."],
+            "window": {
+                "sample_size": 0,
+                "has_deficiency": False,
+                "deficient_nutrients": [],
+                "excess_nutrients": [],
+                "deficiency_msg": f"No soil NPK telemetry available in last {days} days.",
+            },
+        }
+
+    latest_row = rows[0]
+    latest = {
+        "N": latest_row.get("nitrogen_n"),
+        "P": latest_row.get("phosphorus_p"),
+        "K": latest_row.get("potassium_k"),
+        "time": str(latest_row.get("created_at")),
+    }
+    latest_status, latest_advice = _analyze_npk_pack(latest)
+
+    totals: Dict[str, List[float]] = {"N": [], "P": [], "K": []}
+    for r in rows:
+        for nut, col in (("N", "nitrogen_n"), ("P", "phosphorus_p"), ("K", "potassium_k")):
+            val = r.get(col)
+            if val is not None:
+                try:
+                    totals[nut].append(float(val))
+                except ValueError:
+                    pass
+
+    mean = {
+        n: round(sum(totals[n]) / len(totals[n]), 2) if totals[n] else None
+        for n in ("N", "P", "K")
+    }
+    mean_status, _ = _analyze_npk_pack(mean)
+
+    names = {"N": "Nitrogen", "P": "Phosphorus", "K": "Potassium"}
+    deficient = [names[n] for n in ("N", "P", "K") if mean_status.get(n) == "low"]
+    excess = [names[n] for n in ("N", "P", "K") if mean_status.get(n) == "high"]
+
+    return {
+        "rows": rows,
+        "latest": latest,
+        "latest_status": latest_status,
+        "latest_advice": latest_advice,
+        "window": {
+            "sample_size": len(rows),
+            "window_days": days,
+            "mean_n": mean["N"],
+            "mean_p": mean["P"],
+            "mean_k": mean["K"],
+            "has_deficiency": len(deficient) > 0,
+            "deficient_nutrients": deficient,
+            "excess_nutrients": excess,
+        },
+    }
+

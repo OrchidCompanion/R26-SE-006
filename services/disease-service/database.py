@@ -4,6 +4,7 @@ from typing import Optional, List, Dict, Any, Tuple
 from datetime import datetime, timedelta, timezone
 from contextlib import contextmanager
 from dotenv import load_dotenv
+import httpx
 
 try:
     import psycopg2
@@ -16,6 +17,8 @@ except ImportError:
     pool = None
 
 load_dotenv()
+
+FERTILIZER_SERVICE_URL = os.getenv("FERTILIZER_SERVICE_URL", "http://fertilizer-service:7860")
 
 # Dedicated database for Disease & Treatment Service (IT22250124)
 DB_URL = os.getenv("DISEASE_DB_URL") or os.getenv("DATABASE_URL")
@@ -218,179 +221,57 @@ def save_npk_reading(
     user_id: Optional[str] = None,
     time_slot: str = "morning",
 ) -> Optional[Dict[str, Any]]:
-    with get_db() as conn:
-        if not conn:
-            return None
-        try:
-            with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute(
-                    """
-                    INSERT INTO npk_history
-                        (nitrogen_n, phosphorus_p, potassium_k, plant_id, user_id, time_slot, created_at)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    RETURNING *;
-                    """,
-                    (
-                        float(nitrogen),
-                        float(phosphorus),
-                        float(potassium),
-                        plant_id,
-                        user_id,
-                        time_slot,
-                        datetime.now(timezone.utc),
-                    ),
-                )
-                conn.commit()
-                row = cur.fetchone()
-                return dict(row) if row else None
-        except Exception as e:
-            conn.rollback()
-            print(f"[Database] Failed to insert NPK telemetry: {e}")
-            return None
-
-
-def _classify_npk_value(val: Any, nutrient: str) -> str:
-    if val is None:
-        return "unknown"
+    """Forward NPK telemetry to single source of truth (fertilizer-service)."""
     try:
-        val = float(val)
-    except (TypeError, ValueError):
-        return "unknown"
-    low = NPK_THRESHOLDS[nutrient]["low"]
-    high = NPK_THRESHOLDS[nutrient]["high"]
-    if val < low:
-        return "low"
-    if val > high:
-        return "high"
-    return "ok"
+        with httpx.Client(timeout=5.0) as client:
+            resp = client.post(
+                f"{FERTILIZER_SERVICE_URL}/api/sensors/npk",
+                json={
+                    "nitrogen_n": float(nitrogen),
+                    "phosphorus_p": float(phosphorus),
+                    "potassium_k": float(potassium),
+                    "plant_id": plant_id,
+                    "user_id": user_id,
+                    "time_slot": time_slot,
+                },
+            )
+            if resp.status_code in (200, 201):
+                return resp.json()
+    except Exception as e:
+        print(f"[DiseaseService] Could not forward NPK reading to fertilizer-service: {e}")
+    return None
 
 
-def _analyze_npk(npk: Dict[str, Any]) -> Tuple[Dict[str, str], List[str]]:
-    status: Dict[str, str] = {}
-    advice: List[str] = []
-    for nutrient in ("N", "P", "K"):
-        key = _classify_npk_value(npk.get(nutrient), nutrient)
-        status[nutrient] = key
-        advice.append(ADVICE_MAP.get(f"{nutrient}_{key}", f"{nutrient} unknown"))
-    return status, advice
+def get_npk_window_for_plant(plant_id: Optional[str] = None, user_id: Optional[str] = None, days: int = NPK_WINDOW_DAYS) -> Dict[str, Any]:
+    """
+    Fetches rolling NPK deficiency window for a plant directly from fertilizer-service
+    via internal Docker DNS (East-West communication).
+    """
+    url = f"{FERTILIZER_SERVICE_URL}/npk/plant/{plant_id}/window" if plant_id else f"{FERTILIZER_SERVICE_URL}/npk/plant/default/window"
+    params = {"days": days}
+    if user_id:
+        params["user_id"] = user_id
 
+    try:
+        with httpx.Client(timeout=5.0) as client:
+            resp = client.get(url, params=params)
+            if resp.status_code == 200:
+                return resp.json()
+    except Exception as e:
+        print(f"[DiseaseService] Could not fetch NPK telemetry from fertilizer-service ({e}), using default fallback.")
 
-def get_npk_window_for_plant(plant_id: Optional[str] = None, user_id: Optional[str] = None) -> Dict[str, Any]:
-    with get_db() as conn:
-        if not conn:
-            empty = {"N": None, "P": None, "K": None, "time": None}
-            return {
-                "rows": [],
-                "latest": empty,
-                "latest_status": {"N": "unknown", "P": "unknown", "K": "unknown"},
-                "latest_advice": ["No database connected."],
-                "window": {"has_deficiency": False, "deficient_nutrients": [], "excess_nutrients": []},
-            }
-        try:
-            with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cutoff = datetime.now(timezone.utc) - timedelta(days=NPK_WINDOW_DAYS)
-                if plant_id:
-                    cur.execute(
-                        """
-                        SELECT * FROM npk_history
-                        WHERE plant_id = %s AND created_at >= %s
-                        ORDER BY created_at DESC
-                        LIMIT 500;
-                        """,
-                        (plant_id, cutoff),
-                    )
-                elif user_id:
-                    cur.execute(
-                        """
-                        SELECT * FROM npk_history
-                        WHERE user_id = %s AND created_at >= %s
-                        ORDER BY created_at DESC
-                        LIMIT 500;
-                        """,
-                        (user_id, cutoff),
-                    )
-                else:
-                    cur.execute(
-                        """
-                        SELECT * FROM npk_history
-                        WHERE created_at >= %s
-                        ORDER BY created_at DESC
-                        LIMIT 500;
-                        """,
-                        (cutoff,),
-                    )
-                rows = cur.fetchall()
-                rows = [dict(r) for r in rows] if rows else []
-        except Exception as e:
-            print(f"[Database] Failed to query 7-day NPK window: {e}")
-            rows = []
-
-    if not rows:
-        empty = {"N": None, "P": None, "K": None, "time": None}
-        return {
-            "rows": [],
-            "latest": empty,
-            "latest_status": {"N": "unknown", "P": "unknown", "K": "unknown"},
-            "latest_advice": ["No recent NPK readings found in 7-day window."],
-            "window": {
-                "sample_size": 0,
-                "has_deficiency": False,
-                "deficient_nutrients": [],
-                "excess_nutrients": [],
-                "deficiency_msg": "No soil NPK telemetry available in last 7 days.",
-            },
-        }
-
-    latest_row = rows[0]
-    latest = {
-        "N": latest_row.get("nitrogen_n"),
-        "P": latest_row.get("phosphorus_p"),
-        "K": latest_row.get("potassium_k"),
-        "time": latest_row.get("created_at"),
-    }
-    latest_status, latest_advice = _analyze_npk(latest)
-
-    totals: Dict[str, List[float]] = {"N": [], "P": [], "K": []}
-    for r in rows:
-        for nut, col in (("N", "nitrogen_n"), ("P", "phosphorus_p"), ("K", "potassium_k")):
-            val = r.get(col)
-            if val is not None:
-                try:
-                    totals[nut].append(float(val))
-                except ValueError:
-                    pass
-
-    mean = {
-        n: round(sum(totals[n]) / len(totals[n]), 2) if totals[n] else None
-        for n in ("N", "P", "K")
-    }
-    mean_status, _ = _analyze_npk(mean)
-
-    names = {"N": "Nitrogen", "P": "Phosphorus", "K": "Potassium"}
-    deficient = [names[n] for n in ("N", "P", "K") if mean_status.get(n) == "low"]
-    excess = [names[n] for n in ("N", "P", "K") if mean_status.get(n) == "high"]
-    has_deficiency = len(deficient) > 0
-
-    if has_deficiency:
-        deficiency_msg = f"Nutrient deficiency detected: {', '.join(deficient)} low."
-    elif excess:
-        deficiency_msg = f"No nutrient deficiency. Excess detected: {', '.join(excess)} high."
-    else:
-        deficiency_msg = "7-day NPK averages are in healthy range."
-
+    empty = {"N": None, "P": None, "K": None, "time": None}
     return {
-        "rows": rows,
-        "latest": latest,
-        "latest_status": latest_status,
-        "latest_advice": latest_advice,
+        "rows": [],
+        "latest": empty,
+        "latest_status": {"N": "unknown", "P": "unknown", "K": "unknown"},
+        "latest_advice": ["Soil NPK telemetry unavailable from fertilizer-service."],
         "window": {
-            "sample_size": len(rows),
-            "days": NPK_WINDOW_DAYS,
-            "mean": mean,
-            "mean_status": mean_status,
-            "has_deficiency": has_deficiency,
-            "deficient_nutrients": deficient,
-            "excess_nutrients": excess,
-            "deficiency_msg": deficiency_msg,
+            "sample_size": 0,
+            "has_deficiency": False,
+            "deficient_nutrients": [],
+            "excess_nutrients": [],
+            "deficiency_msg": "No soil NPK telemetry available in last 7 days.",
         },
     }
+
