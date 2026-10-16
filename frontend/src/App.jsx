@@ -5,6 +5,7 @@ import PlantsScreen from "./screens/PlantsScreen";
 import PlantDetailsScreen from "./screens/PlantDetailsScreen";
 import IdentifySpecies from "./screens/IdentifySpecies";
 import AnalayseLocation from "./screens/AnalayseLocation";
+import SensorsScreen from "./screens/SensorsScreen";
 
 export default function App() {
   const [token, setToken] = useState(localStorage.getItem("admin_token") || null);
@@ -87,7 +88,14 @@ export default function App() {
           <PlantsScreen
             selectedUser={selectedUser}
             onSelectPlant={handleSelectPlant}
+            onNavigateToSensors={() => setActiveTab("sensors")}
             onBack={() => setActiveTab("dashboard")}
+          />
+        )}
+        {activeTab === "sensors" && selectedUser && (
+          <SensorsScreen
+            selectedUser={selectedUser}
+            onBack={() => setActiveTab("plants")}
           />
         )}
         {activeTab === "plant_details" && selectedPlant && (
