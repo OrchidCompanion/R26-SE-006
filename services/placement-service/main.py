@@ -310,15 +310,11 @@ async def trigger_live_npk_read(module_id: str):
             "timestamp": mqtt_npk.get("timestamp", datetime.now(timezone.utc).isoformat()),
         }
 
-    # Calibrated fallback if module is offline during test
-    return {
-        "nitrogen_n": 45.0,
-        "phosphorus_p": 25.0,
-        "potassium_k": 35.0,
-        "module_id": clean_id,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "simulated": True,
-    }
+    # If neither WebSocket nor MQTT responded, raise error
+    raise HTTPException(
+        status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+        detail=f"Sensor module '{clean_id}' is offline or did not respond to the read command. Please ensure the ESP32 is powered on and connected.",
+    )
 
 
 # ==============================================================================
