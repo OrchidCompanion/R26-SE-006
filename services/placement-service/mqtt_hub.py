@@ -3,7 +3,7 @@ import json
 import threading
 import time
 from datetime import datetime, timezone
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 try:
     import paho.mqtt.client as mqtt
 except ImportError:
