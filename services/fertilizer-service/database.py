@@ -181,6 +181,7 @@ def save_npk_reading(
     plant_id: Optional[str] = None,
     user_id: Optional[str] = None,
     time_slot: str = "morning",
+    module_id: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     with get_db() as conn:
         if not conn:
@@ -190,8 +191,8 @@ def save_npk_reading(
                 cur.execute(
                     """
                     INSERT INTO npk_history
-                        (nitrogen_n, phosphorus_p, potassium_k, plant_id, user_id, time_slot, created_at)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        (nitrogen_n, phosphorus_p, potassium_k, plant_id, user_id, time_slot, module_id, created_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                     RETURNING *;
                     """,
                     (
@@ -201,6 +202,7 @@ def save_npk_reading(
                         plant_id,
                         user_id,
                         time_slot,
+                        module_id,
                         datetime.now(timezone.utc),
                     ),
                 )
