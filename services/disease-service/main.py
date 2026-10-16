@@ -75,8 +75,8 @@ async def on_startup():
     except Exception as e:
         print(f"[DiseaseService] Warning: Could not preload models: {e}")
 
-    # Launch background MQTT listener for NPK sensor telemetry
-    start_mqtt_subscriber()
+    # Note: Soil NPK telemetry is centrally ingested by fertilizer-service
+    pass
 
 
 @app.get("/", tags=["Health"])

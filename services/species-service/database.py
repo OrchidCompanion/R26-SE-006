@@ -58,61 +58,14 @@ def save_identification_log(
     plant_id: Optional[str] = None,
     image_filenames: Optional[List[str]] = None,
 ) -> Optional[Dict[str, Any]]:
-    """Save an identification record to PostgreSQL orchid_species_db."""
-    with get_db() as conn:
-        if not conn:
-            return None
-        try:
-            with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute(
-                    """
-                    INSERT INTO species_identifications
-                        (verdict, total_images, detections, user_id, plant_id, image_filenames, created_at)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    RETURNING *;
-                    """,
-                    (
-                        verdict,
-                        total_images,
-                        Json(detections_summary),
-                        user_id,
-                        plant_id,
-                        image_filenames,
-                        datetime.now(timezone.utc),
-                    ),
-                )
-                conn.commit()
-                row = cur.fetchone()
-                return dict(row) if row else None
-        except Exception as e:
-            conn.rollback()
-            print(f"[Database] Failed to insert species identification: {e}")
-            return None
+    """Transient ML identification result returned directly to user; no database bloat."""
+    return None
 
 
 def get_user_identification_history(user_id: str, limit: int = 20) -> List[Dict[str, Any]]:
-    """Retrieve historical identification records for a given user from PostgreSQL."""
-    if not user_id:
-        return []
-    with get_db() as conn:
-        if not conn:
-            return []
-        try:
-            with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute(
-                    """
-                    SELECT * FROM species_identifications
-                    WHERE user_id = %s
-                    ORDER BY created_at DESC
-                    LIMIT %s;
-                    """,
-                    (user_id, limit),
-                )
-                rows = cur.fetchall()
-                return [dict(r) for r in rows] if rows else []
-        except Exception as e:
-            print(f"[Database] Failed to fetch species history: {e}")
-            return []
+    """Users catalog plants directly in the plants table."""
+    return []
+
 
 
 # ==============================================================================

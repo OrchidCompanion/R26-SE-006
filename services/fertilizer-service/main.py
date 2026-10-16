@@ -16,6 +16,7 @@ from database import (
     get_latest_npk_reading,
     save_npk_reading,
     get_npk_readings_by_plant,
+    get_npk_window_for_plant,
 )
 from mqtt_consumer import start_mqtt_subscriber
 
@@ -268,3 +269,15 @@ def fetch_npk_readings_for_plant(
 ):
     """Retrieves NPK telemetry records for a plant."""
     return get_npk_readings_by_plant(plant_id=plant_id, page=page, limit=limit)
+
+
+@app.get("/npk/plant/{plant_id}/window", tags=["NPK Telemetry"])
+@app.get("/api/sensors/npk/plant/{plant_id}/window", tags=["NPK Telemetry"])
+def fetch_npk_window_for_plant(
+    plant_id: str,
+    days: int = Query(7, ge=1, le=90),
+    user_id: Optional[str] = Query(None),
+):
+    """Retrieves rolling 7-day NPK deficiency window for disease-service and clients."""
+    return get_npk_window_for_plant(plant_id=plant_id, user_id=user_id, days=days)
+

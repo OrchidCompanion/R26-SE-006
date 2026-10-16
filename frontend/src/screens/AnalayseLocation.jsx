@@ -24,7 +24,7 @@ export default function AnalayseLocation({ onBack }) {
 
   const [selectedOrchid, setSelectedOrchid] = useState("Dendrobium");
   const [analyzing, setAnalyzing] = useState(false);
-  const [countdown, setCountdown] = useState(60);
+  const [countdown, setCountdown] = useState(30);
   const [readings, setReadings] = useState([]);
   const [analysisCompleted, setAnalysisCompleted] = useState(false);
   const [error, setError] = useState("");
@@ -169,19 +169,67 @@ export default function AnalayseLocation({ onBack }) {
     }
   };
 
-  const handleStartAnalysis = () => {
+  const handleStartAnalysis = async () => {
+    if (!selectedModuleId) {
+      setError("Please select a sensor module first.");
+      return;
+    }
+
     setAnalyzing(true);
-    setCountdown(60);
+    setCountdown(30);
     setReadings([]);
     setAnalysisCompleted(false);
     setError("");
 
-    let secondsLeft = 60;
+    const token = localStorage.getItem("admin_token");
+
+    // 1. Dispatch autonomous 3-reading session command to ESP32 over MQTT
+    try {
+      await fetch(
+        `${API_BASE_URL}/sensors/modules/${selectedModuleId}/start-session`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ samples: 3, interval_sec: 14 }),
+        }
+      );
+    } catch (err) {
+      console.warn("Could not dispatch start-session, will poll fallback:", err);
+    }
+
+    let secondsLeft = 30;
     const collected = [];
+
+    const fetchSessionReadings = async () => {
+      try {
+        const res = await fetch(
+          `${API_BASE_URL}/sensors/modules/${selectedModuleId}/session-readings`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.readings) && data.readings.length > 0) {
+            return data.readings.map((r, i) => ({
+              sampleIndex: r.sample_index || i + 1,
+              temp: Number(r.temperature),
+              hum: Number(r.humidity),
+              lux: Number(r.lux),
+              time: new Date(r.timestamp).toLocaleTimeString(),
+              buffered: Boolean(r.buffered),
+            }));
+          }
+        }
+      } catch (err) {
+        console.warn("Session readings poll failed:", err);
+      }
+      return null;
+    };
 
     const fetchSingleReading = async () => {
       try {
-        const token = localStorage.getItem("admin_token");
         const res = await fetch(
           `${API_BASE_URL}/sensors/modules/${selectedModuleId}/read-ambient`,
           { headers: { Authorization: `Bearer ${token}` } }
@@ -189,13 +237,16 @@ export default function AnalayseLocation({ onBack }) {
         if (res.ok) {
           const data = await res.json();
           return {
+            sampleIndex: collected.length + 1,
             temp: Number(data.temperature),
             hum: Number(data.humidity),
             lux: Number(data.lux),
+            time: new Date().toLocaleTimeString(),
+            buffered: false,
           };
         }
       } catch (err) {
-        console.warn("Read failed:", err);
+        console.warn("Single read fallback failed:", err);
       }
       return null;
     };
@@ -203,14 +254,29 @@ export default function AnalayseLocation({ onBack }) {
     const timer = setInterval(async () => {
       secondsLeft -= 1;
       setCountdown(secondsLeft);
+      const elapsed = 30 - secondsLeft;
 
-      if (secondsLeft === 40 || secondsLeft === 20 || secondsLeft === 0) {
-        const sample = await fetchSingleReading();
-        if (sample) {
-          sample.sampleIndex = collected.length + 1;
-          sample.time = new Date().toLocaleTimeString();
-          collected.push(sample);
-          setReadings([...collected]);
+      // Check for incoming autonomous session readings every second
+      const sessionData = await fetchSessionReadings();
+      if (sessionData && sessionData.length > 0) {
+        setReadings(sessionData);
+
+        // If all 3 samples have arrived by the end of session
+        if (sessionData.length >= 3 && secondsLeft <= 0) {
+          clearInterval(timer);
+          setCountdown(0);
+          setAnalyzing(false);
+          setAnalysisCompleted(true);
+          return;
+        }
+      } else {
+        // Fallback single poll: 1st sec (elapsed 1), 20th sec (elapsed 20), 28th sec (elapsed 28)
+        if (elapsed === 1 || elapsed === 20 || elapsed === 28) {
+          const sample = await fetchSingleReading();
+          if (sample) {
+            collected.push(sample);
+            setReadings([...collected]);
+          }
         }
       }
 
@@ -443,7 +509,7 @@ export default function AnalayseLocation({ onBack }) {
               <div className="w-full bg-emerald-200 rounded-full h-2 overflow-hidden">
                 <div
                   className="bg-emerald-600 h-full transition-all duration-1000"
-                  style={{ width: `${((60 - countdown) / 60) * 100}%` }}
+                  style={{ width: `${((30 - countdown) / 30) * 100}%` }}
                 ></div>
               </div>
             </div>
@@ -470,7 +536,16 @@ export default function AnalayseLocation({ onBack }) {
               <tbody className="divide-y divide-gray-100 bg-white">
                 {readings.map((r, i) => (
                   <tr key={i}>
-                    <td className="px-4 py-2 font-bold">Reading #{r.sampleIndex}</td>
+                    <td className="px-4 py-2 font-bold">
+                      <div className="flex items-center gap-1.5">
+                        <span>Reading #{r.sampleIndex}</span>
+                        {r.buffered && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-100 text-amber-800 font-medium">
+                            Buffered
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-4 py-2 font-semibold text-emerald-700">{r.temp} °C</td>
                     <td className="px-4 py-2 font-semibold text-sky-700">{r.hum} %</td>
                     <td className="px-4 py-2 font-semibold text-amber-700">{r.lux} Lux</td>

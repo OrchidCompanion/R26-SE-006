@@ -91,8 +91,69 @@ float readBH1750() {
   return lux;
 }
 
-// PUBLISH SENSOR TELEMETRY OVER MQTT
-void publishSensorData() {
+// STRUCT FOR OFFLINE STORE-AND-FORWARD BUFFER
+struct BufferedReading {
+  int sample_index;
+  int total_samples;
+  float temperature;
+  float humidity;
+  float lux;
+  bool dht_ok;
+};
+
+#define MAX_BUFFERED_READINGS 10
+BufferedReading readingBuffer[MAX_BUFFERED_READINGS];
+int bufferCount = 0;
+
+// AUTONOMOUS SESSION STATE
+bool isSessionActive = false;
+int sessionSampleIndex = 0;
+int sessionTotalSamples = 3;
+unsigned long sessionIntervalMs = 14000;
+unsigned long sessionStartTime = 0;
+unsigned long lastSessionSampleTime = 0;
+
+// FORWARD DECLARATIONS
+void flushOfflineBuffer();
+void executeSample(int sampleIndex, int totalSamples);
+
+// FLUSH OFFLINE BUFFER OVER MQTT
+void flushOfflineBuffer() {
+  if (bufferCount == 0 || !mqttClient.connected()) return;
+
+  Serial.printf("[BUFFER] Flushing %d stored offline readings to MQTT...\n", bufferCount);
+
+  for (int i = 0; i < bufferCount; i++) {
+    StaticJsonDocument<256> doc;
+    doc["device_id"] = macAddress;
+    doc["module_id"] = macAddress;
+    doc["sample_index"] = readingBuffer[i].sample_index;
+    doc["total_samples"] = readingBuffer[i].total_samples;
+    doc["temperature"] = readingBuffer[i].dht_ok ? round(readingBuffer[i].temperature * 10.0) / 10.0 : 0.0;
+    doc["humidity"]    = readingBuffer[i].dht_ok ? round(readingBuffer[i].humidity * 10.0) / 10.0 : 0.0;
+    doc["lux"]         = round(readingBuffer[i].lux * 10.0) / 10.0;
+    doc["dht_ok"]      = readingBuffer[i].dht_ok;
+    doc["buffered"]    = true;
+
+    char jsonBuffer[256];
+    serializeJson(doc, jsonBuffer);
+
+    mqttClient.publish(telemetryTopic.c_str(), jsonBuffer);
+    mqttClient.publish("orchid/sensors/env", jsonBuffer);
+
+    Serial.printf("[BUFFER] Sent buffered sample %d/%d: %s\n", 
+      readingBuffer[i].sample_index, readingBuffer[i].total_samples, jsonBuffer);
+    delay(150);
+  }
+
+  bufferCount = 0;
+  setRGB_Violet();
+  delay(600);
+  setRGB_Green();
+}
+
+// EXECUTE SENSOR READING (ONLINE OR OFFLINE BUFFERED)
+void executeSample(int sampleIndex, int totalSamples) {
   setRGB_Blue();
 
   float temp = 0.0;
@@ -100,38 +161,88 @@ void publishSensorData() {
   bool dht_ok = readDHT11(temp, hum);
   float lux = readBH1750();
 
-  StaticJsonDocument<256> doc;
-  doc["device_id"] = macAddress;
-  doc["module_id"] = macAddress;
-  doc["temperature"] = dht_ok ? round(temp * 10.0) / 10.0 : 0.0;
-  doc["humidity"]    = dht_ok ? round(hum * 10.0) / 10.0 : 0.0;
-  doc["lux"]         = round(lux * 10.0) / 10.0;
-  doc["dht_ok"]      = dht_ok;
+  Serial.printf("[SAMPLE] Sample %d/%d captured: T=%.1fC, H=%.1f%%, Lux=%.1f\n",
+    sampleIndex, totalSamples, temp, hum, lux);
 
-  char jsonBuffer[256];
-  serializeJson(doc, jsonBuffer);
-
-  // Publish to specific topic and general topic for microservices
-  mqttClient.publish(telemetryTopic.c_str(), jsonBuffer);
-  mqttClient.publish("orchid/sensors/env", jsonBuffer);
-
-  Serial.print("[MQTT] Published env telemetry: ");
-  Serial.println(jsonBuffer);
-
-  // Update LCD
+  // Update LCD with current sample
   lcd.clear();
   lcd.setCursor(0, 0);
   lcd.printf("T:%.1fC H:%.1f%%", temp, hum);
   lcd.setCursor(0, 1);
   lcd.printf("Lux: %.1f lx", lux);
   lcd.setCursor(0, 2);
-  lcd.print("MQTT: SENT OK");
+  lcd.printf("SAMPLE %d OF %d", sampleIndex, totalSamples);
   lcd.setCursor(0, 3);
-  lcd.print("ID: " + macAddress);
+  lcd.print("ID: " + macAddress.substring(0, 8) + "...");
 
-  setRGB_Violet();
-  delay(1200);
-  setRGB_Green();
+  // If online, publish live
+  if (WiFi.status() == WL_CONNECTED && mqttClient.connected()) {
+    flushOfflineBuffer(); // Flush any previously queued readings first
+
+    StaticJsonDocument<256> doc;
+    doc["device_id"] = macAddress;
+    doc["module_id"] = macAddress;
+    doc["sample_index"] = sampleIndex;
+    doc["total_samples"] = totalSamples;
+    doc["temperature"] = dht_ok ? round(temp * 10.0) / 10.0 : 0.0;
+    doc["humidity"]    = dht_ok ? round(hum * 10.0) / 10.0 : 0.0;
+    doc["lux"]         = round(lux * 10.0) / 10.0;
+    doc["dht_ok"]      = dht_ok;
+    doc["buffered"]    = false;
+
+    char jsonBuffer[256];
+    serializeJson(doc, jsonBuffer);
+
+    mqttClient.publish(telemetryTopic.c_str(), jsonBuffer);
+    mqttClient.publish("orchid/sensors/env", jsonBuffer);
+
+    Serial.print("[MQTT] Published live sample: ");
+    Serial.println(jsonBuffer);
+
+    setRGB_Violet();
+    delay(1000);
+    setRGB_Green();
+  } else {
+    // OFFLINE: Store in RAM buffer so data is never lost
+    if (bufferCount < MAX_BUFFERED_READINGS) {
+      readingBuffer[bufferCount].sample_index = sampleIndex;
+      readingBuffer[bufferCount].total_samples = totalSamples;
+      readingBuffer[bufferCount].temperature = temp;
+      readingBuffer[bufferCount].humidity = hum;
+      readingBuffer[bufferCount].lux = lux;
+      readingBuffer[bufferCount].dht_ok = dht_ok;
+      bufferCount++;
+      Serial.printf("[BUFFER] OFFLINE: Queued sample %d/%d to memory (%d buffered)\n",
+        sampleIndex, totalSamples, bufferCount);
+    }
+
+    lcd.setCursor(0, 2);
+    lcd.print("OFFLINE: BUFFERED");
+
+    setRGB_Yellow();
+    delay(800);
+  }
+}
+
+// PUBLISH SENSOR TELEMETRY OVER MQTT (Single Trigger)
+void publishSensorData() {
+  executeSample(1, 1);
+}
+
+// START AUTONOMOUS MULTI-SAMPLE SESSION
+void startSession(int samples, int intervalSec) {
+  isSessionActive = true;
+  sessionTotalSamples = samples > 0 ? samples : 3;
+  sessionIntervalMs = (intervalSec > 0 ? intervalSec : 14) * 1000UL;
+  sessionSampleIndex = 1;
+  sessionStartTime = millis();
+  lastSessionSampleTime = sessionStartTime;
+
+  Serial.printf("[SESSION] Starting 30-sec session (%d samples): Sample 1 (1s), Sample 2 (20s), Sample 3 (28s)...\n",
+    sessionTotalSamples);
+
+  // Sample 1: Immediate read at 1st second
+  executeSample(sessionSampleIndex, sessionTotalSamples);
 }
 
 // MQTT INCOMING MESSAGE CALLBACK
@@ -143,10 +254,16 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   deserializeJson(doc, payload, length);
 
   const char* action = doc["action"];
-  if (action && (strcmp(action, "read_now") == 0 || 
-                 strcmp(action, "read_sensors") == 0 || 
-                 strcmp(action, "read_ambient") == 0)) {
-    publishSensorData();
+  if (action) {
+    if (strcmp(action, "start_session") == 0) {
+      int samples = doc["samples"] | 3;
+      int interval = doc["interval_sec"] | 14;
+      startSession(samples, interval);
+    } else if (strcmp(action, "read_now") == 0 || 
+               strcmp(action, "read_sensors") == 0 || 
+               strcmp(action, "read_ambient") == 0) {
+      publishSensorData();
+    }
   }
 }
 
@@ -169,7 +286,7 @@ void reconnectMQTT() {
       setRGB_Green();
       showIdleScreen();
 
-      // Subscribe to command topic
+      // Subscribe to command topics
       mqttClient.subscribe(commandTopic.c_str());
       mqttClient.subscribe("orchid/commands/env");
 
@@ -181,8 +298,8 @@ void reconnectMQTT() {
       serializeJson(statusDoc, statusBuf);
       mqttClient.publish(statusTopic.c_str(), statusBuf);
 
-      // Publish initial boot reading so backend immediately sees module is live
-      publishSensorData();
+      // Flush any offline buffered readings from RAM
+      flushOfflineBuffer();
     } else {
       setRGB_Red();
       Serial.print(" FAILED, rc=");
@@ -241,9 +358,8 @@ void setup() {
 
   // WiFi Setup
   WiFi.mode(WIFI_STA);
-  wifiMulti.addAP("Dialog_4G_WiFi", "12345678");
-  wifiMulti.addAP("SLT_FIBRE", "password");
-  wifiMulti.addAP("Mobile_Hotspot", "hotspotpass");
+  wifiMulti.addAP("Galaxy A20s5650", "azdrea7339");
+  wifiMulti.addAP("Dialog 4G 096", "B6582be1");
 
   lcd.setCursor(0, 2);
   lcd.print("Connecting WiFi...");
@@ -273,15 +389,65 @@ void setup() {
 }
 
 void loop() {
-  if (wifiMulti.run() != WL_CONNECTED) {
-    setRGB_Yellow();
-    delay(1000);
-    return;
+  bool isWifiConnected = (wifiMulti.run() == WL_CONNECTED);
+
+  if (isWifiConnected) {
+    if (!mqttClient.connected()) {
+      reconnectMQTT();
+    }
+    mqttClient.loop(); // Listen for MQTT commands
+  } else {
+    // If not actively taking a sample, indicate WiFi loss
+    if (!isSessionActive) {
+      setRGB_Yellow();
+    }
   }
 
-  if (!mqttClient.connected()) {
-    reconnectMQTT();
+  // AUTONOMOUS SAMPLING SESSION (Continues running even if Wi-Fi drops)
+  if (isSessionActive) {
+    unsigned long now = millis();
+    unsigned long elapsed = now - sessionStartTime;
+
+    if (sessionTotalSamples == 3) {
+      // 30-second schedule: Sample 1 (1s, already taken), Sample 2 (20s), Sample 3 (28s)
+      if (sessionSampleIndex == 1 && elapsed >= 20000UL) {
+        sessionSampleIndex = 2;
+        executeSample(sessionSampleIndex, sessionTotalSamples);
+      }
+      else if (sessionSampleIndex == 2 && elapsed >= 28000UL) {
+        sessionSampleIndex = 3;
+        executeSample(sessionSampleIndex, sessionTotalSamples);
+      }
+      else if (sessionSampleIndex >= 3 && elapsed >= 30000UL) {
+        isSessionActive = false;
+        Serial.println("[SESSION] All 3 samples in autonomous 30s session completed!");
+
+        if (WiFi.status() == WL_CONNECTED && mqttClient.connected()) {
+          setRGB_Green();
+          showIdleScreen();
+        }
+      }
+    } else {
+      // General interval fallback if custom number of samples requested
+      if (now - lastSessionSampleTime >= sessionIntervalMs) {
+        lastSessionSampleTime = now;
+        sessionSampleIndex++;
+        executeSample(sessionSampleIndex, sessionTotalSamples);
+
+        if (sessionSampleIndex >= sessionTotalSamples) {
+          isSessionActive = false;
+          Serial.println("[SESSION] All samples in autonomous session completed!");
+
+          if (WiFi.status() == WL_CONNECTED && mqttClient.connected()) {
+            setRGB_Green();
+            showIdleScreen();
+          }
+        }
+      }
+    }
   }
-  mqttClient.loop(); // Listens for on-demand trigger commands from mobile app
+
+  delay(20); // Small yield for RTOS watchdog
 }
+
 
