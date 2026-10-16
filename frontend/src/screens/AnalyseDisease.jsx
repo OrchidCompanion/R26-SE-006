@@ -181,7 +181,7 @@ export default function AnalyseDisease({ selectedPlant, selectedUser, onBack }) 
             disabled={analyzing || !selectedFile}
             className="w-full bg-[#059669] hover:bg-[#047857] text-white font-bold py-3 rounded-xl transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {analyzing ? "Running YOLO + MobileNetV2 + CNN ensemble..." : "Run Disease Analysis"}
+            Run Disease Analysis
           </button>
         </div>
 
@@ -405,6 +405,12 @@ export default function AnalyseDisease({ selectedPlant, selectedUser, onBack }) 
                       </span>
                     </div>
                   </div>
+                  <h5 className="font-bold text-xs text-gray-600 mt-2 mb-1">90-entry advice (from averages):</h5>
+                  <ul className="list-disc list-inside text-xs text-gray-700 space-y-1">
+                    {analysisResult.npk_window.mean_advice?.map((adv, idx) => (
+                      <li key={idx}>{adv}</li>
+                    ))}
+                  </ul>
                 </div>
               )}
             </div>
