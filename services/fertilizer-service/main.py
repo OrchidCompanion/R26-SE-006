@@ -217,6 +217,8 @@ def ingest_npk_reading(
     potassium: float = Form(...),
     plant_id: Optional[str] = Form(None),
     user_id: Optional[str] = Form(None),
+    module_id: Optional[str] = Form(None),
+    time_slot: Optional[str] = Form("morning"),
     x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
 ):
     """Direct REST endpoint to post an NPK reading (alternative to MQTT)."""
@@ -226,6 +228,8 @@ def ingest_npk_reading(
         potassium=potassium,
         plant_id=plant_id,
         user_id=user_id or x_user_id,
+        time_slot=time_slot or "morning",
+        module_id=module_id,
     )
     return {"status": "success", "record": saved}
 
@@ -254,6 +258,8 @@ def log_npk_json_reading(
         potassium=data.potassium_k,
         plant_id=data.plant_id,
         user_id=user,
+        time_slot=data.time_slot or "morning",
+        module_id=data.module_id,
     )
     if not record:
         raise HTTPException(status_code=500, detail="Failed to save NPK reading.")

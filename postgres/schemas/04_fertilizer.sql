@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS npk_history (
     reading_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     plant_id VARCHAR(255),
     user_id VARCHAR(255),
+    module_id VARCHAR(255),
     nitrogen_n NUMERIC,
     phosphorus_p NUMERIC,
     potassium_k NUMERIC,
