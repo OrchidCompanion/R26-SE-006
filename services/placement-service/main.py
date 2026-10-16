@@ -27,6 +27,7 @@ from mqtt_hub import (
     get_latest_sensor_data,
     get_sensor_module_status,
     trigger_mqtt_ambient_read,
+    trigger_mqtt_npk_read,
     trigger_mqtt_session,
     get_session_readings,
     clear_session_readings,
@@ -297,6 +298,17 @@ async def trigger_live_npk_read(module_id: str):
             raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
+
+    # Trigger live NPK read over MQTT
+    mqtt_npk = trigger_mqtt_npk_read(clean_id, timeout_seconds=4.0)
+    if mqtt_npk and "nitrogen_n" in mqtt_npk:
+        return {
+            "nitrogen_n": float(mqtt_npk["nitrogen_n"]),
+            "phosphorus_p": float(mqtt_npk["phosphorus_p"]),
+            "potassium_k": float(mqtt_npk["potassium_k"]),
+            "module_id": clean_id,
+            "timestamp": mqtt_npk.get("timestamp", datetime.now(timezone.utc).isoformat()),
+        }
 
     # Calibrated fallback if module is offline during test
     return {
