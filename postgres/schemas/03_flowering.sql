@@ -1,0 +1,29 @@
+-- Database Schema: orchid_flowering_db
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+CREATE TABLE IF NOT EXISTS predicted_bloom (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    record_id UUID DEFAULT gen_random_uuid(),
+    plant_id VARCHAR(255),
+    user_id VARCHAR(255),
+    module_id VARCHAR(255),
+    weeks NUMERIC,
+    current_stage VARCHAR(255),
+    estimated_flowering_date VARCHAR(255),
+    flowering_date_range_display VARCHAR(255),
+    total_days_to_flowering FLOAT,
+    display_total_days INT,
+    confidence FLOAT,
+    timeline JSONB,
+    sensor_summary JSONB,
+    environment_evaluation JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE INDEX IF NOT EXISTS idx_bloom_user_id ON predicted_bloom(user_id);
+CREATE INDEX IF NOT EXISTS idx_bloom_plant_id ON predicted_bloom(plant_id);
+CREATE INDEX IF NOT EXISTS idx_bloom_created_at ON predicted_bloom(created_at DESC);
+
+-- Backward compatibility view
+CREATE OR REPLACE VIEW prediction_history AS SELECT * FROM predicted_bloom;

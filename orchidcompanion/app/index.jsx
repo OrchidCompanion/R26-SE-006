@@ -2,16 +2,34 @@ import { useEffect } from "react";
 import { View, Text, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { colors } from "./constants/colors";
+import { useDispatch } from "react-redux";
+import { colors } from "../src/constants/colors";
+import { getAuthData } from "../src/services/storage";
+import { setCredentials } from "../src/store/slices/authSlice";
 
 export default function SplashScreen() {
   const router = useRouter();
+  const dispatch = useDispatch();
+
   useEffect(() => {
-    const timer = setTimeout(() => {
-      router.replace("/login");
-    }, 2500);
+    const verifyAuth = async () => {
+      try {
+        const { token, user } = await getAuthData();
+        if (token && user) {
+          dispatch(setCredentials({ token, user }));
+          router.replace("/home");
+        } else {
+          router.replace("/login");
+        }
+      } catch {
+        router.replace("/login");
+      }
+    };
+
+    const timer = setTimeout(verifyAuth, 1500);
     return () => clearTimeout(timer);
   }, []);
+
   return (
     <SafeAreaView
       className="flex-1 justify-between items-center py-12"

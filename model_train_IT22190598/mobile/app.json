@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "Orchid Bloom AI",
+    "slug": "dendrobium-bloom-prediction-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "backgroundColor": "#0b131e"
+    }
+  }
+}

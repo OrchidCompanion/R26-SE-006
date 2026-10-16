@@ -1,0 +1,244 @@
+import os
+import json
+import threading
+import time
+from datetime import datetime, timezone
+from typing import Dict, Any, Optional, List
+try:
+    import paho.mqtt.client as mqtt
+except ImportError:
+    mqtt = None
+
+from database import save_ambient_reading, get_latest_ambient
+
+MQTT_HOST = os.getenv("MQTT_BROKER_HOST", "mqtt-broker")
+MQTT_PORT = int(os.getenv("MQTT_BROKER_PORT", "1883"))
+MQTT_USER = os.getenv("MQTT_USER")
+MQTT_PASSWORD = os.getenv("MQTT_PASSWORD")
+ENABLE_MQTT = os.getenv("ENABLE_MQTT", "true").lower() in ("true", "1", "yes")
+
+_client: Optional[Any] = None
+_thread: Optional[threading.Thread] = None
+
+# In-memory fast cache for live sensor readings
+# In-memory fast cache for live sensor readings and session logs
+latest_readings: Dict[str, Dict[str, Any]] = {}
+session_records: Dict[str, List[Dict[str, Any]]] = {}
+
+
+def normalize_mac(mac: str) -> str:
+    return mac.lower().replace(":", "").replace("-", "").strip()
+
+
+def on_connect(client, userdata, flags, rc, properties=None):
+    if rc == 0:
+        print(f"[MQTT] Placement Service connected to broker at {MQTT_HOST}:{MQTT_PORT}")
+        client.subscribe("orchid/+/env")
+        client.subscribe("orchid/+/+/env")
+        client.subscribe("orchid/sensors/env")
+        client.subscribe("orchid/telemetry/env")
+        client.subscribe("orchid/+/status")
+    else:
+        print(f"[MQTT] Connection returned error code: {rc}")
+
+
+def on_message(client, userdata, msg):
+    try:
+        payload = json.loads(msg.payload.decode("utf-8"))
+        parts = msg.topic.split("/")
+
+        # Extract MAC address / identifier
+        module_id = (
+            payload.get("module_id")
+            or payload.get("mac_address")
+            or payload.get("device_id")
+        )
+        if not module_id and len(parts) >= 3 and parts[1] != "sensors" and parts[1] != "commands":
+            module_id = parts[1]  # e.g., orchid/<mac>/env
+        if not module_id and len(parts) == 3 and parts[0] == "orchid" and parts[2] == "status":
+            module_id = parts[1]
+
+        if not module_id:
+            return
+
+        clean_mac = normalize_mac(module_id)
+
+        # Handle online status heartbeats
+        if "status" in payload:
+            is_online = payload.get("status") == "online"
+            if clean_mac not in latest_readings:
+                latest_readings[clean_mac] = {"online": is_online}
+            else:
+                latest_readings[clean_mac]["online"] = is_online
+
+        temp = payload.get("temperature") or payload.get("temp")
+        hum = payload.get("humidity") or payload.get("hum")
+        lux = payload.get("light") or payload.get("lux")
+
+        if temp is not None and hum is not None and lux is not None:
+            latest_readings[clean_mac] = {
+                "temperature": float(temp),
+                "humidity": float(hum),
+                "lux": float(lux),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "online": True,
+            }
+
+            # Store in session records
+            sample_idx = payload.get("sample_index")
+            sample_data = {
+                "sample_index": int(sample_idx) if sample_idx is not None else (len(session_records.get(clean_mac, [])) + 1),
+                "total_samples": int(payload.get("total_samples", 3)),
+                "temperature": float(temp),
+                "humidity": float(hum),
+                "lux": float(lux),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "buffered": bool(payload.get("buffered", False)),
+            }
+            if clean_mac not in session_records:
+                session_records[clean_mac] = []
+            
+            # Avoid immediate duplicate if already logged with same sample_index
+            if not any(s.get("sample_index") == sample_data["sample_index"] for s in session_records[clean_mac]):
+                session_records[clean_mac].append(sample_data)
+                session_records[clean_mac] = session_records[clean_mac][-10:]
+
+            # Persist to database
+            save_ambient_reading(
+                module_id=clean_mac,
+                temperature=float(temp),
+                humidity=float(hum),
+                lux=float(lux),
+            )
+            print(f"[MQTT] Ambient reading recorded for {clean_mac} (sample {sample_data['sample_index']}/{sample_data['total_samples']}): T={temp}°C, H={hum}%, L={lux} Lux, buffered={sample_data['buffered']}")
+    except Exception as e:
+        print(f"[MQTT] Error handling message on {msg.topic}: {e}")
+
+
+def trigger_mqtt_ambient_read(module_id: str, timeout_seconds: float = 3.0) -> Optional[Dict[str, Any]]:
+    """Publishes a trigger command over MQTT to the ESP32 and waits for response."""
+    global _client
+    if not _client or not _client.is_connected():
+        return None
+
+    clean_mac = normalize_mac(module_id)
+    prev_time = latest_readings.get(clean_mac, {}).get("timestamp")
+
+    cmd = json.dumps({"action": "read_now"})
+    _client.publish(f"orchid/{clean_mac}/command", cmd)
+    _client.publish("orchid/commands/env", cmd)
+
+    start = time.time()
+    while time.time() - start < timeout_seconds:
+        time.sleep(0.2)
+        curr = latest_readings.get(clean_mac)
+        if curr and curr.get("timestamp") != prev_time and "temperature" in curr:
+            return curr
+
+    return latest_readings.get(clean_mac)
+
+
+def trigger_mqtt_session(module_id: str, samples: int = 3, interval_sec: int = 20) -> bool:
+    """Publishes a start_session command over MQTT to initiate autonomous sampling."""
+    global _client
+    if not _client or not _client.is_connected():
+        return False
+
+    clean_mac = normalize_mac(module_id)
+    cmd = json.dumps({
+        "action": "start_session",
+        "samples": samples,
+        "interval_sec": interval_sec,
+    })
+    _client.publish(f"orchid/{clean_mac}/command", cmd)
+    _client.publish("orchid/commands/env", cmd)
+    print(f"[MQTT] Sent start_session command to {clean_mac}: samples={samples}, interval={interval_sec}s")
+    return True
+
+
+def get_session_readings(module_id: str) -> List[Dict[str, Any]]:
+    """Returns list of session readings captured for module_id."""
+    clean_mac = normalize_mac(module_id)
+    return session_records.get(clean_mac, [])
+
+
+def clear_session_readings(module_id: str):
+    """Clears current session records for module_id."""
+    clean_mac = normalize_mac(module_id)
+    session_records[clean_mac] = []
+
+
+def start_mqtt_hub():
+    """Starts the background MQTT listener thread."""
+    global _client, _thread
+    if not ENABLE_MQTT:
+        print("[MQTT] Placement MQTT listener disabled by configuration.")
+        return
+
+    if mqtt is None:
+        print("[MQTT] Notice: 'paho-mqtt' is not installed locally. MQTT listener will run inside Docker.")
+        return
+
+    def run():
+        global _client
+        retries = 0
+        while retries < 5:
+            try:
+                _client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="placement-service-hub")
+                if MQTT_USER and MQTT_PASSWORD:
+                    _client.username_pw_set(MQTT_USER, MQTT_PASSWORD)
+
+                _client.on_connect = on_connect
+                _client.on_message = on_message
+
+                print(f"[MQTT] Connecting to broker {MQTT_HOST}:{MQTT_PORT}...")
+                _client.connect(MQTT_HOST, MQTT_PORT, keepalive=60)
+                _client.loop_forever()
+                break
+            except Exception as e:
+                retries += 1
+                print(f"[MQTT] Warning: Could not connect to MQTT broker ({e}). Retry {retries}/5 in 5s...")
+                time.sleep(5)
+
+    _thread = threading.Thread(target=run, daemon=True)
+    _thread.start()
+
+
+def get_latest_sensor_data(module_id: str) -> Dict[str, Any]:
+    """Retrieves live ambient reading from memory cache, DB, or fallback."""
+    clean_mac = normalize_mac(module_id)
+    if clean_mac in latest_readings:
+        return latest_readings[clean_mac]
+
+    db_row = get_latest_ambient(clean_mac)
+    if db_row:
+        return {
+            "temperature": float(db_row.get("temperature", 27.5)),
+            "humidity": float(db_row.get("humidity", 72.0)),
+            "lux": float(db_row.get("lux", 20000.0)),
+            "timestamp": db_row.get("created_at"),
+            "online": True,
+        }
+
+    # Calibrated fallback if sensor is offline during test
+    return {
+        "temperature": 27.5,
+        "humidity": 72.0,
+        "lux": 20000.0,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "online": False,
+    }
+
+
+def get_sensor_module_status(module_id: str) -> Dict[str, Any]:
+    """Checks whether the ESP32 is online and streaming."""
+    clean_mac = normalize_mac(module_id)
+    is_live = clean_mac in latest_readings
+    latest = get_latest_sensor_data(module_id)
+    return {
+        "module_id": clean_mac,
+        "online": is_live or latest.get("online", False),
+        "dht11": True,
+        "bh1750": True,
+        "latest_reading": latest,
+    }

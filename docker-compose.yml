@@ -1,0 +1,226 @@
+services:
+  # ---------------------------------------------------------------------------
+  # Central PostgreSQL Engine (Database-Per-Service Pattern)
+  # ---------------------------------------------------------------------------
+  postgres-db:
+    image: postgres:16-alpine
+    container_name: orchid-postgres-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-orchid_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-orchid_secret_2026}
+      POSTGRES_DB: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init-dbs.sh:/docker-entrypoint-initdb.d/init-dbs.sh:ro
+      - ./postgres/schemas:/docker-entrypoint-initdb.d/schemas:ro
+    ports:
+      - "5432:5432"
+    networks:
+      - orchid-network
+
+  # ---------------------------------------------------------------------------
+  # MQTT Message Broker
+  # ---------------------------------------------------------------------------
+  mqtt-broker:
+    image: eclipse-mosquitto:2
+    container_name: orchid-mqtt-broker
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./mosquitto/config/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    networks:
+      - orchid-network
+
+  # ---------------------------------------------------------------------------
+  # Microservice 1: Species Identification Service (IT22140616)
+  # ---------------------------------------------------------------------------
+  species-service:
+    build:
+      context: ./services/species-service
+      dockerfile: Dockerfile
+    container_name: orchid-species-service
+    restart: unless-stopped
+    ports:
+      - "7860:7860"
+    environment:
+      - PORT=7860
+      - SPECIES_DB_URL=postgresql://${POSTGRES_USER:-orchid_admin}:${POSTGRES_PASSWORD:-orchid_secret_2026}@postgres-db:5432/orchid_species_db
+      - CONF_THRESHOLD=${CONF_THRESHOLD:-0.35}
+    depends_on:
+      - postgres-db
+    networks:
+      - orchid-network
+
+  # ---------------------------------------------------------------------------
+  # Microservice 2: Disease & Treatment Service (IT22250124)
+  # ---------------------------------------------------------------------------
+  disease-service:
+    build:
+      context: ./services/disease-service
+      dockerfile: Dockerfile
+    container_name: orchid-disease-service
+    restart: unless-stopped
+    ports:
+      - "7861:7860"
+    environment:
+      - PORT=7860
+      - DISEASE_DB_URL=postgresql://${POSTGRES_USER:-orchid_admin}:${POSTGRES_PASSWORD:-orchid_secret_2026}@postgres-db:5432/orchid_disease_db
+      - FERTILIZER_SERVICE_URL=http://fertilizer-service:7860
+    depends_on:
+      - postgres-db
+      - fertilizer-service
+    networks:
+      - orchid-network
+
+  # ---------------------------------------------------------------------------
+  # Microservice 3: Flowering Lifecycle Service (IT22190598)
+  # ---------------------------------------------------------------------------
+  flowering-service:
+    build:
+      context: ./services/flowering-service
+      dockerfile: Dockerfile
+    container_name: orchid-flowering-service
+    restart: unless-stopped
+    ports:
+      - "7862:7860"
+    environment:
+      - PORT=7860
+      - FLOWERING_DB_URL=postgresql://${POSTGRES_USER:-orchid_admin}:${POSTGRES_PASSWORD:-orchid_secret_2026}@postgres-db:5432/orchid_flowering_db
+      - PLACEMENT_SERVICE_URL=http://placement-service:7860
+    depends_on:
+      - postgres-db
+      - placement-service
+    networks:
+      - orchid-network
+
+  # ---------------------------------------------------------------------------
+  # Microservice 4: Growth Stage & Fertilizer Service (IT22085726)
+  # ---------------------------------------------------------------------------
+  fertilizer-service:
+    build:
+      context: ./services/fertilizer-service
+      dockerfile: Dockerfile
+    container_name: orchid-fertilizer-service
+    restart: unless-stopped
+    ports:
+      - "7863:7860"
+    environment:
+      - PORT=7860
+      - FERTILIZER_DB_URL=postgresql://${POSTGRES_USER:-orchid_admin}:${POSTGRES_PASSWORD:-orchid_secret_2026}@postgres-db:5432/orchid_fertilizer_db
+      - ENABLE_MQTT=true
+      - MQTT_BROKER_HOST=mqtt-broker
+      - MQTT_BROKER_PORT=1883
+    depends_on:
+      - postgres-db
+      - mqtt-broker
+    networks:
+      - orchid-network
+
+  # ---------------------------------------------------------------------------
+  # Microservice 5: Plant Placement Analysis Service
+  # ---------------------------------------------------------------------------
+  placement-service:
+    build:
+      context: ./services/placement-service
+      dockerfile: Dockerfile
+    container_name: orchid-placement-service
+    restart: unless-stopped
+    ports:
+      - "7864:7860"
+    environment:
+      - PORT=7860
+      - PLACEMENT_DB_URL=postgresql://${POSTGRES_USER:-orchid_admin}:${POSTGRES_PASSWORD:-orchid_secret_2026}@postgres-db:5432/orchid_placement_db
+      - ENABLE_MQTT=true
+      - MQTT_BROKER_HOST=mqtt-broker
+      - MQTT_BROKER_PORT=1883
+    depends_on:
+      - postgres-db
+      - mqtt-broker
+    networks:
+      - orchid-network
+
+  # ---------------------------------------------------------------------------
+  # Microservice 6: Authentication & User Service
+  # ---------------------------------------------------------------------------
+  auth-service:
+    build:
+      context: ./services/auth-service
+      dockerfile: Dockerfile
+    container_name: orchid-auth-service
+    restart: unless-stopped
+    ports:
+      - "7865:7860"
+    environment:
+      - PORT=7860
+      - AUTH_DB_URL=postgresql://${POSTGRES_USER:-orchid_admin}:${POSTGRES_PASSWORD:-orchid_secret_2026}@postgres-db:5432/orchid_auth_db
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-orchid_super_secret_jwt_key_2026_orchidcompanion}
+    depends_on:
+      - postgres-db
+    networks:
+      - orchid-network
+
+  # ---------------------------------------------------------------------------
+  # API Gateway
+  # ---------------------------------------------------------------------------
+  gateway:
+    build:
+      context: ./services/gateway
+      dockerfile: Dockerfile
+    container_name: orchid-api-gateway
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - AUTH_SERVICE_URL=http://auth-service:7860
+      - SPECIES_SERVICE_URL=http://species-service:7860
+      - DISEASE_SERVICE_URL=http://disease-service:7860
+      - FLOWERING_SERVICE_URL=http://flowering-service:7860
+      - FERTILIZER_SERVICE_URL=http://fertilizer-service:7860
+      - PLACEMENT_SERVICE_URL=http://placement-service:7860
+      - LEGACY_BACKEND_URL=${LEGACY_BACKEND_URL:-https://r26-se-006.onrender.com}
+    depends_on:
+      - auth-service
+      - species-service
+      - disease-service
+      - flowering-service
+      - fertilizer-service
+      - placement-service
+    networks:
+      - orchid-network
+
+  # ---------------------------------------------------------------------------
+  # Reverse Proxy & Automatic SSL (Caddy)
+  # ---------------------------------------------------------------------------
+  caddy:
+    image: caddy:2-alpine
+    container_name: orchid-caddy-proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - gateway
+    networks:
+      - orchid-network
+
+volumes:
+  postgres_data:
+    driver: local
+  caddy_data:
+    driver: local
+  caddy_config:
+    driver: local
+
+networks:
+  orchid-network:
+    driver: bridge
+
+
