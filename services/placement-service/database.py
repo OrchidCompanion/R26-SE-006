@@ -232,6 +232,22 @@ def get_user_modules(user_id: str) -> List[Dict[str, Any]]:
             return []
 
 
+def delete_module(module_id: str) -> bool:
+    clean_id = module_id.lower().replace(":", "").replace("-", "").strip()
+    with get_db() as conn:
+        if not conn:
+            return False
+        try:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM sensor_modules WHERE module_id = %s;", (clean_id,))
+                conn.commit()
+                return cur.rowcount > 0
+        except Exception as e:
+            conn.rollback()
+            print(f"[Database] Failed to delete module {clean_id}: {e}")
+            return False
+
+
 def update_module_last_seen(module_id: str):
     clean_id = module_id.lower().replace(":", "").replace("-", "").strip()
     with get_db() as conn:

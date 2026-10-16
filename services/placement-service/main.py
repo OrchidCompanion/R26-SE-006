@@ -20,6 +20,7 @@ from database import (
     save_bh1750_reading,
     get_bh1750_readings,
     get_plant_environmental_summary,
+    delete_module,
 )
 from mqtt_hub import (
     start_mqtt_hub,
@@ -122,6 +123,18 @@ async def websocket_esp32_endpoint(websocket: WebSocket, module_id: str):
 def list_user_modules(user_id: str):
     """Lists all paired sensor modules for a user."""
     return get_user_modules(user_id)
+
+
+@app.delete("/modules/{module_id}", tags=["Hardware Modules"])
+@app.delete("/api/sensors/modules/{module_id}", tags=["Hardware Modules"])
+def remove_module(module_id: str):
+    """Unpairs / deletes a hardware sensor node."""
+    clean_id = ws_manager.normalize_mac(module_id)
+    ok = delete_module(clean_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Sensor module not found.")
+    return {"message": f"Sensor module {clean_id} removed successfully."}
+
 
 
 @app.get("/modules/{module_id}/status", tags=["Hardware Modules"])
