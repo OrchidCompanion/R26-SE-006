@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-export default function PlantsScreen({ selectedUser, onSelectPlant, onBack }) {
+export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateToSensors, onBack }) {
   const [locations, setLocations] = useState([]);
   const [plants, setPlants] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -444,6 +444,12 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onBack }) {
             className="flex-1 md:flex-none px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl shadow-xs transition"
           >
             + Add Orchid Plant
+          </button>
+          <button
+            onClick={onNavigateToSensors}
+            className="flex-1 md:flex-none px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition"
+          >
+            Manage Sensors
           </button>
         </div>
       </div>
