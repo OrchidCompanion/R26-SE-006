@@ -27,17 +27,3 @@ CREATE INDEX IF NOT EXISTS idx_bloom_created_at ON predicted_bloom(created_at DE
 
 -- Backward compatibility view
 CREATE OR REPLACE VIEW prediction_history AS SELECT * FROM predicted_bloom;
-
-CREATE TABLE IF NOT EXISTS readings (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    temperature FLOAT,
-    humidity FLOAT,
-    light FLOAT,
-    user_id VARCHAR(255),
-    plant_id VARCHAR(255),
-    module_id VARCHAR(255),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_readings_plant_id ON readings(plant_id);
-CREATE INDEX IF NOT EXISTS idx_readings_created_at ON readings(created_at DESC);

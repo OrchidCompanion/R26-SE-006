@@ -44,8 +44,8 @@ async def on_startup():
     except Exception as e:
         print(f"[FloweringService] Warning: Could not preload models: {e}")
 
-    # Launch background MQTT subscriber for environmental telemetry
-    start_mqtt_subscriber()
+    # Note: Environmental telemetry is centrally ingested by placement-service
+    pass
 
 
 @app.get("/", tags=["Health"])
