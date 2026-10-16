@@ -19,12 +19,16 @@ from database import (
     get_dht11_readings,
     save_bh1750_reading,
     get_bh1750_readings,
+    get_plant_environmental_summary,
 )
 from mqtt_hub import (
     start_mqtt_hub,
     get_latest_sensor_data,
     get_sensor_module_status,
     trigger_mqtt_ambient_read,
+    trigger_mqtt_session,
+    get_session_readings,
+    clear_session_readings,
     latest_readings,
 )
 from ws_manager import ws_manager
@@ -214,6 +218,41 @@ async def read_ambient_telemetry(module_id: str):
 
     # Fallback to DB cached data
     return get_latest_sensor_data(module_id)
+
+
+class SessionStartRequest(BaseModel):
+    samples: Optional[int] = 3
+    interval_sec: Optional[int] = 20
+
+
+@app.post("/modules/{module_id}/start-session", tags=["Hardware Modules"])
+@app.post("/api/sensors/modules/{module_id}/start-session", tags=["Hardware Modules"])
+async def start_autonomous_session(module_id: str, req: Optional[SessionStartRequest] = None):
+    """Triggers autonomous multi-sample recording session on ESP32 over MQTT."""
+    clean_id = ws_manager.normalize_mac(module_id)
+    samples = req.samples if req and req.samples else 3
+    interval = req.interval_sec if req and req.interval_sec else 20
+    clear_session_readings(clean_id)
+    sent = trigger_mqtt_session(clean_id, samples=samples, interval_sec=interval)
+    return {
+        "status": "session_started" if sent else "command_dispatched",
+        "module_id": clean_id,
+        "samples": samples,
+        "interval_sec": interval,
+    }
+
+
+@app.get("/modules/{module_id}/session-readings", tags=["Hardware Modules"])
+@app.get("/api/sensors/modules/{module_id}/session-readings", tags=["Hardware Modules"])
+async def get_module_session_readings(module_id: str):
+    """Returns collected readings for the current/most recent session."""
+    clean_id = ws_manager.normalize_mac(module_id)
+    readings = get_session_readings(clean_id)
+    return {
+        "module_id": clean_id,
+        "count": len(readings),
+        "readings": readings,
+    }
 
 
 @app.get("/modules/{module_id}/read-npk", tags=["Hardware Modules"])
@@ -474,3 +513,14 @@ def fetch_bh1750_readings(
 ):
     """Retrieves BH1750 telemetry records for a plant."""
     return get_bh1750_readings(plant_id=plant_id, page=page, limit=limit)
+
+
+@app.get("/telemetry/plant/{plant_id}/summary", tags=["Sensor Telemetry"])
+@app.get("/api/sensors/summary/plant/{plant_id}", tags=["Sensor Telemetry"])
+def fetch_plant_environmental_summary(
+    plant_id: str,
+    days: int = Query(30, ge=1, le=365),
+    user_id: Optional[str] = Query(None),
+):
+    """Aggregates rolling 30-day DHT11 and BH1750 telemetry for flowering-service."""
+    return get_plant_environmental_summary(plant_id=plant_id, user_id=user_id, days=days)

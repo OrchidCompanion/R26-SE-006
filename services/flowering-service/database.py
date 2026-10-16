@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from contextlib import contextmanager
 import numpy as np
 from dotenv import load_dotenv
+import httpx
 
 try:
     import psycopg2
@@ -16,6 +17,8 @@ except ImportError:
     pool = None
 
 load_dotenv()
+
+PLACEMENT_SERVICE_URL = os.getenv("PLACEMENT_SERVICE_URL", "http://placement-service:7860")
 
 # Dedicated database for Flowering Lifecycle Service (IT22190598)
 DB_URL = os.getenv("FLOWERING_DB_URL") or os.getenv("DATABASE_URL")
@@ -180,35 +183,33 @@ def save_sensor_reading(
     module_id: Optional[str] = None,
     user_id: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
-    with get_db() as conn:
-        if not conn:
-            return None
-        try:
-            with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute(
-                    """
-                    INSERT INTO readings
-                        (temperature, humidity, light, plant_id, module_id, user_id, created_at)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    RETURNING *;
-                    """,
-                    (
-                        float(temperature),
-                        float(humidity),
-                        float(light),
-                        plant_id,
-                        module_id,
-                        user_id,
-                        datetime.now(timezone.utc),
-                    ),
-                )
-                conn.commit()
-                row = cur.fetchone()
-                return dict(row) if row else None
-        except Exception as e:
-            conn.rollback()
-            print(f"[Database] Failed to insert environmental reading: {e}")
-            return None
+    """Forward DHT11 and BH1750 readings to single source of truth (placement-service)."""
+    try:
+        with httpx.Client(timeout=5.0) as client:
+            client.post(
+                f"{PLACEMENT_SERVICE_URL}/api/sensors/dht11",
+                json={
+                    "temperature": float(temperature),
+                    "humidity": float(humidity),
+                    "plant_id": plant_id,
+                    "module_id": module_id,
+                    "user_id": user_id,
+                },
+            )
+            resp = client.post(
+                f"{PLACEMENT_SERVICE_URL}/api/sensors/bh1750",
+                json={
+                    "lux": float(light),
+                    "plant_id": plant_id,
+                    "module_id": module_id,
+                    "user_id": user_id,
+                },
+            )
+            if resp.status_code in (200, 201):
+                return resp.json()
+    except Exception as e:
+        print(f"[FloweringService] Could not forward sensor reading to placement-service: {e}")
+    return None
 
 
 def get_sensor_statistics(
@@ -216,6 +217,10 @@ def get_sensor_statistics(
     user_id: Optional[str] = None,
     days: int = 30,
 ) -> Dict[str, Any]:
+    """
+    Fetches rolling 30-day environmental telemetry summary for a plant directly
+    from placement-service via internal Docker DNS (East-West communication).
+    """
     default_stats = {
         "avg_temp_c": 27.5,
         "min_temp_c": 25.0,
@@ -234,72 +239,20 @@ def get_sensor_statistics(
         "is_default_baseline": True,
     }
 
-    with get_db() as conn:
-        if not conn:
-            return default_stats
-        try:
-            with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cutoff = datetime.now(timezone.utc) - timedelta(days=days)
-                if plant_id:
-                    cur.execute(
-                        """
-                        SELECT temperature, humidity, light FROM readings
-                        WHERE plant_id = %s AND created_at >= %s
-                        ORDER BY created_at DESC
-                        LIMIT 1000;
-                        """,
-                        (plant_id, cutoff),
-                    )
-                elif user_id:
-                    cur.execute(
-                        """
-                        SELECT temperature, humidity, light FROM readings
-                        WHERE user_id = %s AND created_at >= %s
-                        ORDER BY created_at DESC
-                        LIMIT 1000;
-                        """,
-                        (user_id, cutoff),
-                    )
-                else:
-                    cur.execute(
-                        """
-                        SELECT temperature, humidity, light FROM readings
-                        WHERE created_at >= %s
-                        ORDER BY created_at DESC
-                        LIMIT 1000;
-                        """,
-                        (cutoff,),
-                    )
-                rows = cur.fetchall()
-                rows = [dict(r) for r in rows] if rows else []
-        except Exception as e:
-            print(f"[Database] Could not calculate sensor stats ({e}), using baseline.")
-            return default_stats
+    url = f"{PLACEMENT_SERVICE_URL}/telemetry/plant/{plant_id}/summary" if plant_id else f"{PLACEMENT_SERVICE_URL}/telemetry/plant/all/summary"
+    params = {"days": days}
+    if user_id:
+        params["user_id"] = user_id
 
-    if not rows:
-        return default_stats
+    try:
+        with httpx.Client(timeout=5.0) as client:
+            resp = client.get(url, params=params)
+            if resp.status_code == 200:
+                data = resp.json()
+                if isinstance(data, dict) and "avg_temp_c" in data:
+                    return data
+    except Exception as e:
+        print(f"[FloweringService] Could not fetch sensor statistics from placement-service ({e}), using baseline.")
 
-    temps = [float(r["temperature"]) for r in rows if r.get("temperature") is not None]
-    hums = [float(r["humidity"]) for r in rows if r.get("humidity") is not None]
-    luxs = [float(r["light"]) for r in rows if r.get("light") is not None]
+    return default_stats
 
-    if not temps or not hums or not luxs:
-        return default_stats
-
-    return {
-        "avg_temp_c": round(float(np.mean(temps)), 2),
-        "min_temp_c": round(float(np.min(temps)), 2),
-        "max_temp_c": round(float(np.max(temps)), 2),
-        "temp_std_c": round(float(np.std(temps)), 2) if len(temps) > 1 else 0.0,
-        "avg_humidity_rh": round(float(np.mean(hums)), 2),
-        "min_humidity_rh": round(float(np.min(hums)), 2),
-        "max_humidity_rh": round(float(np.max(hums)), 2),
-        "humidity_std_rh": round(float(np.std(hums)), 2) if len(hums) > 1 else 0.0,
-        "avg_light_lux": round(float(np.mean(luxs)), 2),
-        "min_light_lux": round(float(np.min(luxs)), 2),
-        "max_light_lux": round(float(np.max(luxs)), 2),
-        "light_std_lux": round(float(np.std(luxs)), 2) if len(luxs) > 1 else 0.0,
-        "data_window_days": days,
-        "telemetry_samples_count": len(rows),
-        "is_default_baseline": False,
-    }
