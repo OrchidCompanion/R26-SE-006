@@ -181,7 +181,7 @@ export default function AnalyseDisease({ selectedPlant, selectedUser, onBack }) 
             disabled={analyzing || !selectedFile}
             className="w-full bg-[#059669] hover:bg-[#047857] text-white font-bold py-3 rounded-xl transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {analyzing ? "Running YOLO + MobileNetV2 + CNN ensemble..." : "Run Disease Analysis"}
+            Run Disease Analysis
           </button>
         </div>
 
