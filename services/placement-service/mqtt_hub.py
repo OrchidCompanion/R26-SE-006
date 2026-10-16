@@ -23,6 +23,7 @@ _thread: Optional[threading.Thread] = None
 # In-memory fast cache for live sensor readings
 # In-memory fast cache for live sensor readings and session logs
 latest_readings: Dict[str, Dict[str, Any]] = {}
+latest_npk_readings: Dict[str, Dict[str, Any]] = {}
 session_records: Dict[str, List[Dict[str, Any]]] = {}
 
 
@@ -38,6 +39,9 @@ def on_connect(client, userdata, flags, rc, properties=None):
         client.subscribe("orchid/sensors/env")
         client.subscribe("orchid/telemetry/env")
         client.subscribe("orchid/+/status")
+        client.subscribe("orchid/npk/+/status")
+        client.subscribe("orchid/npk/+/telemetry")
+        client.subscribe("orchid/sensors/npk")
     else:
         print(f"[MQTT] Connection returned error code: {rc}")
 
@@ -111,6 +115,25 @@ def on_message(client, userdata, msg):
                 lux=float(lux),
             )
             print(f"[MQTT] Ambient reading recorded for {clean_mac} (sample {sample_data['sample_index']}/{sample_data['total_samples']}): T={temp}°C, H={hum}%, L={lux} Lux, buffered={sample_data['buffered']}")
+
+        # Handle NPK sensor telemetry
+        n = payload.get("nitrogen") or payload.get("nitrogen_n")
+        p = payload.get("phosphorus") or payload.get("phosphorus_p")
+        k = payload.get("potassium") or payload.get("potassium_k")
+        if n is not None and p is not None and k is not None:
+            latest_npk_readings[clean_mac] = {
+                "nitrogen_n": float(n),
+                "phosphorus_p": float(p),
+                "potassium_k": float(k),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "online": True,
+            }
+            if clean_mac in latest_readings:
+                latest_readings[clean_mac]["online"] = True
+            else:
+                latest_readings[clean_mac] = {"online": True}
+            update_module_last_seen(clean_mac)
+            print(f"[MQTT] NPK reading captured for {clean_mac}: N={n}, P={p}, K={k}")
     except Exception as e:
         print(f"[MQTT] Error handling message on {msg.topic}: {e}")
 
@@ -136,6 +159,30 @@ def trigger_mqtt_ambient_read(module_id: str, timeout_seconds: float = 3.0) -> O
             return curr
 
     return latest_readings.get(clean_mac)
+
+
+def trigger_mqtt_npk_read(module_id: str, timeout_seconds: float = 4.0) -> Optional[Dict[str, Any]]:
+    """Publishes a trigger command over MQTT to the NPK ESP32 and waits for response."""
+    global _client
+    if not _client or not _client.is_connected():
+        return None
+
+    clean_mac = normalize_mac(module_id)
+    prev_time = latest_npk_readings.get(clean_mac, {}).get("timestamp")
+
+    cmd = json.dumps({"action": "read_npk"})
+    _client.publish(f"orchid/{clean_mac}/command", cmd)
+    _client.publish(f"orchid/npk/{clean_mac}/command", cmd)
+    _client.publish("orchid/commands/npk", cmd)
+
+    start = time.time()
+    while time.time() - start < timeout_seconds:
+        time.sleep(0.2)
+        curr = latest_npk_readings.get(clean_mac)
+        if curr and curr.get("timestamp") != prev_time and "nitrogen_n" in curr:
+            return curr
+
+    return latest_npk_readings.get(clean_mac)
 
 
 def trigger_mqtt_session(module_id: str, samples: int = 3, interval_sec: int = 20) -> bool:

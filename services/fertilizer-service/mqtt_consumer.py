@@ -27,6 +27,8 @@ def on_connect(client, userdata, flags, rc, properties=None):
         client.subscribe("orchid/+/+/npk")
         client.subscribe("orchid/sensors/npk")
         client.subscribe("orchid/telemetry/npk")
+        client.subscribe("orchid/npk/+/telemetry")
+        client.subscribe("orchid/+/npk/telemetry")
     else:
         print(f"[MQTT] Connection returned error code: {rc}")
 
