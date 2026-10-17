@@ -358,8 +358,8 @@ void setup() {
 
   // WiFi Setup
   WiFi.mode(WIFI_STA);
-  wifiMulti.addAP("Galaxy A20s5650", "azdrea7339");
-  wifiMulti.addAP("Dialog 4G 096", "B6582be1");
+  wifiMulti.addAP("Galaxy A20s000", "azd0039");
+  wifiMulti.addAP("Dialog 4G 0006", "B65001");
 
   lcd.setCursor(0, 2);
   lcd.print("Connecting WiFi...");
@@ -409,8 +409,8 @@ void loop() {
     unsigned long elapsed = now - sessionStartTime;
 
     if (sessionTotalSamples == 3) {
-      // 30-second schedule: Sample 1 (1s, already taken), Sample 2 (20s), Sample 3 (28s)
-      if (sessionSampleIndex == 1 && elapsed >= 20000UL) {
+      // 30-second schedule: Sample 1 (1s, already taken), Sample 2 (15s), Sample 3 (28s)
+      if (sessionSampleIndex == 1 && elapsed >= 15000UL) {
         sessionSampleIndex = 2;
         executeSample(sessionSampleIndex, sessionTotalSamples);
       }

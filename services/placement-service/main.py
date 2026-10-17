@@ -21,6 +21,7 @@ from database import (
     get_bh1750_readings,
     get_plant_environmental_summary,
     delete_module,
+    get_module,
 )
 from mqtt_hub import (
     start_mqtt_hub,
@@ -32,6 +33,7 @@ from mqtt_hub import (
     get_session_readings,
     clear_session_readings,
     latest_readings,
+    latest_npk_readings,
 )
 from ws_manager import ws_manager
 from placement_evaluator import evaluate_placement
@@ -143,6 +145,14 @@ def remove_module(module_id: str):
 async def check_module_status(module_id: str):
     """Checks whether the sensor node is online and healthy."""
     clean_id = ws_manager.normalize_mac(module_id)
+    
+    # Check if this module is an NPK sensor
+    is_npk = clean_id in latest_npk_readings
+    if not is_npk:
+        mod = get_module(clean_id)
+        if mod and "npk" in (mod.get("device_name") or "").lower():
+            is_npk = True
+
     if ws_manager.is_online(clean_id):
         try:
             result = await ws_manager.send_command_and_wait(
@@ -151,33 +161,53 @@ async def check_module_status(module_id: str):
             return {
                 "module_id": clean_id,
                 "online": True,
-                "dht11": result.get("dht11_ok", True),
-                "bh1750": result.get("bh1750_ok", True),
+                "sensor_type": "npk" if is_npk else "env",
+                "npk_probe": True if is_npk else False,
+                "dht11": False if is_npk else result.get("dht11_ok", True),
+                "bh1750": False if is_npk else result.get("bh1750_ok", True),
                 "msg": "Sensors operational over WebSocket.",
             }
         except Exception:
             return {
                 "module_id": clean_id,
                 "online": True,
-                "dht11": True,
-                "bh1750": True,
+                "sensor_type": "npk" if is_npk else "env",
+                "npk_probe": True if is_npk else False,
+                "dht11": False if is_npk else True,
+                "bh1750": False if is_npk else True,
                 "msg": "Connected via WebSocket.",
             }
 
-    # Active MQTT ping if not connected via WebSocket
+    if is_npk:
+        mqtt_live = trigger_mqtt_npk_read(clean_id, timeout_seconds=1.5)
+        if mqtt_live and "nitrogen_n" in mqtt_live:
+            return {
+                "module_id": clean_id,
+                "online": True,
+                "sensor_type": "npk",
+                "npk_probe": True,
+                "dht11": False,
+                "bh1750": False,
+                "latest_reading": mqtt_live,
+                "msg": "NPK Sensor operational over MQTT.",
+            }
+        return get_sensor_module_status(clean_id, is_npk=True)
+
+    # Active MQTT ping for ENV module
     mqtt_live = trigger_mqtt_ambient_read(clean_id, timeout_seconds=1.5)
     if mqtt_live and "temperature" in mqtt_live and mqtt_live.get("temperature") is not None:
         return {
             "module_id": clean_id,
             "online": True,
+            "sensor_type": "env",
             "dht11": True,
             "bh1750": True,
             "latest_reading": mqtt_live,
             "msg": "Sensors operational over MQTT.",
         }
 
-    # Fallback: check MQTT hub or DB
-    return get_sensor_module_status(module_id)
+    # Fallback for ENV module
+    return get_sensor_module_status(clean_id, is_npk=False)
 
 
 @app.get("/modules/{module_id}/read-ambient", tags=["Hardware Modules"])

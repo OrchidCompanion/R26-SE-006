@@ -175,6 +175,11 @@ export default function AnalayseLocation({ onBack }) {
       return;
     }
 
+    if (sensorStatus && !sensorStatus.online) {
+      setError("Cannot start analysis: Sensor module is offline. Please power on the ESP32 and check status.");
+      return;
+    }
+
     setAnalyzing(true);
     setCountdown(30);
     setReadings([]);
@@ -283,7 +288,11 @@ export default function AnalayseLocation({ onBack }) {
       if (secondsLeft <= 0) {
         clearInterval(timer);
         setAnalyzing(false);
-        setAnalysisCompleted(true);
+        if (collected.length > 0) {
+          setAnalysisCompleted(true);
+        } else {
+          setError("No telemetry received from the ESP32. Please ensure the device is powered on, connected to Wi-Fi, and retry.");
+        }
       }
     }, 1000);
   };
