@@ -124,23 +124,27 @@ def predict_single_image_stage(pil_img: Image.Image) -> Tuple[str, float, bool, 
         return "Invalid", 0.0, False, msg
 
     model01_tuple, _ = load_bloom_models()
-    stage_pred = "Vegetative"
-    conf_pred = 0.85
+    if model01_tuple is None:
+        return "Invalid", 0.0, False, "Bloom stage AI model is not loaded. Please ensure model weights are available."
 
-    if model01_tuple is not None:
-        mtype, mobj = model01_tuple
-        if mtype == "rfdetr":
-            res = mobj.predict(pil_img, threshold=0.15)
-            confs = getattr(res, "confidence", None)
-            c_ids = getattr(res, "class_id", None)
-            if confs is not None and len(confs) > 0 and float(max(confs)) >= 0.15:
-                best_i = int(np.argmax(confs))
-                top_i = int(c_ids[best_i])
-                conf_pred = float(confs[best_i])
-                stage_pred = STAGE_CLASS_MAP.get(top_i, "Vegetative")
-            else:
-                stage_pred = "Invalid"
-                conf_pred = 0.0
+    stage_pred = "Invalid"
+    conf_pred = 0.0
+
+    mtype, mobj = model01_tuple
+    if mtype == "rfdetr":
+        res = mobj.predict(pil_img, threshold=0.15)
+        confs = getattr(res, "confidence", None)
+        c_ids = getattr(res, "class_id", None)
+        if confs is not None and len(confs) > 0 and float(max(confs)) >= 0.15:
+            best_i = int(np.argmax(confs))
+            top_i = int(c_ids[best_i])
+            conf_pred = float(confs[best_i])
+            stage_pred = STAGE_CLASS_MAP.get(top_i, "Invalid")
+        else:
+            stage_pred = "Invalid"
+            conf_pred = 0.0
+    else:
+        return "Invalid", 0.0, False, f"Unsupported model type '{mtype}'. RF-DETR model required."
 
     is_valid_stage = stage_pred != "Invalid" and stage_pred in BLOOMING_STAGES
     error_msg = None if is_valid_stage else "Could not identify orchid blooming stage."
