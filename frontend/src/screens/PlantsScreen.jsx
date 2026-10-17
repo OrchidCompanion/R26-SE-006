@@ -494,7 +494,7 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-teal-100 pb-3">
                       <div>
                         <h4 className="font-bold text-gray-800 text-base">
-                          Zone Ambient Telemetry
+                          Environment Sensor Readings
                         </h4>
                         <p className="text-xs text-gray-500">
                           Trigger instant live ambient readings (DHT11 & BH1750) from the connected ESP32-S3 node via MQTT.
@@ -530,11 +530,10 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
                     {/* Status Indicator Banner */}
                     {sensorStatus && (
                       <div
-                        className={`p-3 rounded-lg text-xs font-medium flex items-center justify-between ${
-                          sensorStatus.online
+                        className={`p-3 rounded-lg text-xs font-medium flex items-center justify-between ${sensorStatus.online
                             ? "bg-emerald-50 border border-emerald-200 text-emerald-800"
                             : "bg-rose-50 border border-rose-200 text-rose-800"
-                        }`}
+                          }`}
                       >
                         <span>
                           <strong>Module Status:</strong> {sensorStatus.online ? "Online & Ready" : "Disconnected / Offline"} (
