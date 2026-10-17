@@ -70,20 +70,41 @@ def on_message(client, userdata, msg):
         # Handle online status heartbeats
         if "status" in payload:
             is_online = payload.get("status") == "online"
-            if clean_mac not in latest_readings:
-                latest_readings[clean_mac] = {"online": is_online}
+            now_iso = datetime.now(timezone.utc).isoformat()
+            is_npk = "npk" in msg.topic or "npk" in str(payload.get("device_type", "")).lower()
+            target_dict = latest_npk_readings if is_npk else latest_readings
+
+            if clean_mac not in target_dict:
+                target_dict[clean_mac] = {"online": is_online, "timestamp": now_iso}
             else:
-                latest_readings[clean_mac]["online"] = is_online
+                target_dict[clean_mac]["online"] = is_online
+                target_dict[clean_mac]["timestamp"] = now_iso
+
+            if "dht11" in payload:
+                target_dict[clean_mac]["dht11"] = bool(payload["dht11"])
+            elif "dht_ok" in payload:
+                target_dict[clean_mac]["dht11"] = bool(payload["dht_ok"])
+            if "bh1750" in payload:
+                target_dict[clean_mac]["bh1750"] = bool(payload["bh1750"])
+            if "npk_probe" in payload:
+                target_dict[clean_mac]["npk_probe"] = bool(payload["npk_probe"])
+
+            update_module_last_seen(clean_mac)
+            print(f"[MQTT] Heartbeat received from {clean_mac} ({'NPK' if is_npk else 'ENV'}): online={is_online}, dht11={target_dict[clean_mac].get('dht11')}, bh1750={target_dict[clean_mac].get('bh1750')}")
 
         temp = payload.get("temperature") or payload.get("temp")
         hum = payload.get("humidity") or payload.get("hum")
         lux = payload.get("light") or payload.get("lux")
 
         if temp is not None and hum is not None and lux is not None:
+            dht_flag = payload.get("dht11", payload.get("dht_ok", True))
+            bh_flag = payload.get("bh1750", True)
             latest_readings[clean_mac] = {
                 "temperature": float(temp),
                 "humidity": float(hum),
                 "lux": float(lux),
+                "dht11": bool(dht_flag),
+                "bh1750": bool(bh_flag),
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "online": True,
             }
@@ -311,12 +332,14 @@ def get_sensor_module_status(module_id: str, is_npk: bool = False) -> Dict[str, 
         cached = latest_readings.get(clean_mac)
         has_recent = cached and is_recently_active(cached.get("timestamp"), max_age_seconds=60.0)
         is_online = bool(has_recent and cached.get("online", False))
+        dht_ok = is_online and bool(cached.get("dht11", cached.get("dht_ok", True)))
+        bh_ok = is_online and bool(cached.get("bh1750", True))
         return {
             "module_id": clean_mac,
             "online": is_online,
             "sensor_type": "env",
-            "dht11": is_online,
-            "bh1750": is_online,
+            "dht11": dht_ok,
+            "bh1750": bh_ok,
             "latest_reading": cached if is_online else None,
-            "msg": "Sensors operational over MQTT." if is_online else "Sensor module is offline. Please power on the ESP32.",
+            "msg": "Sensors operational over MQTT." if (is_online and dht_ok and bh_ok) else ("Sensor module online, but probe fault detected." if is_online else "Sensor module is offline. Please power on the ESP32."),
         }

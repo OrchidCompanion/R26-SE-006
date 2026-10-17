@@ -337,6 +337,9 @@ void reconnectMQTT() {
       mqttClient.publish(statusTopic.c_str(), statusBuf);
       mqttClient.publish(("orchid/" + macAddress + "/status").c_str(), statusBuf);
 
+      // Publish fresh live NPK reading immediately on connect
+      collectAndSendNPK();
+
       // Flush offline readings if any accumulated
       flushOfflineBuffer();
       break;
@@ -384,10 +387,9 @@ void setup() {
   Serial.println("[MQTT] Command Topic:   " + commandTopic);
 
   // Configure Wi-Fi Multi-AP
-  wifiMulti.addAP("Galaxy A20", "azdxxx339");
-  wifiMulti.addAP("SLT_", "011xxx0972");
-  wifiMulti.addAP("Dialog", "B65xxxe1");
-  wifiMulti.addAP("Dialog_4G_WiFi", "12345678");
+  wifiMulti.addAP("Galaxy A20s5650", "azdrea7339");
+  wifiMulti.addAP("SLT_FIBRE", "0112760972");
+  wifiMulti.addAP("Dialog 4G 096", "B6582be1");
 
   setRGB_Yellow();
   Serial.print("[Wi-Fi] Connecting to Wi-Fi");
@@ -407,6 +409,8 @@ void setup() {
   mqttClient.setServer(MQTT_SERVER, MQTT_PORT);
   mqttClient.setCallback(mqttCallback);
   mqttClient.setBufferSize(512); // Ensure JSON payloads fit comfortably
+  mqttClient.setKeepAlive(60);
+  mqttClient.setSocketTimeout(15);
 
   reconnectMQTT();
 
@@ -420,7 +424,12 @@ void setup() {
 // =============================================================================
 void loop() {
   // Check Wi-Fi Connection
-  if (wifiMulti.run() != WL_CONNECTED) {
+  bool isWifiConnected = (WiFi.status() == WL_CONNECTED);
+  if (!isWifiConnected) {
+    isWifiConnected = (wifiMulti.run() == WL_CONNECTED);
+  }
+
+  if (!isWifiConnected) {
     // Blink System LED to indicate Wi-Fi reconnecting
     if (millis() - lastBlinkTime > 500) {
       lastBlinkTime = millis();
