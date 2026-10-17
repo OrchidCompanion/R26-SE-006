@@ -42,13 +42,18 @@ String commandTopic = "";
 
 bool isBh1750Ready = false;
 
-// RGB LED CONTROLLER
+// RGB LED CONTROLLER (WS2812 NeoPixel on GPIO 48)
 void setRGB(uint8_t r, uint8_t g, uint8_t b) { neopixelWrite(RGB_PIN, r, g, b); }
-void setRGB_Red()    { setRGB(255, 0, 0); }
-void setRGB_Yellow() { setRGB(255, 180, 0); }
-void setRGB_Green()  { setRGB(0, 255, 0); }
-void setRGB_Blue()   { setRGB(0, 100, 255); }
-void setRGB_Violet() { setRGB(180, 0, 255); }
+void setRGB_Red()        { setRGB(255, 0, 0); }     // Hardware sensor fault
+void setRGB_Orange()     { setRGB(255, 80, 0); }    // Wi-Fi or MQTT disconnected / retrying
+void setRGB_Cyan()       { setRGB(0, 180, 255); }   // Wi-Fi & Network connecting / pairing
+void setRGB_Blue()       { setRGB(0, 50, 255); }    // Reading sensors (active measurement)
+void setRGB_Violet()     { setRGB(180, 0, 255); }   // Packet transmitted to cloud
+void setRGB_LimeGreen()  { setRGB(40, 255, 10); }   // Measurement successful
+void setRGB_SoftGreen()  { setRGB(0, 80, 0); }      // Normal standby / online idle
+void setRGB_Green()      { setRGB_SoftGreen(); }    // Backward-compatible alias
+void setRGB_Yellow()     { setRGB_Orange(); }       // Backward-compatible alias
+void setRGB_Off()        { setRGB(0, 0, 0); }       // Off
 
 // FORMAT MAC ADDRESS
 String getFormattedMacAddress() {
@@ -149,7 +154,7 @@ void flushOfflineBuffer() {
   bufferCount = 0;
   setRGB_Violet();
   delay(600);
-  setRGB_Green();
+  setRGB_SoftGreen();
 }
 
 // EXECUTE SENSOR READING (ONLINE OR OFFLINE BUFFERED)
@@ -188,6 +193,8 @@ void executeSample(int sampleIndex, int totalSamples) {
     doc["humidity"]    = dht_ok ? round(hum * 10.0) / 10.0 : 0.0;
     doc["lux"]         = round(lux * 10.0) / 10.0;
     doc["dht_ok"]      = dht_ok;
+    doc["dht11"]       = dht_ok;
+    doc["bh1750"]      = isBh1750Ready;
     doc["buffered"]    = false;
 
     char jsonBuffer[256];
@@ -199,9 +206,12 @@ void executeSample(int sampleIndex, int totalSamples) {
     Serial.print("[MQTT] Published live sample: ");
     Serial.println(jsonBuffer);
 
+    // Violet flash (transmitted) -> Lime Green (success confirmation) -> Soft Green (idle)
     setRGB_Violet();
-    delay(1000);
-    setRGB_Green();
+    delay(500);
+    setRGB_LimeGreen();
+    delay(800);
+    setRGB_SoftGreen();
   } else {
     // OFFLINE: Store in RAM buffer so data is never lost
     if (bufferCount < MAX_BUFFERED_READINGS) {
@@ -219,9 +229,48 @@ void executeSample(int sampleIndex, int totalSamples) {
     lcd.setCursor(0, 2);
     lcd.print("OFFLINE: BUFFERED");
 
-    setRGB_Yellow();
+    setRGB_Orange();
     delay(800);
   }
+}
+
+// REPORT COMPREHENSIVE SENSOR HEALTH STATUS & TELEMETRY
+void sendHealthStatus() {
+  setRGB_Blue();
+
+  float temp = 0.0;
+  float hum = 0.0;
+  bool dht_ok = readDHT11(temp, hum);
+  float lux = readBH1750();
+  bool bh_ok = isBh1750Ready;
+
+  StaticJsonDocument<256> statusDoc;
+  statusDoc["device_id"]   = macAddress;
+  statusDoc["module_id"]   = macAddress;
+  statusDoc["device_name"] = "ENV Sensor";
+  statusDoc["status"]      = "online";
+  statusDoc["online"]      = true;
+  statusDoc["dht11"]       = dht_ok;
+  statusDoc["dht_ok"]      = dht_ok;
+  statusDoc["bh1750"]      = bh_ok;
+  statusDoc["temperature"] = dht_ok ? round(temp * 10.0) / 10.0 : 0.0;
+  statusDoc["humidity"]    = dht_ok ? round(hum * 10.0) / 10.0 : 0.0;
+  statusDoc["lux"]         = round(lux * 10.0) / 10.0;
+
+  char statusBuf[256];
+  serializeJson(statusDoc, statusBuf);
+
+  mqttClient.publish(statusTopic.c_str(), statusBuf);
+  mqttClient.publish(telemetryTopic.c_str(), statusBuf);
+  mqttClient.publish("orchid/sensors/env", statusBuf);
+
+  Serial.printf("[STATUS] Responded: DHT11=%s (T=%.1fC, H=%.1f%%), BH1750=%s (Lux=%.1f)\n",
+    dht_ok ? "OPERATIONAL" : "NO_SIGNAL", temp, hum,
+    bh_ok ? "OPERATIONAL" : "NO_SIGNAL", lux);
+
+  setRGB_Violet();
+  delay(400);
+  setRGB_SoftGreen();
 }
 
 // PUBLISH SENSOR TELEMETRY OVER MQTT (Single Trigger)
@@ -255,14 +304,19 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
 
   const char* action = doc["action"];
   if (action) {
-    if (strcmp(action, "start_session") == 0) {
+    if (strcmp(action, "health_check") == 0 || 
+        strcmp(action, "ping") == 0 || 
+        strcmp(action, "status") == 0 ||
+        strcmp(action, "check_status") == 0) {
+      sendHealthStatus();
+    } else if (strcmp(action, "start_session") == 0) {
       int samples = doc["samples"] | 3;
       int interval = doc["interval_sec"] | 14;
       startSession(samples, interval);
     } else if (strcmp(action, "read_now") == 0 || 
                strcmp(action, "read_sensors") == 0 || 
                strcmp(action, "read_ambient") == 0) {
-      publishSensorData();
+      sendHealthStatus();
     }
   }
 }
@@ -270,7 +324,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
 // RECONNECT TO MQTT BROKER
 void reconnectMQTT() {
   while (!mqttClient.connected()) {
-    setRGB_Yellow();
+    setRGB_Cyan();
     Serial.print("[MQTT] Connecting to broker...");
     String clientId = "ESP32-ENV-" + macAddress;
 
@@ -283,25 +337,20 @@ void reconnectMQTT() {
 
     if (connected) {
       Serial.println(" CONNECTED!");
-      setRGB_Green();
+      setRGB_SoftGreen();
       showIdleScreen();
 
       // Subscribe to command topics
       mqttClient.subscribe(commandTopic.c_str());
       mqttClient.subscribe("orchid/commands/env");
 
-      // Publish status online
-      StaticJsonDocument<128> statusDoc;
-      statusDoc["device_id"] = macAddress;
-      statusDoc["status"] = "online";
-      char statusBuf[128];
-      serializeJson(statusDoc, statusBuf);
-      mqttClient.publish(statusTopic.c_str(), statusBuf);
+      // Immediately publish comprehensive health status and sensor diagnostics
+      sendHealthStatus();
 
       // Flush any offline buffered readings from RAM
       flushOfflineBuffer();
     } else {
-      setRGB_Red();
+      setRGB_Orange();
       Serial.print(" FAILED, rc=");
       Serial.print(mqttClient.state());
       Serial.println(" Retrying in 5 seconds...");
@@ -313,24 +362,31 @@ void reconnectMQTT() {
 void setup() {
   Serial.begin(115200);
   delay(1000);
-  setRGB_Red();
+  setRGB_Cyan(); // System booting
 
-  // LCD Setup
+  // LCD Setup & I2C Bus Check
   Wire.begin(LCD_SDA_PIN, LCD_SCL_PIN);
   delay(100);
 
   Serial.println("\n[I2C] Scanning I2C bus on GPIO 1 (SDA) & GPIO 2 (SCL)...");
   int nDevices = 0;
+  bool isLcdReady = false;
   for (byte address = 1; address < 127; ++address) {
     Wire.beginTransmission(address);
     byte error = Wire.endTransmission();
     if (error == 0) {
       Serial.printf("[I2C] Device FOUND at address 0x%02X!\n", address);
       nDevices++;
+      if (address == 0x27 || address == 0x3F) {
+        isLcdReady = true;
+      }
     }
   }
-  if (nDevices == 0) {
-    Serial.println("[I2C] WARNING: No devices found on GPIO 1 & GPIO 2!");
+
+  if (isLcdReady) {
+    Serial.println("[LCD] Initialized successfully");
+  } else {
+    Serial.println("[LCD] WARNING: No display detected on GPIO 1 & GPIO 2!");
   }
 
   lcd.init();
@@ -343,27 +399,43 @@ void setup() {
   lcd.setCursor(0, 1);
   lcd.print("BOOTING SYSTEM...");
 
-
-  // BH1750 Setup
+  // BH1750 Setup & Self-Test
   I2C_BH1750.begin(BH1750_SDA_PIN, BH1750_SCL_PIN);
   if (lightMeter.begin(BH1750::CONTINUOUS_HIGH_RES_MODE, 0x23, &I2C_BH1750)) {
     isBh1750Ready = true;
     Serial.println("[BH1750] Initialized successfully");
   } else {
-    Serial.println("[BH1750] Initialization failed");
+    isBh1750Ready = false;
+    Serial.println("[BH1750] ERROR: Initialization failed!");
   }
 
-  // DHT Setup
+  // DHT11 Setup & Self-Test
   dht.begin();
+  delay(1000); // Allow DHT11 sensor to power-stabilize
+  float testTemp = 0.0, testHum = 0.0;
+  bool isDhtReady = readDHT11(testTemp, testHum);
+  if (isDhtReady) {
+    Serial.printf("[DHT11] Initialized successfully (T=%.1fC, H=%.1f%%)\n", testTemp, testHum);
+  } else {
+    Serial.println("[DHT11] ERROR: Initialization read failed on GPIO 5!");
+  }
+
+  // Check hardware health: Red LED indicates hardware fault
+  if (!isBh1750Ready || !isDhtReady) {
+    setRGB_Red();
+    Serial.println("[HARDWARE] WARNING: Environmental sensor fault detected! Check wiring.");
+    delay(1500);
+  }
 
   // WiFi Setup
   WiFi.mode(WIFI_STA);
-  wifiMulti.addAP("Galaxy A20s000", "azd0039");
-  wifiMulti.addAP("Dialog 4G 0006", "B65001");
+  wifiMulti.addAP("Galaxy A20s5650", "azdrea7339");
+  wifiMulti.addAP("Dialog 4G 096", "B6582be1");
+  wifiMulti.addAP("SLT_FIBRE", "0112760972");
 
   lcd.setCursor(0, 2);
   lcd.print("Connecting WiFi...");
-  setRGB_Yellow();
+  setRGB_Cyan(); // Cyan indicates wireless connecting/pairing
 
   while (wifiMulti.run() != WL_CONNECTED) {
     delay(500);
@@ -379,17 +451,23 @@ void setup() {
   commandTopic   = "orchid/" + macAddress + "/command";
   Serial.println("Device MAC Address: " + macAddress);
 
-  setRGB_Blue();
+  setRGB_Cyan();
 
   // MQTT Client Setup
   mqttClient.setServer(MQTT_SERVER, MQTT_PORT);
   mqttClient.setCallback(mqttCallback);
+  mqttClient.setBufferSize(512);
+  mqttClient.setKeepAlive(60);
+  mqttClient.setSocketTimeout(15);
 
   reconnectMQTT();
 }
 
 void loop() {
-  bool isWifiConnected = (wifiMulti.run() == WL_CONNECTED);
+  bool isWifiConnected = (WiFi.status() == WL_CONNECTED);
+  if (!isWifiConnected) {
+    isWifiConnected = (wifiMulti.run() == WL_CONNECTED);
+  }
 
   if (isWifiConnected) {
     if (!mqttClient.connected()) {
@@ -399,7 +477,7 @@ void loop() {
   } else {
     // If not actively taking a sample, indicate WiFi loss
     if (!isSessionActive) {
-      setRGB_Yellow();
+      setRGB_Orange();
     }
   }
 
@@ -423,7 +501,7 @@ void loop() {
         Serial.println("[SESSION] All 3 samples in autonomous 30s session completed!");
 
         if (WiFi.status() == WL_CONNECTED && mqttClient.connected()) {
-          setRGB_Green();
+          setRGB_SoftGreen();
           showIdleScreen();
         }
       }
@@ -439,7 +517,7 @@ void loop() {
           Serial.println("[SESSION] All samples in autonomous session completed!");
 
           if (WiFi.status() == WL_CONNECTED && mqttClient.connected()) {
-            setRGB_Green();
+            setRGB_SoftGreen();
             showIdleScreen();
           }
         }
