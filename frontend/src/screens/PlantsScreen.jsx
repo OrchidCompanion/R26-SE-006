@@ -14,15 +14,9 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
   const [sensorStatus, setSensorStatus] = useState(null);
   const [actionError, setActionError] = useState("");
 
-  // Sampling State (1-minute burst read: 3 samples)
-  const [samplingSlotKey, setSamplingSlotKey] = useState(null); // `${location_id}_${slot}`
-  const [countdown, setCountdown] = useState(60);
-  const [burstReadings, setBurstReadings] = useState([]);
-  const timerRef = useRef(null);
-
-  // Staged Averages Ready for Submission: { [slotKey]: { temp, hum, lux, samplesCount, timestamp, submitted } }
-  const [stagedReadings, setStagedReadings] = useState({});
-  const [submittingSlotKey, setSubmittingSlotKey] = useState(null);
+  // Ambient Telemetry Sampling State
+  const [readingResults, setReadingResults] = useState({});
+  const [activeReadingSlot, setActiveReadingSlot] = useState(null);
 
   // Modals & CRUD State
   const [showAddLocationModal, setShowAddLocationModal] = useState(false);
@@ -49,9 +43,6 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
       loadUserData();
       fetchUserModules(selectedUser.user_id);
     }
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
   }, [selectedUser]);
 
   const loadUserData = async () => {
@@ -86,7 +77,8 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
         const data = await res.json();
         setModules(data);
         if (data.length > 0) {
-          setSelectedModuleId(data[0].module_id);
+          const envMod = data.find((m) => m.module_id === "a4cf129b88e0" || m.device_name?.toLowerCase().includes("env"));
+          setSelectedModuleId(envMod ? envMod.module_id : data[0].module_id);
         }
       }
     } catch (err) {
@@ -129,103 +121,39 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
     }
   };
 
-  // Trigger 1-minute 3-sample burst read
-  const handleStartBurstSampling = (locationId, timeSlot) => {
+  const handleReadAmbientData = async (locationId, timeSlot) => {
     if (!selectedModuleId) {
-      setActionError("Please select a sensor module before reading telemetry.");
+      setActionError("Please select a sensor module.");
       return;
     }
-
     const slotKey = `${locationId}_${timeSlot}`;
-    setSamplingSlotKey(slotKey);
-    setCountdown(60);
-    setBurstReadings([]);
-    setActionError("");
-
-    let secondsLeft = 60;
-    const collected = [];
-
-    const fetchSingleSample = async () => {
-      try {
-        const token = localStorage.getItem("admin_token");
-        const res = await fetch(
-          `${API_BASE_URL}/sensors/modules/${selectedModuleId}/read-ambient`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        if (res.ok) {
-          const data = await res.json();
-          return {
-            temp: Number(data.temperature),
-            hum: Number(data.humidity),
-            lux: Number(data.lux),
-          };
-        }
-      } catch (err) {
-        console.warn("Telemetry burst sample read failure:", err);
-      }
-      return null;
-    };
-
-    if (timerRef.current) clearInterval(timerRef.current);
-
-    timerRef.current = setInterval(async () => {
-      secondsLeft -= 1;
-      setCountdown(secondsLeft);
-
-      // Collect sample at 40s, 20s, and 0s
-      if (secondsLeft === 40 || secondsLeft === 20 || secondsLeft === 0) {
-        const sample = await fetchSingleSample();
-        if (sample) {
-          sample.sampleIndex = collected.length + 1;
-          collected.push(sample);
-          setBurstReadings([...collected]);
-        }
-      }
-
-      if (secondsLeft <= 0) {
-        clearInterval(timerRef.current);
-        setSamplingSlotKey(null);
-
-        if (collected.length > 0) {
-          const avgTemp = Number(
-            (collected.reduce((acc, r) => acc + r.temp, 0) / collected.length).toFixed(1)
-          );
-          const avgHum = Number(
-            (collected.reduce((acc, r) => acc + r.hum, 0) / collected.length).toFixed(1)
-          );
-          const avgLux = Number(
-            (collected.reduce((acc, r) => acc + r.lux, 0) / collected.length).toFixed(0)
-          );
-
-          setStagedReadings((prev) => ({
-            ...prev,
-            [slotKey]: {
-              temp: avgTemp,
-              hum: avgHum,
-              lux: avgLux,
-              samplesCount: collected.length,
-              timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-              submitted: false,
-            },
-          }));
-        } else {
-          setActionError(`Failed to obtain valid telemetry samples for ${timeSlot}.`);
-        }
-      }
-    }, 1000);
-  };
-
-  // Submit staged average reading to database
-  const handleSubmitReading = async (locationId, timeSlot) => {
-    const slotKey = `${locationId}_${timeSlot}`;
-    const reading = stagedReadings[slotKey];
-    if (!reading) return;
-
-    setSubmittingSlotKey(slotKey);
+    setActiveReadingSlot(slotKey);
     setActionError("");
 
     try {
       const token = localStorage.getItem("admin_token");
+      const readRes = await fetch(
+        `${API_BASE_URL}/sensors/modules/${selectedModuleId}/read-ambient`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (!readRes.ok) {
+        const errorData = await readRes.json().catch(() => ({}));
+        throw new Error(errorData.detail || "Ambient sensor read failed.");
+      }
+
+      const data = await readRes.json();
+      const temp = Number(data.temperature ?? 0);
+      const hum = Number(data.humidity ?? 0);
+      const lux = Number(data.lux ?? 0);
+
+      const targetUserId =
+        selectedUser?.user_id ||
+        selectedUser?.id ||
+        (localStorage.getItem("admin_user")
+          ? JSON.parse(localStorage.getItem("admin_user")).user_id
+          : "");
+
       await Promise.all([
         fetch(`${API_BASE_URL}/sensors/dht11`, {
           method: "POST",
@@ -234,11 +162,12 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            temperature: reading.temp,
-            humidity: reading.hum,
+            temperature: temp,
+            humidity: hum,
             time_slot: timeSlot,
             location_id: locationId,
             module_id: selectedModuleId,
+            user_id: targetUserId,
           }),
         }),
         fetch(`${API_BASE_URL}/sensors/bh1750`, {
@@ -248,23 +177,29 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            lux: reading.lux,
+            lux: lux,
             time_slot: timeSlot,
             location_id: locationId,
             module_id: selectedModuleId,
+            user_id: targetUserId,
           }),
         }),
       ]);
 
-      setStagedReadings((prev) => ({
+      setReadingResults((prev) => ({
         ...prev,
-        [slotKey]: { ...prev[slotKey], submitted: true },
+        [slotKey]: {
+          temp,
+          hum,
+          lux,
+          timestamp: new Date().toLocaleTimeString(),
+        },
       }));
     } catch (err) {
-      console.error("Error submitting reading:", err);
-      setActionError(`Failed to save ${timeSlot} reading to the database.`);
+      console.error(err);
+      setActionError(err.message || `Error reading ambient data for ${timeSlot}.`);
     } finally {
-      setSubmittingSlotKey(null);
+      setActiveReadingSlot(null);
     }
   };
 
@@ -454,74 +389,7 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
         </div>
       </div>
 
-      {/* Module Selector & Diagnostic Health Strip */}
-      <div className="bg-emerald-50/40 border border-emerald-200/80 rounded-2xl p-4 sm:p-5 space-y-3.5">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <h3 className="font-bold text-gray-800 text-sm">IoT Ambient Hardware Configuration</h3>
-            </div>
-            <p className="text-xs text-gray-500 mt-0.5">
-              Select module used for ambient location telemetry sampling (DHT11 & BH1750).
-            </p>
-          </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <select
-              value={selectedModuleId}
-              onChange={(e) => {
-                setSelectedModuleId(e.target.value);
-                setSensorStatus(null);
-              }}
-              className="text-xs bg-white border border-gray-300 rounded-xl px-3 py-2 font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-            >
-              <option value="">-- Select Sensor Module --</option>
-              {modules.map((m) => (
-                <option key={m.module_id} value={m.module_id}>
-                  {m.device_name} ({m.module_id})
-                </option>
-              ))}
-            </select>
-            <button
-              onClick={handleCheckSensorStatus}
-              disabled={checkingStatus || !selectedModuleId}
-              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition disabled:opacity-50 shrink-0"
-            >
-              {checkingStatus ? "Checking..." : "Check Status"}
-            </button>
-          </div>
-        </div>
-
-        {actionError && (
-          <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs font-medium">
-            {actionError}
-          </div>
-        )}
-
-        {sensorStatus && (
-          <div className="grid grid-cols-3 gap-2.5 text-center text-xs pt-1">
-            <div className="p-2.5 bg-white rounded-xl border border-gray-200">
-              <span className="text-gray-400 block text-[10px] uppercase font-bold">Module Link</span>
-              <span className={`font-bold ${sensorStatus.online ? "text-emerald-600" : "text-rose-600"}`}>
-                {sensorStatus.online ? "Online" : "Offline"}
-              </span>
-            </div>
-            <div className="p-2.5 bg-white rounded-xl border border-gray-200">
-              <span className="text-gray-400 block text-[10px] uppercase font-bold">DHT11 Temp/RH</span>
-              <span className={`font-bold ${sensorStatus.dht11 ? "text-emerald-600" : "text-rose-600"}`}>
-                {sensorStatus.dht11 ? "Ready" : "Error"}
-              </span>
-            </div>
-            <div className="p-2.5 bg-white rounded-xl border border-gray-200">
-              <span className="text-gray-400 block text-[10px] uppercase font-bold">BH1750 Light</span>
-              <span className={`font-bold ${sensorStatus.bh1750 ? "text-emerald-600" : "text-rose-600"}`}>
-                {sensorStatus.bh1750 ? "Ready" : "Error"}
-              </span>
-            </div>
-          </div>
-        )}
-      </div>
 
       {/* Locations Container */}
       {loading ? (
@@ -619,127 +487,149 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
                   )}
                 </div>
 
-                {/* Zone Body: 2 Columns */}
-                <div className="p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                  {/* Left Column: Ambient Telemetry Sampling & Submit */}
-                  <div className="lg:col-span-5 bg-gray-50/70 border border-gray-200/80 rounded-xl p-4 space-y-3.5">
-                    <div className="flex justify-between items-center border-b border-gray-200/80 pb-2.5">
+                {/* Zone Body: Ambient Telemetry & Zone Plants */}
+                <div className="p-6 space-y-6">
+                  {/* Zone Ambient Telemetry (mirrors Daily Plant NPK Sampling) */}
+                  <div className="border border-teal-200 bg-teal-50/20 rounded-xl p-5 space-y-4">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-teal-100 pb-3">
                       <div>
-                        <h4 className="font-bold text-gray-800 text-xs uppercase tracking-wider">
+                        <h4 className="font-bold text-gray-800 text-base">
                           Zone Ambient Telemetry
                         </h4>
-                        <p className="text-[11px] text-gray-400">1-min average (3 samples) per time slot</p>
+                        <p className="text-xs text-gray-500">
+                          Trigger instant live ambient readings (DHT11 & BH1750) from the connected ESP32-S3 node via MQTT.
+                        </p>
                       </div>
-                      <span className="text-[10px] uppercase font-bold text-emerald-700 bg-emerald-100/60 px-2 py-0.5 rounded">
-                        DHT11 & BH1750
-                      </span>
+
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full md:w-auto">
+                        <select
+                          value={selectedModuleId}
+                          onChange={(e) => {
+                            setSelectedModuleId(e.target.value);
+                            setSensorStatus(null);
+                          }}
+                          className="text-xs bg-white border border-gray-300 rounded-lg px-3 py-2 font-medium focus:ring-2 focus:ring-teal-500 focus:outline-none w-full sm:w-auto"
+                        >
+                          <option value="">-- Select Sensor Module --</option>
+                          {modules.map((m) => (
+                            <option key={m.module_id} value={m.module_id}>
+                              {m.device_name} ({m.module_id})
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={handleCheckSensorStatus}
+                          disabled={checkingStatus || !selectedModuleId}
+                          className="px-3 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-lg transition disabled:opacity-50 shrink-0 w-full sm:w-auto"
+                        >
+                          {checkingStatus ? "Checking..." : "Check Status"}
+                        </button>
+                      </div>
                     </div>
 
-                    <div className="space-y-3">
+                    {/* Status Indicator Banner */}
+                    {sensorStatus && (
+                      <div
+                        className={`p-3 rounded-lg text-xs font-medium flex items-center justify-between ${
+                          sensorStatus.online
+                            ? "bg-emerald-50 border border-emerald-200 text-emerald-800"
+                            : "bg-rose-50 border border-rose-200 text-rose-800"
+                        }`}
+                      >
+                        <span>
+                          <strong>Module Status:</strong> {sensorStatus.online ? "Online & Ready" : "Disconnected / Offline"} (
+                          {sensorStatus.msg || (sensorStatus.online ? "Ready" : "Offline")})
+                        </span>
+                        <span className="text-[11px] font-semibold uppercase tracking-wider">
+                          {sensorStatus.device || (modules.find((m) => m.module_id === selectedModuleId)?.device_name) || "Node"}
+                        </span>
+                      </div>
+                    )}
+
+                    {actionError && (
+                      <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 text-xs font-medium">
+                        {actionError}
+                      </div>
+                    )}
+
+                    {/* Ambient Time-slot Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                       {["morning", "afternoon", "evening"].map((slot) => {
-                        const slotKey = `${loc.location_id}_${slot}`;
-                        const isSampling = samplingSlotKey === slotKey;
-                        const staged = stagedReadings[slotKey];
-                        const isSubmitting = submittingSlotKey === slotKey;
+                        const key = `${loc.location_id}_${slot}`;
+                        const res = readingResults[key];
+                        const isLoading = activeReadingSlot === key;
 
                         return (
                           <div
                             key={slot}
-                            className="bg-white border border-gray-200/80 rounded-xl p-3.5 space-y-2.5 shadow-2xs"
+                            className="p-3.5 bg-white border border-gray-200 rounded-xl flex flex-col justify-between space-y-3 shadow-xs"
                           >
                             <div className="flex items-center justify-between">
-                              <span className="capitalize font-extrabold text-xs text-gray-800">
-                                {slot} Time Slot
+                              <span className="capitalize font-bold text-xs text-gray-800">
+                                {slot} Reading
                               </span>
-
-                              {staged && staged.submitted && (
-                                <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-full">
-                                  Saved to DB
-                                </span>
-                              )}
+                              <span className="text-[10px] uppercase font-semibold text-teal-700 bg-teal-50 px-2 py-0.5 rounded">
+                                ENV
+                              </span>
                             </div>
 
-                            {/* Sampling Countdown Progress Bar */}
-                            {isSampling ? (
-                              <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg space-y-1.5">
-                                <div className="flex justify-between text-[11px] font-bold text-emerald-800">
-                                  <span>Collecting burst samples ({burstReadings.length}/3)...</span>
-                                  <span>{countdown}s remaining</span>
+                            {res ? (
+                              <div className="text-xs font-semibold space-y-1">
+                                <div className="text-rose-600">
+                                  Temperature (T): <strong>{res.temp} °C</strong>
                                 </div>
-                                <div className="w-full bg-emerald-200 rounded-full h-1.5 overflow-hidden">
-                                  <div
-                                    className="bg-emerald-600 h-full transition-all duration-1000"
-                                    style={{ width: `${((60 - countdown) / 60) * 100}%` }}
-                                  ></div>
+                                <div className="text-sky-600">
+                                  Humidity (RH): <strong>{res.hum} %</strong>
                                 </div>
-                              </div>
-                            ) : staged ? (
-                              /* Averaged Result Display */
-                              <div className="space-y-1.5">
-                                <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-semibold">
-                                  <span className="px-2 py-1 bg-rose-50 text-rose-600 rounded-md">
-                                    {staged.temp}°C
-                                  </span>
-                                  <span className="px-2 py-1 bg-sky-50 text-sky-600 rounded-md">
-                                    {staged.hum}% RH
-                                  </span>
-                                  <span className="px-2 py-1 bg-amber-50 text-amber-700 rounded-md">
-                                    {staged.lux} Lux
-                                  </span>
+                                <div className="text-amber-700">
+                                  Light (Lux): <strong>{res.lux} Lux</strong>
                                 </div>
-                                <span className="text-[10px] text-gray-400 block">
-                                  Computed average from {staged.samplesCount} samples at {staged.timestamp}
+                                <span className="text-gray-400 text-[10px] block pt-1">
+                                  Logged at {res.timestamp}
                                 </span>
                               </div>
                             ) : (
-                              <span className="text-[11px] text-gray-400 italic block">
-                                No telemetry sampled for this slot yet.
-                              </span>
+                              <p className="text-xs text-gray-400 italic">
+                                No reading recorded for {slot}.
+                              </p>
                             )}
 
-                            {/* Action Buttons: Check & Submit */}
-                            <div className="flex gap-2 pt-1">
-                              <button
-                                onClick={() => handleStartBurstSampling(loc.location_id, slot)}
-                                disabled={Boolean(samplingSlotKey)}
-                                className="flex-1 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-lg transition disabled:opacity-50"
-                              >
-                                {isSampling ? "Sampling (60s)..." : staged ? "Re-Check (1 Min)" : "Check (1 Min)"}
-                              </button>
-
-                              {staged && !staged.submitted && (
-                                <button
-                                  onClick={() => handleSubmitReading(loc.location_id, slot)}
-                                  disabled={isSubmitting || Boolean(samplingSlotKey)}
-                                  className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-2xs transition disabled:opacity-50"
-                                >
-                                  {isSubmitting ? "Saving..." : "Submit Reading"}
-                                </button>
-                              )}
-                            </div>
+                            <button
+                              onClick={() => handleReadAmbientData(loc.location_id, slot)}
+                              disabled={isLoading}
+                              className="w-full py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-lg shadow-xs transition disabled:opacity-50"
+                            >
+                              {isLoading ? "Reading Sensor..." : "Read Ambient Data"}
+                            </button>
                           </div>
                         );
                       })}
                     </div>
                   </div>
 
-                  {/* Right Column: Assigned Plants */}
-                  <div className="lg:col-span-7 space-y-3">
+                  {/* Zone Plants */}
+                  <div className="space-y-3 pt-2">
                     <div className="flex justify-between items-center">
                       <h4 className="font-bold text-gray-800 text-xs uppercase tracking-wider">
                         Zone Plants ({locPlants.length})
                       </h4>
-                      <span className="text-[11px] text-gray-400">Select plant to view diagnostics & NPK</span>
+                      <span className="text-[11px] text-gray-400">
+                        Select plant to view diagnostics & NPK
+                      </span>
                     </div>
 
                     {locPlants.length === 0 ? (
                       <div className="p-8 rounded-xl border border-dashed border-gray-200 bg-gray-50/50 text-center">
                         <span className="text-3xl block mb-1">🪴</span>
-                        <p className="text-xs font-semibold text-gray-600">No orchids registered in this zone</p>
-                        <p className="text-[11px] text-gray-400 mt-0.5">Click "+ Add Plant" above to register an orchid in this location</p>
+                        <p className="text-xs font-semibold text-gray-600">
+                          No orchids registered in this zone
+                        </p>
+                        <p className="text-[11px] text-gray-400 mt-0.5">
+                          Click "+ Add Plant" above to register an orchid in this location
+                        </p>
                       </div>
                     ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                         {locPlants.map((p) => (
                           <div
                             key={p.plant_id}
