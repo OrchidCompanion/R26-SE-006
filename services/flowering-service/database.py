@@ -249,10 +249,13 @@ def get_sensor_statistics(
             resp = client.get(url, params=params)
             if resp.status_code == 200:
                 data = resp.json()
-                if isinstance(data, dict) and "avg_temp_c" in data:
+                if isinstance(data, dict):
+                    # If placement-service returned baseline or 0 samples, treat as no data
+                    if data.get("is_default_baseline", False) or data.get("telemetry_samples_count", 0) == 0:
+                        return None
                     return data
     except Exception as e:
-        print(f"[FloweringService] Could not fetch sensor statistics from placement-service ({e}), using baseline.")
+        print(f"[FloweringService] Could not fetch sensor statistics from placement-service ({e}).")
 
-    return default_stats
+    return None
 
