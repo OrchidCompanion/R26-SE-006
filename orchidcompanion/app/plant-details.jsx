@@ -124,7 +124,10 @@ export default function PlantDetailsScreen() {
       if (modRes.ok) {
         const mods = await modRes.json();
         setModules(mods);
-        if (mods.length > 0 && !selectedModuleId) setSelectedModuleId(mods[0].module_id);
+        if (mods.length > 0 && !selectedModuleId) {
+          const npkMod = mods.find((m) => m.module_id === "441bf68cbc78" || m.device_name?.toLowerCase().includes("npk"));
+          setSelectedModuleId(npkMod ? npkMod.module_id : mods[0].module_id);
+        }
       }
 
       // 2. Fetch Real-Time Microclimate Telemetry (DHT11 & BH1750)
@@ -208,7 +211,7 @@ export default function PlantDetailsScreen() {
     fetchPlantData();
   };
 
-  // Daily Plant NPK Burst Sampling (1-min average: 3 samples)
+  // Daily Plant NPK 30-Second Burst Sampling (1s, 15s, 28s)
   const handleStartNpkSampling = (slot) => {
     if (!selectedModuleId) {
       Alert.alert("Hardware Required", "Please select an ESP32 NPK node.");
@@ -216,9 +219,9 @@ export default function PlantDetailsScreen() {
     }
 
     setSamplingNpkSlot(slot);
-    setNpkCountdown(60);
+    setNpkCountdown(30);
 
-    let secondsLeft = 60;
+    let secondsLeft = 30;
     const collected = [];
 
     const fetchSample = async () => {
@@ -245,8 +248,10 @@ export default function PlantDetailsScreen() {
     timerRef.current = setInterval(async () => {
       secondsLeft -= 1;
       setNpkCountdown(secondsLeft);
+      const elapsed = 30 - secondsLeft;
 
-      if (secondsLeft === 40 || secondsLeft === 20 || secondsLeft === 0) {
+      // 1st sample at 1st second, 2nd sample at 15th second, 3rd sample at 28th second
+      if (elapsed === 1 || elapsed === 15 || elapsed === 28) {
         const sample = await fetchSample();
         if (sample) collected.push(sample);
       }
@@ -483,12 +488,12 @@ export default function PlantDetailsScreen() {
               </Text>
             </View>
             <Text className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">
-              1-Min Burst
+              30-Sec Burst
             </Text>
           </View>
 
           <Text className="text-[11px] text-gray-500 mb-3">
-            Collect 3 consecutive sensor reads to log daily nutrient status.
+            30-second live sampling (samples at 1s, 15s, 28s) to log daily nutrient status.
           </Text>
 
           {/* Full Width Time-Slot Cards */}
@@ -513,7 +518,7 @@ export default function PlantDetailsScreen() {
                       </Text>
                     ) : staged ? (
                       <Text className="text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
-                        Averaged & Ready
+                        Ready to Save
                       </Text>
                     ) : null}
                   </View>
@@ -532,9 +537,12 @@ export default function PlantDetailsScreen() {
                       <View className="w-full bg-emerald-200 rounded-full h-1.5 overflow-hidden">
                         <View
                           className="bg-emerald-600 h-full rounded-full"
-                          style={{ width: `${((60 - npkCountdown) / 60) * 100}%` }}
+                          style={{ width: `${((30 - npkCountdown) / 30) * 100}%` }}
                         />
                       </View>
+                      <Text className="text-[10px] text-emerald-700">
+                        Sampling at 1s, 15s, and 28s (30s average)
+                      </Text>
                     </View>
                   ) : staged ? (
                     /* Full-width metrics display */
@@ -554,32 +562,50 @@ export default function PlantDetailsScreen() {
                     </View>
                   ) : (
                     <Text className="text-xs italic text-gray-400">
-                      No NPK burst data recorded for this slot yet.
+                      No NPK burst data recorded for this slot yet. (30s 3-sample average)
                     </Text>
                   )}
 
                   {/* Full-width action buttons */}
                   <View className="flex-row gap-2 pt-1">
-                    <TouchableOpacity
-                      onPress={() => handleStartNpkSampling(slot)}
-                      disabled={Boolean(samplingNpkSlot)}
-                      className="flex-1 py-2.5 rounded-xl items-center justify-center bg-white border"
-                      style={{ borderColor: colors.borderGray }}
-                    >
-                      <Text className="text-xs font-bold" style={{ color: colors.darkGray }}>
-                        {isSampling ? "Reading..." : staged ? "Re-Check Values" : "Check Values"}
-                      </Text>
-                    </TouchableOpacity>
-
-                    {staged && !staged.submitted && (
+                    {isSampling ? (
+                      <View className="flex-1 py-2.5 bg-emerald-100 rounded-xl items-center justify-center opacity-75">
+                        <Text className="text-xs font-bold text-emerald-800">
+                          Sampling ({npkCountdown}s)...
+                        </Text>
+                      </View>
+                    ) : staged && !staged.submitted ? (
+                      <>
+                        <TouchableOpacity
+                          onPress={() => handleSubmitNpk(slot)}
+                          disabled={submittingNpk || Boolean(samplingNpkSlot)}
+                          className="flex-1 py-2.5 rounded-xl items-center justify-center shadow-xs"
+                          style={{ backgroundColor: colors.primary }}
+                        >
+                          <Text className="text-xs font-bold text-white">
+                            {submittingNpk ? "Saving..." : "Save Reading"}
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => handleStartNpkSampling(slot)}
+                          disabled={Boolean(samplingNpkSlot) || submittingNpk}
+                          className="px-4 py-2.5 bg-white rounded-xl border items-center justify-center"
+                          style={{ borderColor: colors.borderGray }}
+                        >
+                          <Text className="text-xs font-bold" style={{ color: colors.darkGray }}>
+                            Re-Sample
+                          </Text>
+                        </TouchableOpacity>
+                      </>
+                    ) : (
                       <TouchableOpacity
-                        onPress={() => handleSubmitNpk(slot)}
-                        disabled={submittingNpk || Boolean(samplingNpkSlot)}
-                        className="flex-1 py-2.5 rounded-xl items-center justify-center shadow-xs"
-                        style={{ backgroundColor: colors.primary }}
+                        onPress={() => handleStartNpkSampling(slot)}
+                        disabled={Boolean(samplingNpkSlot)}
+                        className="flex-1 py-2.5 rounded-xl items-center justify-center bg-white border"
+                        style={{ borderColor: colors.borderGray }}
                       >
-                        <Text className="text-xs font-bold text-white">
-                          {submittingNpk ? "Saving..." : "Submit Reading"}
+                        <Text className="text-xs font-bold" style={{ color: colors.darkGray }}>
+                          {staged?.submitted ? "Re-Check (30s)" : "Read NPK Data (30s)"}
                         </Text>
                       </TouchableOpacity>
                     )}
