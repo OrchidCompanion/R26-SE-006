@@ -179,7 +179,7 @@ async def check_module_status(module_id: str):
             }
 
     if is_npk:
-        mqtt_live = trigger_mqtt_npk_read(clean_id, timeout_seconds=1.5)
+        mqtt_live = trigger_mqtt_npk_read(clean_id, timeout_seconds=3.5)
         if mqtt_live and "nitrogen_n" in mqtt_live:
             return {
                 "module_id": clean_id,
@@ -194,16 +194,18 @@ async def check_module_status(module_id: str):
         return get_sensor_module_status(clean_id, is_npk=True)
 
     # Active MQTT ping for ENV module
-    mqtt_live = trigger_mqtt_ambient_read(clean_id, timeout_seconds=1.5)
-    if mqtt_live and "temperature" in mqtt_live and mqtt_live.get("temperature") is not None:
+    mqtt_live = trigger_mqtt_ambient_read(clean_id, timeout_seconds=3.5)
+    if mqtt_live:
+        dht_ok = bool(mqtt_live.get("dht11", mqtt_live.get("dht_ok", True)))
+        bh_ok = bool(mqtt_live.get("bh1750", True))
         return {
             "module_id": clean_id,
             "online": True,
             "sensor_type": "env",
-            "dht11": True,
-            "bh1750": True,
+            "dht11": dht_ok,
+            "bh1750": bh_ok,
             "latest_reading": mqtt_live,
-            "msg": "Sensors operational over MQTT.",
+            "msg": "Sensors operational over MQTT." if (dht_ok and bh_ok) else "Sensor module online, but probe fault detected.",
         }
 
     # Fallback for ENV module
