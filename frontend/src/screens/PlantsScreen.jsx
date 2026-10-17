@@ -17,6 +17,7 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
   // Ambient Telemetry Sampling State
   const [readingResults, setReadingResults] = useState({});
   const [activeReadingSlot, setActiveReadingSlot] = useState(null);
+  const [savingReadingSlot, setSavingReadingSlot] = useState(null);
 
   // Modals & CRUD State
   const [showAddLocationModal, setShowAddLocationModal] = useState(false);
@@ -146,7 +147,38 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
       const temp = Number(data.temperature ?? 0);
       const hum = Number(data.humidity ?? 0);
       const lux = Number(data.lux ?? 0);
+      const now = new Date();
 
+      setReadingResults((prev) => ({
+        ...prev,
+        [slotKey]: {
+          temp,
+          hum,
+          lux,
+          timestamp: now.toLocaleTimeString(),
+          date: now.toLocaleDateString(),
+          moduleId: selectedModuleId,
+          saved: false,
+        },
+      }));
+    } catch (err) {
+      console.error(err);
+      setActionError(err.message || `Error reading ambient data for ${timeSlot}.`);
+    } finally {
+      setActiveReadingSlot(null);
+    }
+  };
+
+  const handleSaveAmbientData = async (locationId, timeSlot) => {
+    const slotKey = `${locationId}_${timeSlot}`;
+    const reading = readingResults[slotKey];
+    if (!reading) return;
+
+    setSavingReadingSlot(slotKey);
+    setActionError("");
+
+    try {
+      const token = localStorage.getItem("admin_token");
       const targetUserId =
         selectedUser?.user_id ||
         selectedUser?.id ||
@@ -154,7 +186,10 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
           ? JSON.parse(localStorage.getItem("admin_user")).user_id
           : "");
 
-      await Promise.all([
+      const now = new Date();
+      const saveTime = now.toLocaleTimeString();
+
+      const [dhtRes, bhRes] = await Promise.all([
         fetch(`${API_BASE_URL}/sensors/dht11`, {
           method: "POST",
           headers: {
@@ -162,11 +197,11 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            temperature: temp,
-            humidity: hum,
+            temperature: reading.temp,
+            humidity: reading.hum,
             time_slot: timeSlot,
             location_id: locationId,
-            module_id: selectedModuleId,
+            module_id: reading.moduleId || selectedModuleId,
             user_id: targetUserId,
           }),
         }),
@@ -177,29 +212,32 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            lux: lux,
+            lux: reading.lux,
             time_slot: timeSlot,
             location_id: locationId,
-            module_id: selectedModuleId,
+            module_id: reading.moduleId || selectedModuleId,
             user_id: targetUserId,
           }),
         }),
       ]);
 
+      if (!dhtRes.ok || !bhRes.ok) {
+        throw new Error("Failed to save ambient sensor readings to database.");
+      }
+
       setReadingResults((prev) => ({
         ...prev,
         [slotKey]: {
-          temp,
-          hum,
-          lux,
-          timestamp: new Date().toLocaleTimeString(),
+          ...prev[slotKey],
+          saved: true,
+          savedAt: saveTime,
         },
       }));
     } catch (err) {
       console.error(err);
-      setActionError(err.message || `Error reading ambient data for ${timeSlot}.`);
+      setActionError(err.message || `Error saving ambient data for ${timeSlot}.`);
     } finally {
-      setActiveReadingSlot(null);
+      setSavingReadingSlot(null);
     }
   };
 
@@ -557,6 +595,7 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
                         const key = `${loc.location_id}_${slot}`;
                         const res = readingResults[key];
                         const isLoading = activeReadingSlot === key;
+                        const isSaving = savingReadingSlot === key;
 
                         return (
                           <div
@@ -567,9 +606,20 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
                               <span className="capitalize font-bold text-xs text-gray-800">
                                 {slot} Reading
                               </span>
-                              <span className="text-[10px] uppercase font-semibold text-teal-700 bg-teal-50 px-2 py-0.5 rounded">
-                                ENV
-                              </span>
+                              <div className="flex items-center gap-1.5">
+                                {res?.saved ? (
+                                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-full">
+                                    Saved to DB
+                                  </span>
+                                ) : res ? (
+                                  <span className="px-2 py-0.5 bg-amber-100 text-amber-800 text-[10px] font-bold rounded-full">
+                                    Unsaved
+                                  </span>
+                                ) : null}
+                                <span className="text-[10px] uppercase font-semibold text-teal-700 bg-teal-50 px-2 py-0.5 rounded">
+                                  ENV
+                                </span>
+                              </div>
                             </div>
 
                             {res ? (
@@ -584,7 +634,9 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
                                   Light (Lux): <strong>{res.lux} Lux</strong>
                                 </div>
                                 <span className="text-gray-400 text-[10px] block pt-1">
-                                  Logged at {res.timestamp}
+                                  {res.saved
+                                    ? `Saved at ${res.savedAt || res.timestamp}`
+                                    : `Sampled at ${res.timestamp}`} • {res.date || new Date().toLocaleDateString()}
                                 </span>
                               </div>
                             ) : (
@@ -593,13 +645,33 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
                               </p>
                             )}
 
-                            <button
-                              onClick={() => handleReadAmbientData(loc.location_id, slot)}
-                              disabled={isLoading}
-                              className="w-full py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-lg shadow-xs transition disabled:opacity-50"
-                            >
-                              {isLoading ? "Reading Sensor..." : "Read Ambient Data"}
-                            </button>
+                            {res && !res.saved ? (
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleSaveAmbientData(loc.location_id, slot)}
+                                  disabled={isSaving}
+                                  className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-xs transition disabled:opacity-50"
+                                >
+                                  {isSaving ? "Saving..." : "Save Reading"}
+                                </button>
+                                <button
+                                  onClick={() => handleReadAmbientData(loc.location_id, slot)}
+                                  disabled={isLoading || isSaving}
+                                  title="Re-read sensor data"
+                                  className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-lg transition disabled:opacity-50 shrink-0"
+                                >
+                                  {isLoading ? "..." : "Re-Read"}
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => handleReadAmbientData(loc.location_id, slot)}
+                                disabled={isLoading || isSaving}
+                                className="w-full py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-lg shadow-xs transition disabled:opacity-50"
+                              >
+                                {isLoading ? "Reading Sensor..." : res?.saved ? "Re-Read Ambient Data" : "Read Ambient Data"}
+                              </button>
+                            )}
                           </div>
                         );
                       })}

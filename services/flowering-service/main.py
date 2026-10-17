@@ -337,6 +337,15 @@ async def predict_bloom(
 
     # 3. Retrieve 30-day sensor telemetry stats
     sensor_stats = get_sensor_statistics(plant_id=plant_id, user_id=effective_user_id)
+    if not sensor_stats:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "No environmental sensor data found for this plant in the last 30 days. "
+                "Bloom timeline prediction requires real temperature, humidity, and light readings from your DHT11 and BH1750 sensors. "
+                "Please connect your sensor module or wait until sensor telemetry is recorded before forecasting."
+            ),
+        )
 
     # 4. Forecast timeline progression with Model 02
     total_days, timeline_steps = forecast_blooming_timeline(final_stage, sensor_stats)
