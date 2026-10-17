@@ -14,10 +14,13 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
   const [sensorStatus, setSensorStatus] = useState(null);
   const [actionError, setActionError] = useState("");
 
-  // Ambient Telemetry Sampling State
+  // Ambient Telemetry Sampling State (30s burst: 1s, 15s, 28s)
   const [readingResults, setReadingResults] = useState({});
-  const [activeReadingSlot, setActiveReadingSlot] = useState(null);
+  const [samplingSlotKey, setSamplingSlotKey] = useState(null);
+  const [samplingCountdown, setSamplingCountdown] = useState(30);
+  const [samplingSampleCount, setSamplingSampleCount] = useState(0);
   const [savingReadingSlot, setSavingReadingSlot] = useState(null);
+  const samplingTimerRef = useRef(null);
 
   // Modals & CRUD State
   const [showAddLocationModal, setShowAddLocationModal] = useState(false);
@@ -44,6 +47,9 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
       loadUserData();
       fetchUserModules(selectedUser.user_id);
     }
+    return () => {
+      if (samplingTimerRef.current) clearInterval(samplingTimerRef.current);
+    };
   }, [selectedUser]);
 
   const loadUserData = async () => {
@@ -122,51 +128,95 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
     }
   };
 
-  const handleReadAmbientData = async (locationId, timeSlot) => {
+  // 30-Second Ambient Telemetry Sampling (1st sample @ 1s, 2nd sample @ 15s, 3rd sample @ 28s)
+  const handleStartSampling = (locationId, timeSlot) => {
     if (!selectedModuleId) {
       setActionError("Please select a sensor module.");
       return;
     }
     const slotKey = `${locationId}_${timeSlot}`;
-    setActiveReadingSlot(slotKey);
+    if (samplingTimerRef.current) {
+      clearInterval(samplingTimerRef.current);
+    }
+
+    setSamplingSlotKey(slotKey);
+    setSamplingCountdown(30);
+    setSamplingSampleCount(0);
     setActionError("");
 
-    try {
-      const token = localStorage.getItem("admin_token");
-      const readRes = await fetch(
-        `${API_BASE_URL}/sensors/modules/${selectedModuleId}/read-ambient`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+    let secondsLeft = 30;
+    const collected = [];
 
-      if (!readRes.ok) {
-        const errorData = await readRes.json().catch(() => ({}));
-        throw new Error(errorData.detail || "Ambient sensor read failed.");
+    const fetchSample = async () => {
+      try {
+        const token = localStorage.getItem("admin_token");
+        const res = await fetch(
+          `${API_BASE_URL}/sensors/modules/${selectedModuleId}/read-ambient`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (res.ok) {
+          const data = await res.json();
+          return {
+            temp: Number(data.temperature ?? 0),
+            hum: Number(data.humidity ?? 0),
+            lux: Number(data.lux ?? 0),
+          };
+        }
+      } catch (err) {
+        console.warn("Ambient sample read failed:", err);
+      }
+      return null;
+    };
+
+    samplingTimerRef.current = setInterval(async () => {
+      secondsLeft -= 1;
+      setSamplingCountdown(secondsLeft);
+      const elapsed = 30 - secondsLeft;
+
+      // 1st reading at 1st second, 2nd reading at 15th second, 3rd reading at 28th second
+      if (elapsed === 1 || elapsed === 15 || elapsed === 28) {
+        const sample = await fetchSample();
+        if (sample) {
+          collected.push(sample);
+          setSamplingSampleCount(collected.length);
+        }
       }
 
-      const data = await readRes.json();
-      const temp = Number(data.temperature ?? 0);
-      const hum = Number(data.humidity ?? 0);
-      const lux = Number(data.lux ?? 0);
-      const now = new Date();
+      if (secondsLeft <= 0) {
+        clearInterval(samplingTimerRef.current);
+        samplingTimerRef.current = null;
+        setSamplingSlotKey(null);
 
-      setReadingResults((prev) => ({
-        ...prev,
-        [slotKey]: {
-          temp,
-          hum,
-          lux,
-          timestamp: now.toLocaleTimeString(),
-          date: now.toLocaleDateString(),
-          moduleId: selectedModuleId,
-          saved: false,
-        },
-      }));
-    } catch (err) {
-      console.error(err);
-      setActionError(err.message || `Error reading ambient data for ${timeSlot}.`);
-    } finally {
-      setActiveReadingSlot(null);
-    }
+        if (collected.length > 0) {
+          const avgTemp = Number(
+            (collected.reduce((acc, r) => acc + r.temp, 0) / collected.length).toFixed(1)
+          );
+          const avgHum = Number(
+            (collected.reduce((acc, r) => acc + r.hum, 0) / collected.length).toFixed(1)
+          );
+          const avgLux = Math.round(
+            collected.reduce((acc, r) => acc + r.lux, 0) / collected.length
+          );
+          const now = new Date();
+
+          setReadingResults((prev) => ({
+            ...prev,
+            [slotKey]: {
+              temp: avgTemp,
+              hum: avgHum,
+              lux: avgLux,
+              timestamp: now.toLocaleTimeString(),
+              date: now.toLocaleDateString(),
+              samplesCount: collected.length,
+              moduleId: selectedModuleId,
+              saved: false,
+            },
+          }));
+        } else {
+          setActionError(`Could not read sensor samples for ${timeSlot}. Check device connection.`);
+        }
+      }
+    }, 1000);
   };
 
   const handleSaveAmbientData = async (locationId, timeSlot) => {
@@ -535,7 +585,7 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
                           Environment Sensor Readings
                         </h4>
                         <p className="text-xs text-gray-500">
-                          Trigger instant live ambient readings (DHT11 & BH1750) from the connected ESP32-S3 node via MQTT.
+                          30-second live sampling (samples at 1s, 15s, 28s) from the connected ESP32-S3 node via MQTT.
                         </p>
                       </div>
 
@@ -590,11 +640,12 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
                     )}
 
                     {/* Ambient Time-slot Grid */}
+                    {/* Ambient Time-slot Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                       {["morning", "afternoon", "evening"].map((slot) => {
                         const key = `${loc.location_id}_${slot}`;
+                        const isSampling = samplingSlotKey === key;
                         const res = readingResults[key];
-                        const isLoading = activeReadingSlot === key;
                         const isSaving = savingReadingSlot === key;
 
                         return (
@@ -613,7 +664,7 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
                                   </span>
                                 ) : res ? (
                                   <span className="px-2 py-0.5 bg-amber-100 text-amber-800 text-[10px] font-bold rounded-full">
-                                    Unsaved
+                                    Ready to Save
                                   </span>
                                 ) : null}
                                 <span className="text-[10px] uppercase font-semibold text-teal-700 bg-teal-50 px-2 py-0.5 rounded">
@@ -622,7 +673,24 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
                               </div>
                             </div>
 
-                            {res ? (
+                            {/* 30s Sampling Countdown & Progress */}
+                            {isSampling ? (
+                              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl space-y-2">
+                                <div className="flex justify-between text-[11px] font-bold text-emerald-800">
+                                  <span>Collecting samples ({samplingSampleCount}/3)...</span>
+                                  <span>{samplingCountdown}s remaining</span>
+                                </div>
+                                <div className="w-full bg-emerald-200 rounded-full h-1.5 overflow-hidden">
+                                  <div
+                                    className="bg-emerald-600 h-full transition-all duration-1000"
+                                    style={{ width: `${((30 - samplingCountdown) / 30) * 100}%` }}
+                                  ></div>
+                                </div>
+                                <span className="text-[10px] text-emerald-700 block">
+                                  Sampling at 1s, 15s, and 28s (30s average)
+                                </span>
+                              </div>
+                            ) : res ? (
                               <div className="text-xs font-semibold space-y-1">
                                 <div className="text-rose-600">
                                   Temperature (T): <strong>{res.temp} °C</strong>
@@ -636,40 +704,47 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
                                 <span className="text-gray-400 text-[10px] block pt-1">
                                   {res.saved
                                     ? `Saved at ${res.savedAt || res.timestamp}`
-                                    : `Sampled at ${res.timestamp}`} • {res.date || new Date().toLocaleDateString()}
+                                    : `30s avg (${res.samplesCount || 3} samples) at ${res.timestamp}`} • {res.date || new Date().toLocaleDateString()}
                                 </span>
                               </div>
                             ) : (
                               <p className="text-xs text-gray-400 italic">
-                                No reading recorded for {slot}.
+                                No telemetry sampled for {slot}. (30s 3-sample average)
                               </p>
                             )}
 
-                            {res && !res.saved ? (
+                            {isSampling ? (
+                              <button
+                                disabled
+                                className="w-full py-2 bg-emerald-100 text-emerald-800 font-bold text-xs rounded-lg transition opacity-75"
+                              >
+                                Sampling ({samplingCountdown}s)...
+                              </button>
+                            ) : res && !res.saved ? (
                               <div className="flex gap-2">
                                 <button
                                   onClick={() => handleSaveAmbientData(loc.location_id, slot)}
-                                  disabled={isSaving}
+                                  disabled={isSaving || Boolean(samplingSlotKey)}
                                   className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-xs transition disabled:opacity-50"
                                 >
                                   {isSaving ? "Saving..." : "Save Reading"}
                                 </button>
                                 <button
-                                  onClick={() => handleReadAmbientData(loc.location_id, slot)}
-                                  disabled={isLoading || isSaving}
-                                  title="Re-read sensor data"
+                                  onClick={() => handleStartSampling(loc.location_id, slot)}
+                                  disabled={Boolean(samplingSlotKey) || isSaving}
+                                  title="Re-run 30-second sampling"
                                   className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-lg transition disabled:opacity-50 shrink-0"
                                 >
-                                  {isLoading ? "..." : "Re-Read"}
+                                  Re-Sample
                                 </button>
                               </div>
                             ) : (
                               <button
-                                onClick={() => handleReadAmbientData(loc.location_id, slot)}
-                                disabled={isLoading || isSaving}
+                                onClick={() => handleStartSampling(loc.location_id, slot)}
+                                disabled={Boolean(samplingSlotKey) || isSaving}
                                 className="w-full py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-lg shadow-xs transition disabled:opacity-50"
                               >
-                                {isLoading ? "Reading Sensor..." : res?.saved ? "Re-Read Ambient Data" : "Read Ambient Data"}
+                                {res?.saved ? "Re-Check (30s)" : "Read Ambient Data (30s)"}
                               </button>
                             )}
                           </div>
