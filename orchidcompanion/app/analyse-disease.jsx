@@ -102,23 +102,52 @@ export default function AnalyseDiseaseScreen() {
     fetchLast7DaysNpkReadings();
   }, [fetchLast7DaysNpkReadings]);
 
-  const pickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert("Permission required", "Allow photo library access to upload leaf photos.");
-      return;
-    }
-
-    const res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      quality: 0.85,
-    });
-
-    if (!res.canceled && res.assets[0]) {
-      setSelectedFile(res.assets[0]);
-      setAnalysisResult(null);
-      setError("");
-    }
+  const pickImage = () => {
+    Alert.alert(
+      "Upload Leaf Photo",
+      "Select photo source for disease analysis",
+      [
+        {
+          text: "Take Photo",
+          onPress: async () => {
+            const { status } = await ImagePicker.requestCameraPermissionsAsync();
+            if (status !== "granted") {
+              Alert.alert("Permission Required", "Camera access is needed to capture orchid leaf photos.");
+              return;
+            }
+            const res = await ImagePicker.launchCameraAsync({
+              mediaTypes: ["images"],
+              quality: 0.85,
+            });
+            if (!res.canceled && res.assets?.[0]) {
+              setSelectedFile(res.assets[0]);
+              setAnalysisResult(null);
+              setError("");
+            }
+          },
+        },
+        {
+          text: "Choose from Library",
+          onPress: async () => {
+            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (status !== "granted") {
+              Alert.alert("Permission Required", "Photo library access is needed to select photos.");
+              return;
+            }
+            const res = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ["images"],
+              quality: 0.85,
+            });
+            if (!res.canceled && res.assets?.[0]) {
+              setSelectedFile(res.assets[0]);
+              setAnalysisResult(null);
+              setError("");
+            }
+          },
+        },
+        { text: "Cancel", style: "cancel" },
+      ]
+    );
   };
 
   const handleRunAnalysis = async () => {
@@ -468,6 +497,15 @@ export default function AnalyseDiseaseScreen() {
                     7-Day Rolling Average ({analysisResult.npk_window.sample_size} readings)
                   </Text>
 
+                  {analysisResult.npk_window.sufficient === false && (
+                    <View className="p-2.5 rounded-xl border border-amber-300 bg-amber-50">
+                      <Text className="text-xs font-semibold text-amber-950">
+                        {analysisResult.npk_window.prompt ||
+                          "Not enough NPK readings for a full 7-day window. Please take more cocopeat NPK readings."}
+                      </Text>
+                    </View>
+                  )}
+
                   {analysisResult.npk_window.deficiency_msg && (
                     <View
                       className="p-2.5 rounded-xl border"
@@ -522,6 +560,20 @@ export default function AnalyseDiseaseScreen() {
                       </Text>
                     </View>
                   </View>
+
+                  {analysisResult.npk_window.mean_advice && analysisResult.npk_window.mean_advice.length > 0 && (
+                    <View className="pt-2 border-t space-y-1.5" style={{ borderColor: colors.borderGray }}>
+                      <Text className="text-[10px] font-extrabold uppercase tracking-wider text-gray-400">
+                        Nutrient Advice (from 7-day averages):
+                      </Text>
+                      {analysisResult.npk_window.mean_advice.map((adv, idx) => (
+                        <View key={idx} className="flex-row items-start gap-1.5">
+                          <Text className="text-xs font-bold text-emerald-600 mt-0.5">•</Text>
+                          <Text className="text-xs text-gray-700 flex-1 leading-snug">{adv}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
                 </View>
               )}
             </View>

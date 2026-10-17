@@ -56,9 +56,9 @@ export default function AnalyseLocationScreen() {
   const [checkingStatus, setCheckingStatus] = useState(false);
   const [sensorStatus, setSensorStatus] = useState(null);
 
-  // 60-Second Sampling
+  // 30-Second Sampling
   const [analyzing, setAnalyzing] = useState(false);
-  const [countdown, setCountdown] = useState(60);
+  const [countdown, setCountdown] = useState(30);
   const [readings, setReadings] = useState([]);
   const [analysisCompleted, setAnalysisCompleted] = useState(false);
   const [error, setError] = useState("");
@@ -160,20 +160,62 @@ export default function AnalyseLocationScreen() {
     }
   };
 
-  const handleStartAnalysis = () => {
+  const handleStartAnalysis = async () => {
     if (!selectedModuleId) {
       Alert.alert("Error", "Please select an online sensor module.");
       return;
     }
 
     setAnalyzing(true);
-    setCountdown(60);
+    setCountdown(30);
     setReadings([]);
     setAnalysisCompleted(false);
     setError("");
 
-    let secondsLeft = 60;
+    // 1. Dispatch autonomous 3-reading session command to ESP32 over MQTT
+    try {
+      await fetch(
+        `${API_BASE_URL}/sensors/modules/${selectedModuleId}/start-session`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...getAuthHeaders(token),
+          },
+          body: JSON.stringify({ samples: 3, interval_sec: 14 }),
+        }
+      );
+    } catch (err) {
+      console.warn("Could not dispatch start-session, will poll fallback:", err);
+    }
+
+    let secondsLeft = 30;
     const collected = [];
+
+    const fetchSessionReadings = async () => {
+      try {
+        const res = await fetch(
+          `${API_BASE_URL}/sensors/modules/${selectedModuleId}/session-readings`,
+          { headers: getAuthHeaders(token) }
+        );
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.readings) && data.readings.length > 0) {
+            return data.readings.map((r, i) => ({
+              sampleIndex: r.sample_index || i + 1,
+              temp: Number(r.temperature),
+              hum: Number(r.humidity),
+              lux: Number(r.lux),
+              time: new Date(r.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+              buffered: Boolean(r.buffered),
+            }));
+          }
+        }
+      } catch (err) {
+        console.warn("Session readings poll failed:", err);
+      }
+      return null;
+    };
 
     const fetchSingleReading = async () => {
       try {
@@ -184,13 +226,16 @@ export default function AnalyseLocationScreen() {
         if (res.ok) {
           const data = await res.json();
           return {
+            sampleIndex: collected.length + 1,
             temp: Number(data.temperature),
             hum: Number(data.humidity),
             lux: Number(data.lux),
+            time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+            buffered: false,
           };
         }
       } catch (err) {
-        console.warn("Read failed:", err);
+        console.warn("Single read fallback failed:", err);
       }
       return null;
     };
@@ -198,14 +243,28 @@ export default function AnalyseLocationScreen() {
     const timer = setInterval(async () => {
       secondsLeft -= 1;
       setCountdown(secondsLeft);
+      const elapsed = 30 - secondsLeft;
 
-      if (secondsLeft === 40 || secondsLeft === 20 || secondsLeft === 0) {
-        const sample = await fetchSingleReading();
-        if (sample) {
-          sample.sampleIndex = collected.length + 1;
-          sample.time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-          collected.push(sample);
-          setReadings([...collected]);
+      // Check for incoming autonomous session readings
+      const sessionData = await fetchSessionReadings();
+      if (sessionData && sessionData.length > 0) {
+        setReadings(sessionData);
+
+        if (sessionData.length >= 3 && secondsLeft <= 0) {
+          clearInterval(timer);
+          setCountdown(0);
+          setAnalyzing(false);
+          setAnalysisCompleted(true);
+          return;
+        }
+      } else {
+        // Fallback single poll: 1st sec, 15th sec, 28th sec
+        if (elapsed === 1 || elapsed === 15 || elapsed === 28) {
+          const sample = await fetchSingleReading();
+          if (sample) {
+            collected.push(sample);
+            setReadings([...collected]);
+          }
         }
       }
 
@@ -406,7 +465,7 @@ export default function AnalyseLocationScreen() {
                   </Text>
                 </View>
               ) : (
-                <Text className="text-xs font-bold text-white">Analyse Location (1-Min Read)</Text>
+                <Text className="text-xs font-bold text-white">Analyse Location (30-Sec Sample)</Text>
               )}
             </TouchableOpacity>
 
@@ -418,7 +477,7 @@ export default function AnalyseLocationScreen() {
                     className="h-full rounded-full"
                     style={{
                       backgroundColor: colors.primary,
-                      width: `${((60 - countdown) / 60) * 100}%`,
+                      width: `${((30 - countdown) / 30) * 100}%`,
                     }}
                   />
                 </View>

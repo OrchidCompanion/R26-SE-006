@@ -27,6 +27,7 @@ import {
   Sun,
   Flower2,
   Trash2,
+  X,
 } from "lucide-react-native";
 import Header from "../src/components/Header";
 import { colors } from "../src/constants/colors";
@@ -201,23 +202,55 @@ export default function PredictBloomingScreen() {
     fetchPlantPredictionHistory();
   }, [fetchPlantEnvironmentTelemetry, fetchPlantPredictionHistory]);
 
-  const pickImageForSlot = async (slotId) => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert("Permission Required", "Allow photo library access to upload angle photos.");
-      return;
-    }
+  const pickImageForSlot = (slotId) => {
+    const slotObj = ANGLE_SLOTS.find((s) => s.id === slotId);
+    const slotTitle = slotObj ? slotObj.title : "Angle Photo";
 
-    const res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      quality: 0.85,
-    });
-
-    if (!res.canceled && res.assets[0]) {
-      setAngleFiles((prev) => ({ ...prev, [slotId]: res.assets[0] }));
-      setInvalidSlots((prev) => ({ ...prev, [slotId]: false }));
-      setError("");
-    }
+    Alert.alert(
+      `Upload ${slotTitle}`,
+      "Choose photo source for this angle slot",
+      [
+        {
+          text: "Take Photo",
+          onPress: async () => {
+            const { status } = await ImagePicker.requestCameraPermissionsAsync();
+            if (status !== "granted") {
+              Alert.alert("Permission Required", "Camera permission is required to take angle photos.");
+              return;
+            }
+            const res = await ImagePicker.launchCameraAsync({
+              mediaTypes: ["images"],
+              quality: 0.85,
+            });
+            if (!res.canceled && res.assets?.[0]) {
+              setAngleFiles((prev) => ({ ...prev, [slotId]: res.assets[0] }));
+              setInvalidSlots((prev) => ({ ...prev, [slotId]: false }));
+              setError("");
+            }
+          },
+        },
+        {
+          text: "Choose from Library",
+          onPress: async () => {
+            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (status !== "granted") {
+              Alert.alert("Permission Required", "Photo library access is needed to select photos.");
+              return;
+            }
+            const res = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ["images"],
+              quality: 0.85,
+            });
+            if (!res.canceled && res.assets?.[0]) {
+              setAngleFiles((prev) => ({ ...prev, [slotId]: res.assets[0] }));
+              setInvalidSlots((prev) => ({ ...prev, [slotId]: false }));
+              setError("");
+            }
+          },
+        },
+        { text: "Cancel", style: "cancel" },
+      ]
+    );
   };
 
   const handleRemoveSlotFile = (slotId) => {

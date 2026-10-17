@@ -67,23 +67,52 @@ export default function AnalyseFertilizerScreen() {
   const [analysisResult, setAnalysisResult] = useState(null);
   const [error, setError] = useState("");
 
-  const pickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert("Permission Required", "Allow photo library access to upload leaf photos.");
-      return;
-    }
-
-    const res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      quality: 0.85,
-    });
-
-    if (!res.canceled && res.assets[0]) {
-      setSelectedFile(res.assets[0]);
-      setAnalysisResult(null);
-      setError("");
-    }
+  const pickImage = () => {
+    Alert.alert(
+      "Upload Leaf Photo",
+      "Select photo source for fertilizer requirement analysis",
+      [
+        {
+          text: "Take Photo",
+          onPress: async () => {
+            const { status } = await ImagePicker.requestCameraPermissionsAsync();
+            if (status !== "granted") {
+              Alert.alert("Permission Required", "Camera access is needed to capture orchid leaf photos.");
+              return;
+            }
+            const res = await ImagePicker.launchCameraAsync({
+              mediaTypes: ["images"],
+              quality: 0.85,
+            });
+            if (!res.canceled && res.assets?.[0]) {
+              setSelectedFile(res.assets[0]);
+              setAnalysisResult(null);
+              setError("");
+            }
+          },
+        },
+        {
+          text: "Choose from Library",
+          onPress: async () => {
+            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (status !== "granted") {
+              Alert.alert("Permission Required", "Photo library access is needed to select photos.");
+              return;
+            }
+            const res = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ["images"],
+              quality: 0.85,
+            });
+            if (!res.canceled && res.assets?.[0]) {
+              setSelectedFile(res.assets[0]);
+              setAnalysisResult(null);
+              setError("");
+            }
+          },
+        },
+        { text: "Cancel", style: "cancel" },
+      ]
+    );
   };
 
   const handleRunAnalysis = async () => {
@@ -284,21 +313,74 @@ export default function AnalyseFertilizerScreen() {
             </Text>
 
             {/* Growth Stage Banner */}
-            <View className="p-4 rounded-xl items-center justify-center bg-amber-600 shadow-sm">
+            <View className="p-4 rounded-2xl items-center justify-center bg-amber-600 shadow-sm space-y-1">
               <Text className="text-lg font-extrabold text-white text-center">
                 Growth Stage: {analysisResult.growth_stage || "Analyzed"}
               </Text>
+              {analysisResult.confidence != null && (
+                <View className="bg-white/20 px-3 py-1 rounded-full">
+                  <Text className="text-xs font-semibold text-white">
+                    Confidence: {(analysisResult.confidence * 100).toFixed(1)}%
+                  </Text>
+                </View>
+              )}
             </View>
 
-            {/* Leaf Count Card */}
-            <View
-              className="p-3 bg-gray-50 border rounded-xl items-center justify-center shadow-xs"
-              style={{ borderColor: colors.borderGray }}
-            >
-              <Text className="text-xs text-gray-500 font-medium">Leaf Count</Text>
-              <Text className="text-sm font-bold text-gray-800 mt-0.5">
-                {analysisResult.leaf_count || leafCount}
-              </Text>
+            {/* Leaf Measurements & Metrics */}
+            <View className="flex-row flex-wrap gap-2">
+              <View
+                className="flex-1 min-w-[28%] p-3 bg-gray-50 border rounded-xl items-center justify-center shadow-xs"
+                style={{ borderColor: colors.borderGray }}
+              >
+                <Text className="text-[10px] text-gray-500 font-medium">Leaf Count</Text>
+                <Text className="text-xs font-bold text-gray-800 mt-0.5">
+                  {analysisResult.leaf_count || leafCount}
+                </Text>
+              </View>
+
+              <View
+                className="flex-1 min-w-[28%] p-3 bg-amber-50/40 border border-amber-200 rounded-xl items-center justify-center shadow-xs"
+              >
+                <Text className="text-[10px] text-gray-500 font-medium">Leaf Length</Text>
+                <Text className="text-xs font-bold text-amber-900 mt-0.5">
+                  {analysisResult.leaf_length_cm != null
+                    ? `${typeof analysisResult.leaf_length_cm === "number" ? analysisResult.leaf_length_cm.toFixed(2) : analysisResult.leaf_length_cm} cm`
+                    : "N/A"}
+                </Text>
+              </View>
+
+              <View
+                className="flex-1 min-w-[28%] p-3 bg-amber-50/40 border border-amber-200 rounded-xl items-center justify-center shadow-xs"
+              >
+                <Text className="text-[10px] text-gray-500 font-medium">Leaf Width</Text>
+                <Text className="text-xs font-bold text-amber-900 mt-0.5">
+                  {analysisResult.leaf_width_cm != null
+                    ? `${typeof analysisResult.leaf_width_cm === "number" ? analysisResult.leaf_width_cm.toFixed(2) : analysisResult.leaf_width_cm} cm`
+                    : "N/A"}
+                </Text>
+              </View>
+
+              <View
+                className="flex-1 min-w-[45%] p-3 bg-amber-50/40 border border-amber-200 rounded-xl items-center justify-center shadow-xs"
+              >
+                <Text className="text-[10px] text-gray-500 font-medium">Leaf Area</Text>
+                <Text className="text-xs font-bold text-amber-900 mt-0.5">
+                  {analysisResult.leaf_area_cm2 != null
+                    ? `${typeof analysisResult.leaf_area_cm2 === "number" ? analysisResult.leaf_area_cm2.toFixed(2) : analysisResult.leaf_area_cm2} cm²`
+                    : "N/A"}
+                </Text>
+              </View>
+
+              <View
+                className="flex-1 min-w-[45%] p-3 bg-amber-50/40 border border-amber-200 rounded-xl items-center justify-center shadow-xs"
+              >
+                <Text className="text-[10px] text-gray-500 font-medium">Confidence</Text>
+                <Text className="text-xs font-bold text-amber-900 mt-0.5">
+                  {analysisResult.confidence != null
+                    ? `${(analysisResult.confidence * 100).toFixed(1)}%`
+                    : "N/A"}
+                </Text>
+              </View>
             </View>
 
             {/* Live NPK Readings & Target Ratio */}
@@ -399,6 +481,30 @@ export default function AnalyseFertilizerScreen() {
                       <Text className="text-xs text-gray-700 flex-1 leading-snug">{step}</Text>
                     </View>
                   ))}
+                  {analysisResult.npk_recommendation?.frequency && (
+                    <View
+                      className="p-2.5 bg-white rounded-lg border flex-row items-start gap-2"
+                      style={{ borderColor: colors.borderGray }}
+                    >
+                      <Text className="font-bold text-amber-600">📅</Text>
+                      <Text className="text-xs text-gray-700 flex-1 leading-snug">
+                        <Text className="font-bold">Frequency: </Text>
+                        {analysisResult.npk_recommendation.frequency}
+                      </Text>
+                    </View>
+                  )}
+                  {analysisResult.npk_recommendation?.notes && (
+                    <View
+                      className="p-2.5 bg-white rounded-lg border flex-row items-start gap-2"
+                      style={{ borderColor: colors.borderGray }}
+                    >
+                      <Text className="font-bold text-amber-600">💡</Text>
+                      <Text className="text-xs text-gray-700 flex-1 leading-snug">
+                        <Text className="font-bold">Notes: </Text>
+                        {analysisResult.npk_recommendation.notes}
+                      </Text>
+                    </View>
+                  )}
                 </View>
               </View>
             )}

@@ -80,32 +80,71 @@ export default function IdentifySpeciesScreen() {
     }));
   };
 
-  const pickImages = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert(
-        "Permission required",
-        "Allow photo library access to upload orchid images."
-      );
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      allowsMultipleSelection: true,
-      selectionLimit: 5,
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets) {
-      if (result.assets.length > 5) {
-        setError("Please select up to 5 images (1 or 2 images recommended).");
-        return;
-      }
-      setError("");
-      setSelectedFiles(result.assets);
-      setAnalysisResult(null);
-    }
+  const pickImages = () => {
+    Alert.alert(
+      "Upload Orchid Photos",
+      "Choose photo source (1 or 2 images recommended)",
+      [
+        {
+          text: "Take Photo",
+          onPress: async () => {
+            const { status } = await ImagePicker.requestCameraPermissionsAsync();
+            if (status !== "granted") {
+              Alert.alert(
+                "Permission Required",
+                "Camera permission is required to capture photos."
+              );
+              return;
+            }
+            const result = await ImagePicker.launchCameraAsync({
+              mediaTypes: ["images"],
+              quality: 0.85,
+            });
+            if (!result.canceled && result.assets?.[0]) {
+              setError("");
+              setSelectedFiles((prev) => {
+                const updated = [...prev, result.assets[0]];
+                if (updated.length > 5) {
+                  setError("Please select up to 5 images (1 or 2 images recommended).");
+                  return prev;
+                }
+                return updated;
+              });
+              setAnalysisResult(null);
+            }
+          },
+        },
+        {
+          text: "Choose from Library",
+          onPress: async () => {
+            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (status !== "granted") {
+              Alert.alert(
+                "Permission Required",
+                "Photo library access is needed to select photos."
+              );
+              return;
+            }
+            const result = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ["images"],
+              allowsMultipleSelection: true,
+              selectionLimit: 5,
+              quality: 0.8,
+            });
+            if (!result.canceled && result.assets) {
+              if (result.assets.length > 5) {
+                setError("Please select up to 5 images (1 or 2 images recommended).");
+                return;
+              }
+              setError("");
+              setSelectedFiles(result.assets);
+              setAnalysisResult(null);
+            }
+          },
+        },
+        { text: "Cancel", style: "cancel" },
+      ]
+    );
   };
 
   const handleIdentify = async () => {
