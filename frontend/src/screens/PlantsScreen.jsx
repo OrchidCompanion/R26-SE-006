@@ -134,6 +134,10 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
       setActionError("Please select a sensor module.");
       return;
     }
+    if (sensorStatus && !sensorStatus.online) {
+      setActionError("Cannot start sampling: Sensor module is offline. Please power on the ESP32 and check status.");
+      return;
+    }
     const slotKey = `${locationId}_${timeSlot}`;
     if (samplingTimerRef.current) {
       clearInterval(samplingTimerRef.current);

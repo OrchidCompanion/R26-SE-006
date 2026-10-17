@@ -370,25 +370,39 @@ export default function SensorsScreen() {
                         className="pt-2 border-t flex-row justify-between text-[11px]"
                         style={{ borderColor: colors.borderGray }}
                       >
-                        <View className="flex-row items-center gap-1">
-                          <Text className="text-[10px] text-gray-500">DHT11 Temp/RH:</Text>
-                          <Text
-                            className="text-[10px] font-bold"
-                            style={{ color: statusInfo.data.dht11 ? colors.primary : colors.danger }}
-                          >
-                            {statusInfo.data.dht11 ? "Operational" : "No Signal"}
-                          </Text>
-                        </View>
+                        {m.device_name?.toLowerCase().includes("npk") || statusInfo.data.sensor_type === "npk" ? (
+                          <View className="flex-row items-center justify-between w-full">
+                            <Text className="text-[10px] text-gray-500">RS485 NPK Probe:</Text>
+                            <Text
+                              className="text-[10px] font-bold"
+                              style={{ color: statusInfo.data.npk_probe ? colors.primary : colors.danger }}
+                            >
+                              {statusInfo.data.npk_probe ? "Operational" : "No Signal"}
+                            </Text>
+                          </View>
+                        ) : (
+                          <>
+                            <View className="flex-row items-center gap-1">
+                              <Text className="text-[10px] text-gray-500">DHT11 Temp/RH:</Text>
+                              <Text
+                                className="text-[10px] font-bold"
+                                style={{ color: statusInfo.data.dht11 ? colors.primary : colors.danger }}
+                              >
+                                {statusInfo.data.dht11 ? "Operational" : "No Signal"}
+                              </Text>
+                            </View>
 
-                        <View className="flex-row items-center gap-1">
-                          <Text className="text-[10px] text-gray-500">BH1750 Lux:</Text>
-                          <Text
-                            className="text-[10px] font-bold"
-                            style={{ color: statusInfo.data.bh1750 ? colors.primary : colors.danger }}
-                          >
-                            {statusInfo.data.bh1750 ? "Operational" : "No Signal"}
-                          </Text>
-                        </View>
+                            <View className="flex-row items-center gap-1">
+                              <Text className="text-[10px] text-gray-500">BH1750 Lux:</Text>
+                              <Text
+                                className="text-[10px] font-bold"
+                                style={{ color: statusInfo.data.bh1750 ? colors.primary : colors.danger }}
+                              >
+                                {statusInfo.data.bh1750 ? "Operational" : "No Signal"}
+                              </Text>
+                            </View>
+                          </>
+                        )}
                       </View>
                     )}
 

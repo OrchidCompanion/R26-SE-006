@@ -158,7 +158,8 @@ def trigger_mqtt_ambient_read(module_id: str, timeout_seconds: float = 3.0) -> O
         if curr and curr.get("timestamp") != prev_time and "temperature" in curr:
             return curr
 
-    return latest_readings.get(clean_mac)
+    # If ESP32 did not respond within timeout, it is offline
+    return None
 
 
 def trigger_mqtt_npk_read(module_id: str, timeout_seconds: float = 4.0) -> Optional[Dict[str, Any]]:
@@ -182,7 +183,8 @@ def trigger_mqtt_npk_read(module_id: str, timeout_seconds: float = 4.0) -> Optio
         if curr and curr.get("timestamp") != prev_time and "nitrogen_n" in curr:
             return curr
 
-    return latest_npk_readings.get(clean_mac)
+    # If ESP32 did not respond within timeout, it is offline
+    return None
 
 
 def trigger_mqtt_session(module_id: str, samples: int = 3, interval_sec: int = 20) -> bool:
@@ -277,15 +279,44 @@ def get_latest_sensor_data(module_id: str) -> Dict[str, Any]:
     }
 
 
-def get_sensor_module_status(module_id: str) -> Dict[str, Any]:
+def is_recently_active(timestamp_str: Optional[str], max_age_seconds: float = 60.0) -> bool:
+    if not timestamp_str:
+        return False
+    try:
+        ts = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
+        now = datetime.now(timezone.utc)
+        return (now - ts).total_seconds() <= max_age_seconds
+    except Exception:
+        return False
+
+
+def get_sensor_module_status(module_id: str, is_npk: bool = False) -> Dict[str, Any]:
     """Checks whether the ESP32 is online and streaming."""
     clean_mac = normalize_mac(module_id)
-    is_live = clean_mac in latest_readings
-    latest = get_latest_sensor_data(module_id)
-    return {
-        "module_id": clean_mac,
-        "online": is_live or latest.get("online", False),
-        "dht11": True,
-        "bh1750": True,
-        "latest_reading": latest,
-    }
+    if is_npk:
+        cached = latest_npk_readings.get(clean_mac)
+        has_recent = cached and is_recently_active(cached.get("timestamp"), max_age_seconds=60.0)
+        is_online = bool(has_recent and cached.get("online", False))
+        return {
+            "module_id": clean_mac,
+            "online": is_online,
+            "sensor_type": "npk",
+            "npk_probe": is_online,
+            "dht11": False,
+            "bh1750": False,
+            "latest_reading": cached if is_online else None,
+            "msg": "NPK Sensor operational over MQTT." if is_online else "NPK Sensor is offline. Please power on the ESP32.",
+        }
+    else:
+        cached = latest_readings.get(clean_mac)
+        has_recent = cached and is_recently_active(cached.get("timestamp"), max_age_seconds=60.0)
+        is_online = bool(has_recent and cached.get("online", False))
+        return {
+            "module_id": clean_mac,
+            "online": is_online,
+            "sensor_type": "env",
+            "dht11": is_online,
+            "bh1750": is_online,
+            "latest_reading": cached if is_online else None,
+            "msg": "Sensors operational over MQTT." if is_online else "Sensor module is offline. Please power on the ESP32.",
+        }

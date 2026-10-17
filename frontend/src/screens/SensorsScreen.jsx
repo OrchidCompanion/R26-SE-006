@@ -296,24 +296,38 @@ export default function SensorsScreen({ selectedUser, onBack }) {
 
                   {statusInfo?.data && (
                     <div className="grid grid-cols-2 gap-2 pt-1 border-t border-gray-200/60 text-[11px]">
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">DHT11 Temp/RH:</span>
-                        <span
-                          className={`font-semibold ${statusInfo.data.dht11 ? "text-emerald-700" : "text-rose-600"
-                            }`}
-                        >
-                          {statusInfo.data.dht11 ? "Operational" : "No Signal"}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">BH1750 Lux:</span>
-                        <span
-                          className={`font-semibold ${statusInfo.data.bh1750 ? "text-emerald-700" : "text-rose-600"
-                            }`}
-                        >
-                          {statusInfo.data.bh1750 ? "Operational" : "No Signal"}
-                        </span>
-                      </div>
+                      {m.device_name?.toLowerCase().includes("npk") || statusInfo.data.sensor_type === "npk" ? (
+                        <div className="flex justify-between col-span-2">
+                          <span className="text-gray-500">RS485 NPK Probe:</span>
+                          <span
+                            className={`font-semibold ${statusInfo.data.npk_probe ? "text-emerald-700" : "text-rose-600"
+                              }`}
+                          >
+                            {statusInfo.data.npk_probe ? "Operational" : "No Signal"}
+                          </span>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">DHT11 Temp/RH:</span>
+                            <span
+                              className={`font-semibold ${statusInfo.data.dht11 ? "text-emerald-700" : "text-rose-600"
+                                }`}
+                            >
+                              {statusInfo.data.dht11 ? "Operational" : "No Signal"}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">BH1750 Lux:</span>
+                            <span
+                              className={`font-semibold ${statusInfo.data.bh1750 ? "text-emerald-700" : "text-rose-600"
+                                }`}
+                            >
+                              {statusInfo.data.bh1750 ? "Operational" : "No Signal"}
+                            </span>
+                          </div>
+                        </>
+                      )}
                     </div>
                   )}
 
