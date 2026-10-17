@@ -230,8 +230,11 @@ async def read_ambient_telemetry(module_id: str):
             "timestamp": mqtt_live.get("timestamp", datetime.now(timezone.utc).isoformat()),
         }
 
-    # Fallback to DB cached data
-    return get_latest_sensor_data(module_id)
+    # If neither WebSocket nor MQTT responded, raise error
+    raise HTTPException(
+        status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+        detail=f"Sensor module '{clean_id}' is offline or did not respond to the read command. Please ensure the ESP32 is powered on and connected.",
+    )
 
 
 class SessionStartRequest(BaseModel):
