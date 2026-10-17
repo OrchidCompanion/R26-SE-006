@@ -401,13 +401,22 @@ def get_npk_window_for_plant(plant_id: Optional[str] = None, user_id: Optional[s
 
     if not rows:
         empty = {"N": None, "P": None, "K": None, "time": None}
+        unknown = {"N": "unknown", "P": "unknown", "K": "unknown"}
         return {
             "rows": [],
             "latest": empty,
-            "latest_status": {"N": "unknown", "P": "unknown", "K": "unknown"},
+            "latest_status": unknown,
             "latest_advice": [f"No recent NPK readings found in {days}-day window."],
             "window": {
                 "sample_size": 0,
+                "days": days,
+                "window_days": days,
+                "mean": empty,
+                "mean_n": None,
+                "mean_p": None,
+                "mean_k": None,
+                "mean_status": unknown,
+                "mean_advice": [f"No soil NPK telemetry available in last {days} days."],
                 "has_deficiency": False,
                 "deficient_nutrients": [],
                 "excess_nutrients": [],
@@ -438,11 +447,17 @@ def get_npk_window_for_plant(plant_id: Optional[str] = None, user_id: Optional[s
         n: round(sum(totals[n]) / len(totals[n]), 2) if totals[n] else None
         for n in ("N", "P", "K")
     }
-    mean_status, _ = _analyze_npk_pack(mean)
+    mean_status, mean_advice = _analyze_npk_pack(mean)
 
     names = {"N": "Nitrogen", "P": "Phosphorus", "K": "Potassium"}
     deficient = [names[n] for n in ("N", "P", "K") if mean_status.get(n) == "low"]
     excess = [names[n] for n in ("N", "P", "K") if mean_status.get(n) == "high"]
+    if deficient:
+        deficiency_msg = f"Deficiency detected: {', '.join(deficient)}."
+    elif excess:
+        deficiency_msg = f"Excess detected: {', '.join(excess)}."
+    else:
+        deficiency_msg = "7-day average NPK is within range."
 
     return {
         "rows": rows,
@@ -451,13 +466,18 @@ def get_npk_window_for_plant(plant_id: Optional[str] = None, user_id: Optional[s
         "latest_advice": latest_advice,
         "window": {
             "sample_size": len(rows),
+            "days": days,
             "window_days": days,
+            "mean": mean,
             "mean_n": mean["N"],
             "mean_p": mean["P"],
             "mean_k": mean["K"],
+            "mean_status": mean_status,
+            "mean_advice": mean_advice,
             "has_deficiency": len(deficient) > 0,
             "deficient_nutrients": deficient,
             "excess_nutrients": excess,
+            "deficiency_msg": deficiency_msg,
         },
     }
 

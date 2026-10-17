@@ -40,14 +40,26 @@ export default function ProfileScreen() {
           </Text>
         </View>
 
-        <TouchableOpacity
-          onPress={handleLogout}
-          className="flex-row items-center justify-center py-4 rounded-xl border shadow-xs"
-          style={{ backgroundColor: colors.dangerLight, borderColor: colors.danger }}
-        >
-          <LogOut size={18} color={colors.danger} />
-          <Text className="text-sm font-bold ml-2" style={{ color: colors.danger }}>Log Out</Text>
-        </TouchableOpacity>
+        <View className="space-y-3">
+          <TouchableOpacity
+            onPress={() => router.push("/sensors")}
+            className="flex-row items-center justify-center py-4 rounded-xl border bg-white shadow-xs"
+            style={{ borderColor: colors.borderGray }}
+          >
+            <Text className="text-sm font-bold ml-2" style={{ color: colors.darkGray }}>
+              ⚡ Manage Hardware Sensor Nodes
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={handleLogout}
+            className="flex-row items-center justify-center py-4 rounded-xl border shadow-xs"
+            style={{ backgroundColor: colors.dangerLight, borderColor: colors.danger }}
+          >
+            <LogOut size={18} color={colors.danger} />
+            <Text className="text-sm font-bold ml-2" style={{ color: colors.danger }}>Log Out</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </SafeAreaView>
   );
