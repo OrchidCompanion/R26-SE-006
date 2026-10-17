@@ -107,7 +107,7 @@ def validate_orchid_image(pil_img: Image.Image) -> Tuple[bool, str]:
         edge_energy = float(np.mean(np.abs(sobel_x) + np.abs(sobel_y)))
 
         if edge_energy > 25.0 and green_pct < 0.008:
-            return False, "Document or ID card detected. Please upload a clear photo of your Dendrobium orchid plant."
+            return False, "Invalid Image detected. Please upload a clear photo of your Dendrobium orchid plant."
 
         if green_pct < 0.012 and floral_pct < 0.020:
             return False, "Non-orchid image detected. No plant foliage, canes, or flowers detected."
