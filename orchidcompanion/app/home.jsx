@@ -87,7 +87,8 @@ export default function HomeScreen() {
         const modData = await modRes.json();
         setModules(modData);
         if (modData.length > 0 && !selectedModuleId) {
-          setSelectedModuleId(modData[0].module_id);
+          const envMod = modData.find((m) => m.module_id === "2884858a2b4c" || m.device_name?.toLowerCase().includes("env"));
+          setSelectedModuleId(envMod ? envMod.module_id : modData[0].module_id);
         }
       }
     } catch (err) {
@@ -132,19 +133,24 @@ export default function HomeScreen() {
     }
   };
 
-  // 1-Minute 3-Sample Burst Ambient Telemetry Sampling
+  // 30-Second 3-Sample Burst Ambient Telemetry Sampling (1s, 15s, 28s)
   const handleStartBurstSampling = (locationId, slot) => {
     if (!selectedModuleId) {
       Alert.alert("Hardware Notice", "Please choose an ESP32 sensor module above.");
       return;
     }
 
+    if (sensorStatus && !sensorStatus.online) {
+      Alert.alert("Module Offline", "Cannot start sampling: Sensor module is offline. Please power on the ESP32 and check status.");
+      return;
+    }
+
     const slotKey = `${locationId}_${slot}`;
     setSamplingSlotKey(slotKey);
-    setCountdown(60);
+    setCountdown(30);
     setBurstSamplesCount(0);
 
-    let secondsLeft = 60;
+    let secondsLeft = 30;
     const collected = [];
 
     const fetchSingleSample = async () => {
@@ -172,8 +178,10 @@ export default function HomeScreen() {
     timerRef.current = setInterval(async () => {
       secondsLeft -= 1;
       setCountdown(secondsLeft);
+      const elapsed = 30 - secondsLeft;
 
-      if (secondsLeft === 40 || secondsLeft === 20 || secondsLeft === 0) {
+      // 1st reading at 1st second, 2nd reading at 15th second, 3rd reading at 28th second
+      if (elapsed === 1 || elapsed === 15 || elapsed === 28) {
         const sample = await fetchSingleSample();
         if (sample) {
           collected.push(sample);
@@ -426,16 +434,26 @@ export default function HomeScreen() {
                   IoT Sensor Hardware
                 </Text>
               </View>
-              <TouchableOpacity
-                onPress={handleCheckSensorStatus}
-                disabled={checkingStatus || !selectedModuleId}
-                className="px-2.5 py-1 rounded-lg border"
-                style={{ backgroundColor: colors.primaryLight, borderColor: colors.primary }}
-              >
-                <Text className="text-[10px] font-bold" style={{ color: colors.primary }}>
-                  {checkingStatus ? "Checking..." : "Ping Module"}
-                </Text>
-              </TouchableOpacity>
+              <View className="flex-row items-center gap-1.5">
+                <TouchableOpacity
+                  onPress={() => router.push("/sensors")}
+                  className="px-2.5 py-1 rounded-lg border bg-emerald-50 border-emerald-200"
+                >
+                  <Text className="text-[10px] font-bold text-emerald-800">
+                    Manage
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleCheckSensorStatus}
+                  disabled={checkingStatus || !selectedModuleId}
+                  className="px-2.5 py-1 rounded-lg border"
+                  style={{ backgroundColor: colors.primaryLight, borderColor: colors.primary }}
+                >
+                  <Text className="text-[10px] font-bold" style={{ color: colors.primary }}>
+                    {checkingStatus ? "Checking..." : "Ping Module"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row gap-2 mb-2">
@@ -569,7 +587,7 @@ export default function HomeScreen() {
                   <View className="p-3.5 border-b space-y-3" style={{ borderColor: colors.borderGray }}>
                     <View className="flex-row justify-between items-center">
                       <Text className="text-xs font-bold uppercase" style={{ color: colors.mediumGray }}>
-                        Zone Telemetry Sampling (1-Min Average)
+                        Zone Telemetry Sampling (30-Sec Average)
                       </Text>
                       <Text className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
                         DHT11 & BH1750
@@ -601,17 +619,17 @@ export default function HomeScreen() {
                                 </Text>
                               ) : staged ? (
                                 <Text className="text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
-                                  Averaged & Ready
+                                  Ready to Save
                                 </Text>
                               ) : null}
                             </View>
 
-                            {/* Sampling Countdown Progress Bar */}
+                            {/* 30s Sampling Countdown Progress Bar */}
                             {isSampling ? (
                               <View className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 space-y-1.5">
                                 <View className="flex-row justify-between items-center">
                                   <Text className="text-xs font-bold text-emerald-800">
-                                    Collecting burst samples ({burstSamplesCount}/3)...
+                                    Collecting samples ({burstSamplesCount}/3)...
                                   </Text>
                                   <Text className="text-xs font-bold text-emerald-800">
                                     {countdown}s remaining
@@ -620,9 +638,12 @@ export default function HomeScreen() {
                                 <View className="w-full bg-emerald-200 rounded-full h-1.5 overflow-hidden">
                                   <View
                                     className="bg-emerald-600 h-full rounded-full"
-                                    style={{ width: `${((60 - countdown) / 60) * 100}%` }}
+                                    style={{ width: `${((30 - countdown) / 30) * 100}%` }}
                                   />
                                 </View>
+                                <Text className="text-[10px] text-emerald-700">
+                                  Sampling at 1s, 15s, and 28s (30s average)
+                                </Text>
                               </View>
                             ) : staged ? (
                               /* Averaged Result Display */
@@ -639,37 +660,57 @@ export default function HomeScreen() {
                                   </Text>
                                 </View>
                                 <Text className="text-[10px] text-gray-400 border-t pt-1" style={{ borderColor: colors.borderGray }}>
-                                  Logged at {staged.timestamp}
+                                  30s average logged at {staged.timestamp}
                                 </Text>
                               </View>
                             ) : (
                               <Text className="text-xs italic text-gray-400">
-                                No telemetry sampled for this slot yet.
+                                No telemetry sampled for this slot yet. (30s 3-sample average)
                               </Text>
                             )}
 
                             {/* Full Width Action Buttons */}
                             <View className="flex-row gap-2 pt-1">
-                              <TouchableOpacity
-                                onPress={() => handleStartBurstSampling(loc.location_id, slot)}
-                                disabled={Boolean(samplingSlotKey)}
-                                className="flex-1 py-2.5 bg-white hover:bg-gray-100 rounded-xl border items-center justify-center"
-                                style={{ borderColor: colors.borderGray }}
-                              >
-                                <Text className="text-xs font-bold" style={{ color: colors.darkGray }}>
-                                  {isSampling ? "Reading..." : staged ? "Re-Check Values" : "Read Values"}
-                                </Text>
-                              </TouchableOpacity>
-
-                              {staged && !staged.submitted && (
-                                <TouchableOpacity
-                                  onPress={() => handleSubmitReading(loc.location_id, slot)}
-                                  disabled={isSubmitting || Boolean(samplingSlotKey)}
-                                  className="flex-1 py-2.5 rounded-xl items-center justify-center shadow-xs"
-                                  style={{ backgroundColor: colors.primary }}
+                              {isSampling ? (
+                                <View
+                                  className="flex-1 py-2.5 bg-emerald-100 rounded-xl items-center justify-center opacity-75"
                                 >
-                                  <Text className="text-xs font-bold text-white">
-                                    {isSubmitting ? "Saving..." : "Submit Reading"}
+                                  <Text className="text-xs font-bold text-emerald-800">
+                                    Sampling ({countdown}s)...
+                                  </Text>
+                                </View>
+                              ) : staged && !staged.submitted ? (
+                                <>
+                                  <TouchableOpacity
+                                    onPress={() => handleSubmitReading(loc.location_id, slot)}
+                                    disabled={isSubmitting || Boolean(samplingSlotKey)}
+                                    className="flex-1 py-2.5 rounded-xl items-center justify-center shadow-xs"
+                                    style={{ backgroundColor: colors.primary }}
+                                  >
+                                    <Text className="text-xs font-bold text-white">
+                                      {isSubmitting ? "Saving..." : "Save Reading"}
+                                    </Text>
+                                  </TouchableOpacity>
+                                  <TouchableOpacity
+                                    onPress={() => handleStartBurstSampling(loc.location_id, slot)}
+                                    disabled={Boolean(samplingSlotKey) || isSubmitting}
+                                    className="px-4 py-2.5 bg-white rounded-xl border items-center justify-center"
+                                    style={{ borderColor: colors.borderGray }}
+                                  >
+                                    <Text className="text-xs font-bold" style={{ color: colors.darkGray }}>
+                                      Re-Sample
+                                    </Text>
+                                  </TouchableOpacity>
+                                </>
+                              ) : (
+                                <TouchableOpacity
+                                  onPress={() => handleStartBurstSampling(loc.location_id, slot)}
+                                  disabled={Boolean(samplingSlotKey)}
+                                  className="flex-1 py-2.5 bg-white hover:bg-gray-100 rounded-xl border items-center justify-center"
+                                  style={{ borderColor: colors.borderGray }}
+                                >
+                                  <Text className="text-xs font-bold" style={{ color: colors.darkGray }}>
+                                    {staged?.submitted ? "Re-Check (30s)" : "Read Ambient Data (30s)"}
                                   </Text>
                                 </TouchableOpacity>
                               )}
