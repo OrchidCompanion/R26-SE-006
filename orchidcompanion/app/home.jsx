@@ -140,6 +140,11 @@ export default function HomeScreen() {
       return;
     }
 
+    if (sensorStatus && !sensorStatus.online) {
+      Alert.alert("Module Offline", "Cannot start sampling: Sensor module is offline. Please power on the ESP32 and check status.");
+      return;
+    }
+
     const slotKey = `${locationId}_${slot}`;
     setSamplingSlotKey(slotKey);
     setCountdown(30);

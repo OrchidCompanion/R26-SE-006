@@ -28,6 +28,7 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
   const [checkingStatus, setCheckingStatus] = useState(false);
   const [sensorStatus, setSensorStatus] = useState(null);
   const [activeReadingSlot, setActiveReadingSlot] = useState(null);
+  const [savingSlotKey, setSavingSlotKey] = useState(null);
   const [readingResults, setReadingResults] = useState({});
   const [actionError, setActionError] = useState("");
 
@@ -112,6 +113,10 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
       setActionError("Please select a sensor module.");
       return;
     }
+    if (sensorStatus && !sensorStatus.online) {
+      setActionError("Cannot read: NPK Sensor module is offline. Please power on the ESP32 and check status.");
+      return;
+    }
     const slotKey = `npk_${timeSlot}`;
     setActiveReadingSlot(slotKey);
     setActionError("");
@@ -125,7 +130,7 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
 
       if (!readRes.ok) {
         const errorData = await readRes.json().catch(() => ({}));
-        throw new Error(errorData.detail || "NPK sensor read failed.");
+        throw new Error(errorData.detail || "NPK sensor read failed. Check device connection.");
       }
 
       const data = await readRes.json();
@@ -134,25 +139,64 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
       const p = Number(data.phosphorus_p ?? data.phosphorus ?? 0);
       const k = Number(data.potassium_k ?? data.potassium ?? 0);
 
-      await fetch(`${API_BASE_URL}/sensors/npk`, {
+      const now = new Date();
+      setReadingResults((prev) => ({
+        ...prev,
+        [slotKey]: {
+          n,
+          p,
+          k,
+          timestamp: now.toLocaleTimeString(),
+          date: now.toLocaleDateString(),
+          saved: false,
+        },
+      }));
+    } catch (err) {
+      console.error(err);
+      setActionError(err.message || `Error reading NPK data for ${timeSlot}.`);
+    } finally {
+      setActiveReadingSlot(null);
+    }
+  };
+
+  const handleSaveNPKData = async (timeSlot) => {
+    const slotKey = `npk_${timeSlot}`;
+    const reading = readingResults[slotKey];
+    if (!reading) return;
+
+    setSavingSlotKey(slotKey);
+    setActionError("");
+
+    try {
+      const token = localStorage.getItem("admin_token");
+      const res = await fetch(`${API_BASE_URL}/sensors/npk`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          nitrogen_n: n,
-          phosphorus_p: p,
-          potassium_k: k,
+          nitrogen_n: reading.n,
+          phosphorus_p: reading.p,
+          potassium_k: reading.k,
           plant_id: selectedPlant.plant_id,
           module_id: selectedModuleId,
           time_slot: timeSlot,
         }),
       });
 
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.detail || "Failed to save NPK reading.");
+      }
+
       setReadingResults((prev) => ({
         ...prev,
-        [slotKey]: { n, p, k, timestamp: new Date().toLocaleTimeString() },
+        [slotKey]: {
+          ...prev[slotKey],
+          saved: true,
+          savedAt: new Date().toLocaleTimeString(),
+        },
       }));
 
       if (sensorTab === "npk") {
@@ -160,9 +204,9 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
       }
     } catch (err) {
       console.error(err);
-      setActionError(err.message || `Error reading NPK data for ${timeSlot}.`);
+      setActionError(err.message || `Error saving NPK data for ${timeSlot}.`);
     } finally {
-      setActiveReadingSlot(null);
+      setSavingSlotKey(null);
     }
   };
 
@@ -393,6 +437,7 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
             const key = `npk_${slot}`;
             const res = readingResults[key];
             const isLoading = activeReadingSlot === key;
+            const isSaving = savingSlotKey === key;
 
             return (
               <div
@@ -403,9 +448,22 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
                   <span className="capitalize font-bold text-xs text-gray-800">
                     {slot} Reading
                   </span>
-                  <span className="text-[10px] uppercase font-semibold text-teal-700 bg-teal-50 px-2 py-0.5 rounded">
-                    NPK
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {res && (
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                          res.saved
+                            ? "bg-emerald-100 text-emerald-800"
+                            : "bg-amber-100 text-amber-800"
+                        }`}
+                      >
+                        {res.saved ? "Saved" : "Unsaved"}
+                      </span>
+                    )}
+                    <span className="text-[10px] uppercase font-semibold text-teal-700 bg-teal-50 px-2 py-0.5 rounded">
+                      NPK
+                    </span>
+                  </div>
                 </div>
 
                 {res ? (
@@ -413,19 +471,50 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
                     <div className="text-emerald-700">Nitrogen (N): <strong>{res.n} mg/kg</strong></div>
                     <div className="text-amber-700">Phosphorus (P): <strong>{res.p} mg/kg</strong></div>
                     <div className="text-rose-700">Potassium (K): <strong>{res.k} mg/kg</strong></div>
-                    <span className="text-gray-400 text-[10px] block pt-1">Logged at {res.timestamp}</span>
+                    <span className="text-gray-400 text-[10px] block pt-1">
+                      {res.saved
+                        ? `Saved at ${res.savedAt || res.timestamp}`
+                        : `Sampled at ${res.timestamp}`} • {res.date || new Date().toLocaleDateString()}
+                    </span>
                   </div>
                 ) : (
                   <p className="text-xs text-gray-400 italic">No reading recorded for {slot}.</p>
                 )}
 
-                <button
-                  onClick={() => handleReadNPKData(slot)}
-                  disabled={isLoading}
-                  className="w-full py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-lg shadow-xs transition disabled:opacity-50"
-                >
-                  {isLoading ? "Reading Sensor..." : "Read NPK Data"}
-                </button>
+                {isLoading ? (
+                  <button
+                    disabled
+                    className="w-full py-2 bg-teal-100 text-teal-800 font-bold text-xs rounded-lg transition opacity-75"
+                  >
+                    Reading Sensor...
+                  </button>
+                ) : res && !res.saved ? (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleSaveNPKData(slot)}
+                      disabled={isSaving || Boolean(activeReadingSlot)}
+                      className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-xs transition disabled:opacity-50"
+                    >
+                      {isSaving ? "Saving..." : "Save Reading"}
+                    </button>
+                    <button
+                      onClick={() => handleReadNPKData(slot)}
+                      disabled={Boolean(activeReadingSlot) || isSaving}
+                      title="Re-read sensor"
+                      className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-lg transition disabled:opacity-50 shrink-0"
+                    >
+                      Re-Read
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => handleReadNPKData(slot)}
+                    disabled={Boolean(activeReadingSlot) || isSaving}
+                    className="w-full py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-lg shadow-xs transition disabled:opacity-50"
+                  >
+                    {res?.saved ? "Re-Read NPK Data" : "Read NPK Data"}
+                  </button>
+                )}
               </div>
             );
           })}

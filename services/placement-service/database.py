@@ -248,6 +248,21 @@ def delete_module(module_id: str) -> bool:
             return False
 
 
+def get_module(module_id: str) -> Optional[Dict[str, Any]]:
+    clean_id = module_id.lower().replace(":", "").replace("-", "").strip()
+    with get_db() as conn:
+        if not conn:
+            return None
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("SELECT * FROM sensor_modules WHERE module_id = %s;", (clean_id,))
+                row = cur.fetchone()
+                return dict(row) if row else None
+        except Exception as e:
+            print(f"[Database] Failed to get module {clean_id}: {e}")
+            return None
+
+
 def update_module_last_seen(module_id: str):
     clean_id = module_id.lower().replace(":", "").replace("-", "").strip()
     with get_db() as conn:

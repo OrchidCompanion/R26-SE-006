@@ -218,6 +218,11 @@ export default function PlantDetailsScreen() {
       return;
     }
 
+    if (sensorStatus && !sensorStatus.online) {
+      Alert.alert("Module Offline", "Cannot start sampling: NPK Sensor module is offline. Please power on the ESP32 and check status.");
+      return;
+    }
+
     setSamplingNpkSlot(slot);
     setNpkCountdown(30);
 
