@@ -268,6 +268,10 @@ def get_npk_window_for_plant(plant_id: Optional[str] = None, user_id: Optional[s
         "latest_advice": ["Soil NPK telemetry unavailable from fertilizer-service."],
         "window": {
             "sample_size": 0,
+            "days": days,
+            "mean": {"N": None, "P": None, "K": None},
+            "mean_status": {"N": "unknown", "P": "unknown", "K": "unknown"},
+            "mean_advice": ["No soil NPK telemetry available in last 7 days."],
             "has_deficiency": False,
             "deficient_nutrients": [],
             "excess_nutrients": [],
