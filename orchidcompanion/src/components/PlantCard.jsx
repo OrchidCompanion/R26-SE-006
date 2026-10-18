@@ -1,5 +1,6 @@
 import { View, Text, TouchableOpacity } from "react-native";
 import { useRouter } from "expo-router";
+import { Flower2, MapPin, ChevronRight } from "lucide-react-native";
 import { colors } from "../constants/colors";
 
 export default function PlantCard({ plant, onPress }) {
@@ -24,29 +25,41 @@ export default function PlantCard({ plant, onPress }) {
 
   return (
     <TouchableOpacity
-      activeOpacity={0.7}
+      activeOpacity={0.75}
       onPress={handlePress}
-      className="px-3.5 py-2.5 rounded-xl mb-2 border flex-row items-center justify-between shadow-xs"
-      style={{ backgroundColor: colors.white, borderColor: colors.borderGray }}
+      className="p-3.5 rounded-2xl mb-2.5 bg-white border border-gray-100 shadow-xs flex-row items-center justify-between"
     >
-      <View className="flex-1">
-        <Text
-          className="text-xs font-bold uppercase mb-0.5"
-          style={{ color: colors.primary }}
-        >
-          {species}
-        </Text>
-        <Text className="text-base font-extrabold mb-0.5" style={{ color: colors.darkGray }}>
-          {plantName}
-        </Text>
-        <Text className="text-xs font-semibold" style={{ color: colors.mediumGray }}>
-          {locationDisplay}
-        </Text>
+      <View className="flex-row items-center flex-1 pr-2">
+        {/* Orchid Floral Avatar */}
+        <View className="w-11 h-11 rounded-2xl bg-emerald-50 border border-emerald-100/70 items-center justify-center mr-3">
+          <Text className="text-xl">🌸</Text>
+        </View>
+
+        {/* Plant Details */}
+        <View className="flex-1">
+          <View className="flex-row items-center gap-1.5 mb-0.5">
+            <View className="bg-emerald-50/80 px-2 py-0.5 rounded-md border border-emerald-100/50">
+              <Text className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">
+                {species}
+              </Text>
+            </View>
+          </View>
+          <Text className="text-sm font-extrabold text-gray-900 tracking-tight" numberOfLines={1}>
+            {plantName}
+          </Text>
+          <View className="flex-row items-center mt-0.5">
+            <Text className="text-[11px] mr-1">📍</Text>
+            <Text className="text-[11px] font-medium text-gray-500" numberOfLines={1}>
+              {locationDisplay}
+            </Text>
+          </View>
+        </View>
       </View>
-      {/* Arrow Navigation */}
-      <Text className="font-bold text-xl px-1" style={{ color: colors.mediumGray }}>
-        ›
-      </Text>
+
+      {/* Modern Circular Arrow Action */}
+      <View className="w-7 h-7 rounded-full bg-gray-50 border border-gray-100 items-center justify-center">
+        <ChevronRight size={14} color={colors.mediumGray} />
+      </View>
     </TouchableOpacity>
   );
 }
