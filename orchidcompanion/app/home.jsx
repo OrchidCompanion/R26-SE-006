@@ -36,6 +36,7 @@ import {
   Layers,
   Activity,
   Check,
+  Cpu,
 } from "lucide-react-native";
 import { colors } from "../src/constants/colors";
 import { API_BASE_URL, getAuthHeaders } from "../src/config/api";
@@ -55,6 +56,14 @@ export default function HomeScreen() {
   const [selectedModuleId, setSelectedModuleId] = useState("");
   const [checkingStatus, setCheckingStatus] = useState(false);
   const [sensorStatus, setSensorStatus] = useState(null);
+
+  // Zone-specific sensor node selections: { [locationId]: moduleId }
+  const [zoneModuleSelections, setZoneModuleSelections] = useState({});
+
+  const setZoneModule = (locId, modId) => {
+    setZoneModuleSelections((prev) => ({ ...prev, [locId]: modId }));
+    setSelectedModuleId(modId);
+  };
 
   // 1-Minute Burst Sampling State (3 samples across 60 seconds)
   const [samplingSlotKey, setSamplingSlotKey] = useState(null);
@@ -136,13 +145,14 @@ export default function HomeScreen() {
   };
 
   // Hardware Status Check
-  const handleCheckSensorStatus = async () => {
-    if (!selectedModuleId) return;
+  const handleCheckSensorStatus = async (targetId) => {
+    const modId = targetId || selectedModuleId;
+    if (!modId) return;
     setCheckingStatus(true);
     setSensorStatus(null);
     try {
       const res = await fetch(
-        `${API_BASE_URL}/sensors/modules/${selectedModuleId}/status`,
+        `${API_BASE_URL}/sensors/modules/${modId}/status`,
         { headers: getAuthHeaders(token) }
       );
       if (res.ok) {
@@ -159,8 +169,14 @@ export default function HomeScreen() {
 
   // 30-Second 3-Sample Burst Ambient Telemetry Sampling (1s, 15s, 28s)
   const handleStartBurstSampling = (locationId, slot) => {
-    if (!selectedModuleId) {
-      Alert.alert("Hardware Notice", "Please choose an ESP32 sensor module above.");
+    const activeModuleId =
+      zoneModuleSelections[locationId] ||
+      (modules.find((x) => x.location_id === locationId)?.module_id) ||
+      selectedModuleId ||
+      modules[0]?.module_id;
+
+    if (!activeModuleId) {
+      Alert.alert("Hardware Notice", "Please choose an ESP32 sensor module.");
       return;
     }
 
@@ -183,7 +199,7 @@ export default function HomeScreen() {
     const fetchSingleSample = async () => {
       try {
         const res = await fetch(
-          `${API_BASE_URL}/sensors/modules/${selectedModuleId}/read-ambient`,
+          `${API_BASE_URL}/sensors/modules/${activeModuleId}/read-ambient`,
           { headers: getAuthHeaders(token) }
         );
         if (res.ok) {
@@ -254,6 +270,12 @@ export default function HomeScreen() {
     const reading = stagedReadings[slotKey];
     if (!reading) return;
 
+    const activeModuleId =
+      zoneModuleSelections[locationId] ||
+      (modules.find((x) => x.location_id === locationId)?.module_id) ||
+      selectedModuleId ||
+      modules[0]?.module_id;
+
     setSubmittingSlotKey(slotKey);
     try {
       const headers = getAuthHeaders(token);
@@ -266,7 +288,7 @@ export default function HomeScreen() {
             humidity: reading.hum,
             time_slot: slot,
             location_id: locationId,
-            module_id: selectedModuleId,
+            module_id: activeModuleId,
           }),
         }),
         fetch(`${API_BASE_URL}/sensors/bh1750`, {
@@ -276,7 +298,7 @@ export default function HomeScreen() {
             lux: reading.lux,
             time_slot: slot,
             location_id: locationId,
-            module_id: selectedModuleId,
+            module_id: activeModuleId,
           }),
         }),
       ]);
@@ -448,9 +470,15 @@ export default function HomeScreen() {
                     <Text className="text-[9px] font-extrabold text-emerald-800">LIVE</Text>
                   </View>
                 </View>
-                <Text className="text-2xl font-black text-gray-900 tracking-tight leading-none mb-0.5">
-                  {plants.length}
-                </Text>
+                {loading ? (
+                  <View className="h-6 justify-center my-0.5">
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  </View>
+                ) : (
+                  <Text className="text-2xl font-black text-gray-900 tracking-tight leading-none mb-0.5">
+                    {plants.length}
+                  </Text>
+                )}
                 <Text className="text-[10px] font-black uppercase tracking-wider text-emerald-800">
                   Orchids
                 </Text>
@@ -470,9 +498,15 @@ export default function HomeScreen() {
                     <Text className="text-[9px] font-extrabold text-sky-800">ZONE</Text>
                   </View>
                 </View>
-                <Text className="text-2xl font-black text-gray-900 tracking-tight leading-none mb-0.5">
-                  {locations.length}
-                </Text>
+                {loading ? (
+                  <View className="h-6 justify-center my-0.5">
+                    <ActivityIndicator size="small" color="#0284c7" />
+                  </View>
+                ) : (
+                  <Text className="text-2xl font-black text-gray-900 tracking-tight leading-none mb-0.5">
+                    {locations.length}
+                  </Text>
+                )}
                 <Text className="text-[10px] font-black uppercase tracking-wider text-sky-800">
                   Zones
                 </Text>
@@ -492,9 +526,15 @@ export default function HomeScreen() {
                     <Text className="text-[9px] font-extrabold text-amber-800">NODE</Text>
                   </View>
                 </View>
-                <Text className="text-2xl font-black text-gray-900 tracking-tight leading-none mb-0.5">
-                  {modules.length}
-                </Text>
+                {loading ? (
+                  <View className="h-6 justify-center my-0.5">
+                    <ActivityIndicator size="small" color="#d97706" />
+                  </View>
+                ) : (
+                  <Text className="text-2xl font-black text-gray-900 tracking-tight leading-none mb-0.5">
+                    {modules.length}
+                  </Text>
+                )}
                 <Text className="text-[10px] font-black uppercase tracking-wider text-amber-800">
                   Sensors
                 </Text>
@@ -619,7 +659,7 @@ export default function HomeScreen() {
                       </View>
                       <View className="bg-purple-100 px-2 py-0.5 rounded-full">
                         <Text className="text-[9px] font-bold text-purple-800">
-                          {modules.length} {modules.length === 1 ? "NODE" : "NODES"}
+                          {loading ? "..." : `${modules.length} ${modules.length === 1 ? "NODE" : "NODES"}`}
                         </Text>
                       </View>
                     </View>
@@ -684,7 +724,15 @@ export default function HomeScreen() {
 
           {/* 5. ZONE LIST WITH TABBED TELEMETRY SAMPLING */}
           {loading ? (
-            <ActivityIndicator color={colors.primary} className="py-12" />
+            <View className="py-14 items-center justify-center bg-white rounded-3xl border border-gray-100 shadow-2xs mb-5">
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text className="text-xs text-gray-600 font-extrabold mt-3">
+                Loading growing zones & orchids...
+              </Text>
+              <Text className="text-[10px] text-gray-400 font-medium mt-0.5">
+                Syncing microclimates and sensor telemetry
+              </Text>
+            </View>
           ) : locations.length === 0 ? (
             <View className="p-8 rounded-3xl bg-white border border-dashed border-gray-200 items-center justify-center mb-5">
               <View className="w-14 h-14 rounded-full bg-emerald-50 items-center justify-center mb-3">
@@ -862,6 +910,93 @@ export default function HomeScreen() {
                     {/* Accordion Collapsible Content */}
                     {isExpanded && (
                       <View className="px-4 pb-4 pt-1 border-t border-gray-100/80">
+                        {/* Sensor Node Select Component */}
+                        <View className="mb-3 pt-1">
+                          <View className="flex-row items-center justify-between mb-1.5">
+                            <View className="flex-row items-center gap-1.5">
+                              <Cpu size={12} color={colors.primary} />
+                              <Text className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                                Sensor Node
+                              </Text>
+                            </View>
+                            <TouchableOpacity
+                              onPress={() => router.push("/sensors")}
+                              className="flex-row items-center gap-0.5 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-100"
+                            >
+                              <Text className="text-[10px] font-bold text-emerald-800">⚙️ Hub</Text>
+                            </TouchableOpacity>
+                          </View>
+
+                          {modules.length === 0 ? (
+                            <View className="p-2.5 rounded-xl bg-amber-50/90 border border-amber-200/90 flex-row items-center justify-between">
+                              <Text className="text-[11px] text-amber-800 font-medium flex-1 mr-2">
+                                No ESP32 sensor nodes paired.
+                              </Text>
+                              <TouchableOpacity
+                                onPress={() => router.push("/sensors")}
+                                className="px-2.5 py-1 bg-amber-600 rounded-lg"
+                              >
+                                <Text className="text-[10px] font-bold text-white">+ Pair Node</Text>
+                              </TouchableOpacity>
+                            </View>
+                          ) : (
+                            <ScrollView
+                              horizontal
+                              showsHorizontalScrollIndicator={false}
+                              contentContainerStyle={{ gap: 8, paddingVertical: 2 }}
+                            >
+                              {modules.map((m) => {
+                                const activeModId =
+                                  zoneModuleSelections[loc.location_id] ||
+                                  (modules.find((x) => x.location_id === loc.location_id)?.module_id) ||
+                                  selectedModuleId ||
+                                  modules[0]?.module_id;
+                                const isSelected = activeModId === m.module_id;
+
+                                return (
+                                  <TouchableOpacity
+                                    key={m.module_id}
+                                    onPress={() => setZoneModule(loc.location_id, m.module_id)}
+                                    className={`px-3 py-1.5 rounded-xl border flex-row items-center gap-2 ${
+                                      isSelected
+                                        ? "bg-white border-emerald-600 shadow-xs"
+                                        : "bg-white/80 border-gray-200"
+                                    }`}
+                                  >
+                                    <View
+                                      className={`w-2 h-2 rounded-full ${
+                                        isSelected ? "bg-emerald-500" : "bg-gray-300"
+                                      }`}
+                                    />
+                                    <Text
+                                      className={`text-[11px] font-bold ${
+                                        isSelected ? "text-emerald-950" : "text-gray-700"
+                                      }`}
+                                    >
+                                      {m.device_name || "ESP32 Node"}
+                                    </Text>
+                                    <Text
+                                      className={`text-[9px] font-mono px-1.5 py-0.5 rounded ${
+                                        isSelected
+                                          ? "bg-emerald-100 text-emerald-800 font-bold"
+                                          : "bg-gray-100 text-gray-500"
+                                      }`}
+                                    >
+                                      {m.module_id?.length > 6 ? m.module_id.slice(-6) : m.module_id}
+                                    </Text>
+                                    {isSelected && (
+                                      <View className="bg-emerald-600 px-1.5 py-0.5 rounded-md">
+                                        <Text className="text-[8px] font-black text-white tracking-wider">
+                                          ACTIVE
+                                        </Text>
+                                      </View>
+                                    )}
+                                  </TouchableOpacity>
+                                );
+                              })}
+                            </ScrollView>
+                          )}
+                        </View>
                         {/* Time Slot Selector Pills */}
                         <View className="flex-row gap-2 mb-3">
                           {[

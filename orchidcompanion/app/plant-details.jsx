@@ -33,6 +33,7 @@ import {
   Calendar,
   Thermometer,
   Sparkles,
+  Cpu,
 } from "lucide-react-native";
 import Header from "../src/components/Header";
 import { colors } from "../src/constants/colors";
@@ -63,12 +64,13 @@ export default function PlantDetailsScreen() {
   const [loading, setLoading] = useState(() => !params.plant_name);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Active Screen Segment Tab: "care" | "sensors"
-  const [activeTab, setActiveTab] = useState("care");
+  // Active Screen Segment Tab: "sensors" | "care" (Soil NPK & Sensors highlighted by default)
+  const [activeTab, setActiveTab] = useState("sensors");
 
   // Sensor Modules & NPK Burst Sampling State
   const [modules, setModules] = useState([]);
   const [selectedModuleId, setSelectedModuleId] = useState("");
+  const [sensorStatus, setSensorStatus] = useState(null);
   const [activeNpkSlot, setActiveNpkSlot] = useState("morning");
   const [samplingNpkSlot, setSamplingNpkSlot] = useState(null);
   const [npkCountdown, setNpkCountdown] = useState(60);
@@ -458,9 +460,14 @@ export default function PlantDetailsScreen() {
         rightElement={
           <TouchableOpacity
             onPress={fetchPlantData}
+            disabled={loading}
             className="w-9 h-9 rounded-full bg-emerald-50 border border-emerald-100 items-center justify-center"
           >
-            <RefreshCw size={14} color={colors.primary} />
+            {loading ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <RefreshCw size={14} color={colors.primary} />
+            )}
           </TouchableOpacity>
         }
       />
@@ -510,24 +517,34 @@ export default function PlantDetailsScreen() {
             </View>
           </View>
 
-          {/* Quick Health Status Highlights */}
-          <View className="flex-row justify-between pt-3 border-t border-gray-100 mt-1">
+          {/* Quick Soil NPK & Sensor Telemetry Highlights */}
+          <View className="flex-row justify-between items-center pt-3 border-t border-gray-100 mt-1">
             <View className="flex-row items-center gap-1.5">
-              <View
-                className={`w-2 h-2 rounded-full ${
-                  lastDiseaseOutput?.verdict === "HEALTHY" ? "bg-emerald-500" : "bg-amber-500"
-                }`}
-              />
-              <Text className="text-xs font-bold text-gray-700">
-                Health: {lastDiseaseOutput?.disease_name || lastDiseaseOutput?.verdict || "Monitoring"}
-              </Text>
+              <Radio size={13} color={colors.primary} />
+              {loading ? (
+                <View className="flex-row items-center gap-1.5">
+                  <ActivityIndicator size="small" color={colors.primary} />
+                  <Text className="text-xs font-medium text-gray-400">Syncing telemetry...</Text>
+                </View>
+              ) : (
+                <Text className="text-xs font-bold text-gray-700">
+                  Sensors: {ambientTelemetry.temp !== "--" ? `${ambientTelemetry.temp}°C · ${ambientTelemetry.hum}%` : "Telemetry Ready"}
+                </Text>
+              )}
             </View>
 
             <View className="flex-row items-center gap-1.5">
-              <Flower2 size={13} color={colors.primary} />
-              <Text className="text-xs font-bold text-gray-700">
-                Bloom: {lastBloomPrediction?.weeks !== undefined ? `~${lastBloomPrediction.weeks} Wks` : "Ready"}
-              </Text>
+              <Activity size={13} color="#059669" />
+              {loading ? (
+                <View className="flex-row items-center gap-1.5">
+                  <ActivityIndicator size="small" color="#059669" />
+                  <Text className="text-xs font-medium text-gray-400">Reading NPK...</Text>
+                </View>
+              ) : (
+                <Text className="text-xs font-bold text-emerald-800">
+                  Soil NPK: {lastNpkReading ? `${lastNpkReading.nitrogen}-${lastNpkReading.phosphorus}-${lastNpkReading.potassium} mg/kg` : "Ready"}
+                </Text>
+              )}
             </View>
           </View>
         </View>
@@ -598,23 +615,8 @@ export default function PlantDetailsScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* 3. SEGMENTED VIEW SWITCHER */}
+        {/* 3. SEGMENTED VIEW SWITCHER (Soil NPK & Sensors Highlighted First) */}
         <View className="flex-row p-1 bg-gray-200/60 rounded-2xl mb-4">
-          <TouchableOpacity
-            onPress={() => setActiveTab("care")}
-            className={`flex-1 py-2.5 rounded-xl items-center justify-center ${
-              activeTab === "care" ? "bg-white shadow-xs" : ""
-            }`}
-          >
-            <Text
-              className={`text-xs font-extrabold ${
-                activeTab === "care" ? "text-emerald-800" : "text-gray-500"
-              }`}
-            >
-              🌱 Health & AI Care
-            </Text>
-          </TouchableOpacity>
-
           <TouchableOpacity
             onPress={() => setActiveTab("sensors")}
             className={`flex-1 py-2.5 rounded-xl items-center justify-center ${
@@ -627,6 +629,21 @@ export default function PlantDetailsScreen() {
               }`}
             >
               📡 Soil NPK & Sensors
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => setActiveTab("care")}
+            className={`flex-1 py-2.5 rounded-xl items-center justify-center ${
+              activeTab === "care" ? "bg-white shadow-xs" : ""
+            }`}
+          >
+            <Text
+              className={`text-xs font-extrabold ${
+                activeTab === "care" ? "text-emerald-800" : "text-gray-500"
+              }`}
+            >
+              🌱 Health & AI Care
             </Text>
           </TouchableOpacity>
         </View>
@@ -650,7 +667,14 @@ export default function PlantDetailsScreen() {
                 )}
               </View>
 
-              {lastDiseaseOutput ? (
+              {loading ? (
+                <View className="py-7 items-center justify-center">
+                  <ActivityIndicator size="small" color={colors.primary} />
+                  <Text className="text-xs text-gray-400 font-semibold mt-2.5">
+                    Loading health evaluation history...
+                  </Text>
+                </View>
+              ) : lastDiseaseOutput ? (
                 <View className="space-y-2">
                   <View
                     className={`p-3 rounded-2xl flex-row items-center justify-between ${
@@ -721,7 +745,14 @@ export default function PlantDetailsScreen() {
                 <Sparkles size={14} color="#9333ea" />
               </View>
 
-              {lastBloomPrediction ? (
+              {loading ? (
+                <View className="py-7 items-center justify-center">
+                  <ActivityIndicator size="small" color="#9333ea" />
+                  <Text className="text-xs text-gray-400 font-semibold mt-2.5">
+                    Calculating bloom forecast...
+                  </Text>
+                </View>
+              ) : lastBloomPrediction ? (
                 <View className="items-center py-2 space-y-1.5">
                   <Text className="text-xs text-gray-500 font-medium">Estimated Flowering</Text>
                   <Text className="text-2xl font-black text-purple-700 tracking-tight">
@@ -778,7 +809,14 @@ export default function PlantDetailsScreen() {
                 )}
               </View>
 
-              {lastFertilizerSchedule ? (
+              {loading ? (
+                <View className="py-7 items-center justify-center">
+                  <ActivityIndicator size="small" color="#d97706" />
+                  <Text className="text-xs text-gray-400 font-semibold mt-2.5">
+                    Loading fertilizer dosage schedule...
+                  </Text>
+                </View>
+              ) : lastFertilizerSchedule ? (
                 <View className="space-y-2">
                   <View className="flex-row justify-between items-center p-2.5 rounded-xl bg-amber-50/50 border border-amber-100">
                     <Text className="text-xs font-bold text-gray-700">Target NPK Formula:</Text>
@@ -832,34 +870,45 @@ export default function PlantDetailsScreen() {
                 </TouchableOpacity>
               </View>
 
-              <View className="flex-row justify-between gap-2 mb-2">
-                <View className="flex-1 p-3 bg-rose-50/70 rounded-2xl border border-rose-100 items-center">
-                  <Thermometer size={16} color="#e11d48" />
-                  <Text className="text-[10px] font-bold text-rose-700 uppercase mt-1">Temp</Text>
-                  <Text className="text-base font-black text-rose-900 mt-0.5">{ambientTelemetry.temp} °C</Text>
+              {loading ? (
+                <View className="py-8 items-center justify-center">
+                  <ActivityIndicator size="small" color={colors.primary} />
+                  <Text className="text-xs text-gray-400 font-semibold mt-2.5">
+                    Fetching microclimate readings...
+                  </Text>
                 </View>
+              ) : (
+                <>
+                  <View className="flex-row justify-between gap-2 mb-2">
+                    <View className="flex-1 p-3 bg-rose-50/70 rounded-2xl border border-rose-100 items-center">
+                      <Thermometer size={16} color="#e11d48" />
+                      <Text className="text-[10px] font-bold text-rose-700 uppercase mt-1">Temp</Text>
+                      <Text className="text-base font-black text-rose-900 mt-0.5">{ambientTelemetry.temp} °C</Text>
+                    </View>
 
-                <View className="flex-1 p-3 bg-sky-50/70 rounded-2xl border border-sky-100 items-center">
-                  <Droplets size={16} color="#0284c7" />
-                  <Text className="text-[10px] font-bold text-sky-700 uppercase mt-1">Humidity</Text>
-                  <Text className="text-base font-black text-sky-900 mt-0.5">{ambientTelemetry.hum} %</Text>
-                </View>
+                    <View className="flex-1 p-3 bg-sky-50/70 rounded-2xl border border-sky-100 items-center">
+                      <Droplets size={16} color="#0284c7" />
+                      <Text className="text-[10px] font-bold text-sky-700 uppercase mt-1">Humidity</Text>
+                      <Text className="text-base font-black text-sky-900 mt-0.5">{ambientTelemetry.hum} %</Text>
+                    </View>
 
-                <View className="flex-1 p-3 bg-amber-50/70 rounded-2xl border border-amber-100 items-center">
-                  <Sun size={16} color="#d97706" />
-                  <Text className="text-[10px] font-bold text-amber-700 uppercase mt-1">Light</Text>
-                  <Text className="text-base font-black text-amber-900 mt-0.5">{ambientTelemetry.lux} Lux</Text>
-                </View>
-              </View>
+                    <View className="flex-1 p-3 bg-amber-50/70 rounded-2xl border border-amber-100 items-center">
+                      <Sun size={16} color="#d97706" />
+                      <Text className="text-[10px] font-bold text-amber-700 uppercase mt-1">Light</Text>
+                      <Text className="text-base font-black text-amber-900 mt-0.5">{ambientTelemetry.lux} Lux</Text>
+                    </View>
+                  </View>
 
-              <View className="flex-row justify-between items-center pt-2 border-t border-gray-100 mt-1">
-                <Text className="text-[10px] text-gray-400 capitalize">
-                  Slot: <Text className="font-bold text-gray-700">{ambientTelemetry.timeSlot}</Text>
-                </Text>
-                <Text className="text-[10px] text-gray-400">
-                  {ambientTelemetry.timestamp ? new Date(ambientTelemetry.timestamp).toLocaleString() : "No reading"}
-                </Text>
-              </View>
+                  <View className="flex-row justify-between items-center pt-2 border-t border-gray-100 mt-1">
+                    <Text className="text-[10px] text-gray-400 capitalize">
+                      Slot: <Text className="font-bold text-gray-700">{ambientTelemetry.timeSlot}</Text>
+                    </Text>
+                    <Text className="text-[10px] text-gray-400">
+                      {ambientTelemetry.timestamp ? new Date(ambientTelemetry.timestamp).toLocaleString() : "No reading"}
+                    </Text>
+                  </View>
+                </>
+              )}
             </View>
 
             {/* LAST COCOPEAT NPK READING */}
@@ -877,7 +926,14 @@ export default function PlantDetailsScreen() {
                 )}
               </View>
 
-              {lastNpkReading ? (
+              {loading ? (
+                <View className="py-8 items-center justify-center">
+                  <ActivityIndicator size="small" color="#059669" />
+                  <Text className="text-xs text-gray-400 font-semibold mt-2.5">
+                    Retrieving latest soil NPK levels...
+                  </Text>
+                </View>
+              ) : lastNpkReading ? (
                 <>
                   <View className="flex-row justify-between gap-2 py-1">
                     <View className="items-center flex-1 p-2.5 rounded-2xl bg-emerald-50 border border-emerald-100">
@@ -920,6 +976,89 @@ export default function PlantDetailsScreen() {
                 <Text className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800">
                   30-Sec Burst
                 </Text>
+              </View>
+
+              {/* Sensor Node Select Component */}
+              <View className="mb-3">
+                <View className="flex-row items-center justify-between mb-1.5">
+                  <View className="flex-row items-center gap-1.5">
+                    <Cpu size={12} color={colors.primary} />
+                    <Text className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                      NPK Sensor Node
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => router.push("/sensors")}
+                    className="flex-row items-center gap-0.5 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-100"
+                  >
+                    <Text className="text-[10px] font-bold text-emerald-800">⚙️ Hub</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {modules.length === 0 ? (
+                  <View className="p-2.5 rounded-xl bg-amber-50/90 border border-amber-200/90 flex-row items-center justify-between">
+                    <Text className="text-[11px] text-amber-800 font-medium flex-1 mr-2">
+                      No ESP32 sensor nodes paired.
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => router.push("/sensors")}
+                      className="px-2.5 py-1 bg-amber-600 rounded-lg"
+                    >
+                      <Text className="text-[10px] font-bold text-white">+ Pair Node</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{ gap: 8, paddingVertical: 2 }}
+                  >
+                    {modules.map((m) => {
+                      const isSelected = selectedModuleId === m.module_id;
+
+                      return (
+                        <TouchableOpacity
+                          key={m.module_id}
+                          onPress={() => setSelectedModuleId(m.module_id)}
+                          className={`px-3 py-1.5 rounded-xl border flex-row items-center gap-2 ${
+                            isSelected
+                              ? "bg-white border-emerald-600 shadow-xs"
+                              : "bg-gray-50 border-gray-200"
+                          }`}
+                        >
+                          <View
+                            className={`w-2 h-2 rounded-full ${
+                              isSelected ? "bg-emerald-500" : "bg-gray-300"
+                            }`}
+                          />
+                          <Text
+                            className={`text-[11px] font-bold ${
+                              isSelected ? "text-emerald-950" : "text-gray-700"
+                            }`}
+                          >
+                            {m.device_name || "ESP32 Node"}
+                          </Text>
+                          <Text
+                            className={`text-[9px] font-mono px-1.5 py-0.5 rounded ${
+                              isSelected
+                                ? "bg-emerald-100 text-emerald-800 font-bold"
+                                : "bg-gray-200/70 text-gray-500"
+                            }`}
+                          >
+                            {m.module_id?.length > 6 ? m.module_id.slice(-6) : m.module_id}
+                          </Text>
+                          {isSelected && (
+                            <View className="bg-emerald-600 px-1.5 py-0.5 rounded-md">
+                              <Text className="text-[8px] font-black text-white tracking-wider">
+                                ACTIVE
+                              </Text>
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                )}
               </View>
 
               {/* Time Slot Tabs */}
