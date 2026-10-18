@@ -67,7 +67,7 @@ def health_check():
 @app.post("/predict-growth", tags=["Fertilizer Analysis"])
 @app.post("/api/fertilizer/analyze", tags=["Fertilizer Analysis"])
 async def analyze_growth_stage(
-    leaf_count: int = Form(...),
+    leaf_count: int = Form(..., ge=1, description="Leaf count of the orchid plant (min: 1)"),
     image: UploadFile = File(...),
     plant_id: Optional[str] = Form(None),
     user_id: Optional[str] = Form(None),
@@ -90,7 +90,7 @@ async def analyze_growth_stage(
         raise HTTPException(status_code=422, detail="Could not decode image.")
 
     # 1. Run leaf segmentation and growth stage classifier
-    analysis_res = analyze_leaf_and_growth(img_bgr, leaf_count=leaf_count)
+    analysis_res = analyze_leaf_and_growth(img_bgr, leaf_count=max(1, int(leaf_count)))
     growth_stage = analysis_res["growth_stage"]
 
     # 2. Retrieve latest soil NPK reading
@@ -138,6 +138,7 @@ async def analyze_growth_stage(
         "leaf_count": leaf_count,
         "growth_stage": growth_stage,
         "confidence": conf_decimal,
+        "marked_image": analysis_res.get("marked_image"),
         "npk_reading": {
             "nitrogen": n_val,
             "phosphorous": p_val,
