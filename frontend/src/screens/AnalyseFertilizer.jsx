@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Maximize2, Eye, Ruler, Sparkles, X, Layers, Info, Plus, Minus } from "lucide-react";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -9,6 +10,8 @@ export default function AnalyseFertilizer({ selectedPlant, selectedUser, onBack 
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState(null);
   const [error, setError] = useState("");
+  const [viewMode, setViewMode] = useState("marked"); // "marked" | "original" | "split"
+  const [isZoomOpen, setIsZoomOpen] = useState(false);
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
@@ -17,6 +20,7 @@ export default function AnalyseFertilizer({ selectedPlant, selectedUser, onBack 
       setPreviewUrl(URL.createObjectURL(file));
       setAnalysisResult(null);
       setError("");
+      setViewMode("marked");
     }
   };
 
@@ -34,7 +38,8 @@ export default function AnalyseFertilizer({ selectedPlant, selectedUser, onBack 
       const formData = new FormData();
       formData.append("image", selectedFile);
       formData.append("plant_id", selectedPlant.plant_id);
-      formData.append("leaf_count", leafCount);
+      const effectiveLeafCount = Math.max(1, parseInt(leafCount, 10) || 1);
+      formData.append("leaf_count", effectiveLeafCount);
 
       const res = await fetch(`${API_BASE_URL}/fertilizer/analyze`, {
         method: "POST",
@@ -49,12 +54,38 @@ export default function AnalyseFertilizer({ selectedPlant, selectedUser, onBack 
       }
 
       setAnalysisResult(data);
+      setViewMode("marked");
     } catch (err) {
       setError(err.message);
     } finally {
       setAnalyzing(false);
     }
   };
+
+  // Helper to format image source (handles base64 without data URI prefix or direct URLs)
+  const formatImageSrc = (img) => {
+    if (!img || typeof img !== "string") return null;
+    if (
+      img.startsWith("data:") ||
+      img.startsWith("http://") ||
+      img.startsWith("https://") ||
+      img.startsWith("blob:") ||
+      img.startsWith("/")
+    ) {
+      return img;
+    }
+    return `data:image/jpeg;base64,${img}`;
+  };
+
+  const rawMarkedImage =
+    analysisResult?.marked_image ||
+    analysisResult?.result_image ||
+    analysisResult?.annotated_image ||
+    analysisResult?.marked_leaf_image;
+
+  const markedImageSrc = formatImageSrc(rawMarkedImage);
+  const displayImageSrc =
+    viewMode === "original" || !markedImageSrc ? previewUrl : markedImageSrc;
 
   return (
     <div className="bg-white p-6 rounded-xl border border-[#e5e7eb] shadow-sm space-y-6">
@@ -165,19 +196,62 @@ export default function AnalyseFertilizer({ selectedPlant, selectedUser, onBack 
           )}
         </div>
 
-        {/* Leaf Count Input */}
-        <div className="bg-amber-50/60 p-4 rounded-xl border border-amber-200 flex flex-col sm:flex-row justify-between items-center gap-3">
-          <label className="text-sm font-bold text-gray-700">
-            Leaf Count:
-          </label>
-          <input
-            type="number"
-            min="1"
-            max="100"
-            value={leafCount}
-            onChange={(e) => setLeafCount(Math.max(1, parseInt(e.target.value) || 1))}
-            className="w-28 px-3 py-2 border rounded-lg text-center font-bold text-gray-800 bg-white focus:ring-2 focus:ring-amber-500 outline-none"
-          />
+        {/* Leaf Count Adder / Counter */}
+        <div className="bg-amber-50/60 p-4 rounded-xl border border-amber-200 flex flex-col sm:flex-row justify-between items-center gap-3 shadow-2xs">
+          <div>
+            <label htmlFor="leafCountInput" className="text-sm font-bold text-gray-800 block">
+              Leaf Count:
+            </label>
+            <span className="text-[11px] text-gray-500 block">
+              Specify plant leaf count (Min = 1)
+            </span>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <button
+              type="button"
+              onClick={() => setLeafCount((prev) => Math.max(1, (parseInt(prev, 10) || 1) - 1))}
+              disabled={Number(leafCount) <= 1}
+              className="w-9 h-9 rounded-lg border border-amber-300 bg-white hover:bg-amber-100 text-amber-900 font-bold flex items-center justify-center transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-2xs active:scale-95"
+              aria-label="Decrease leaf count"
+              title="Decrease leaf count (Minimum is 1)"
+            >
+              <Minus className="w-4 h-4" />
+            </button>
+
+            <input
+              id="leafCountInput"
+              type="number"
+              min="1"
+              max="100"
+              value={leafCount}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === "") {
+                  setLeafCount("");
+                } else {
+                  const num = parseInt(val, 10);
+                  setLeafCount(isNaN(num) ? 1 : Math.max(1, num));
+                }
+              }}
+              onBlur={() => {
+                if (!leafCount || Number(leafCount) < 1) {
+                  setLeafCount(1);
+                }
+              }}
+              className="w-20 px-2 py-1.5 border border-amber-300 rounded-lg text-center font-extrabold text-base text-gray-800 bg-white focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none shadow-2xs"
+            />
+
+            <button
+              type="button"
+              onClick={() => setLeafCount((prev) => Math.min(100, (parseInt(prev, 10) || 1) + 1))}
+              className="w-9 h-9 rounded-lg border border-amber-300 bg-white hover:bg-amber-100 text-amber-900 font-bold flex items-center justify-center transition cursor-pointer shadow-2xs active:scale-95"
+              aria-label="Increase leaf count"
+              title="Increase leaf count"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {error && (
@@ -209,6 +283,125 @@ export default function AnalyseFertilizer({ selectedPlant, selectedUser, onBack 
             {analysisResult.confidence != null && (
               <div className="text-xs font-semibold bg-white/20 inline-block px-3 py-1 rounded-full backdrop-blur-xs">
                 Confidence: {(analysisResult.confidence * 100).toFixed(1)}%
+              </div>
+            )}
+          </div>
+
+          {/* Marked Leaf Dimension & Feature Visualization (Tip-to-Base Line & Width Line) */}
+          <div className="p-5 border border-amber-200 rounded-xl bg-gradient-to-b from-amber-50/40 to-white shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-amber-200/80 pb-3">
+              <div>
+                <h4 className="font-extrabold text-base text-gray-800 flex items-center gap-2">
+                  <Ruler className="w-5 h-5 text-amber-600" />
+                  Leaf Dimension Measurement & Feature Markings
+                </h4>
+                <p className="text-xs text-gray-500">
+                  Tip-to-base length line, maximum width line, and key feature detection overlay.
+                </p>
+              </div>
+
+              {/* View Mode Switcher */}
+              {markedImageSrc && previewUrl && (
+                <div className="flex items-center gap-1 bg-amber-100/70 p-1 rounded-lg border border-amber-200 text-xs self-start sm:self-auto">
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("marked")}
+                    className={`px-2.5 py-1 rounded-md font-semibold transition cursor-pointer ${viewMode === "marked"
+                      ? "bg-white text-amber-900 shadow-2xs"
+                      : "text-amber-800 hover:text-amber-950"
+                      }`}
+                  >
+                    Marked Leaf
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("original")}
+                    className={`px-2.5 py-1 rounded-md font-semibold transition cursor-pointer ${viewMode === "original"
+                      ? "bg-white text-amber-900 shadow-2xs"
+                      : "text-amber-800 hover:text-amber-950"
+                      }`}
+                  >
+                    Original
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("split")}
+                    className={`px-2.5 py-1 rounded-md font-semibold transition cursor-pointer hidden sm:inline-block ${viewMode === "split"
+                      ? "bg-white text-amber-900 shadow-2xs"
+                      : "text-amber-800 hover:text-amber-950"
+                      }`}
+                  >
+                    Side-by-Side
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Image Preview Container */}
+            {viewMode === "split" && markedImageSrc && previewUrl ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-amber-800 flex items-center justify-between">
+                    <span>Marked Leaf (Lines & Points)</span>
+                    <span className="text-[10px] text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded font-bold">Processed</span>
+                  </div>
+                  <div
+                    onClick={() => setIsZoomOpen(true)}
+                    className="relative cursor-pointer group rounded-lg overflow-hidden border border-amber-300 bg-gray-900/5 aspect-4/3 flex items-center justify-center shadow-2xs"
+                  >
+                    <img
+                      src={markedImageSrc}
+                      alt="Marked Leaf Analysis"
+                      className="max-h-72 w-full object-contain transition group-hover:scale-[1.02]"
+                    />
+                    <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-xs font-semibold gap-1">
+                      <Maximize2 className="w-4 h-4" /> Click to enlarge
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-gray-600 flex items-center justify-between">
+                    <span>Original Upload</span>
+                    <span className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded font-bold">Input</span>
+                  </div>
+                  <div className="relative rounded-lg overflow-hidden border border-gray-200 bg-gray-900/5 aspect-4/3 flex items-center justify-center shadow-2xs">
+                    <img
+                      src={previewUrl}
+                      alt="Original Leaf"
+                      className="max-h-72 w-full object-contain"
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="relative">
+                <div
+                  onClick={() => setIsZoomOpen(true)}
+                  className="relative cursor-pointer group rounded-xl overflow-hidden border-2 border-amber-300/80 bg-gray-950/5 flex items-center justify-center shadow-xs min-h-[220px]"
+                >
+                  <img
+                    src={displayImageSrc}
+                    alt={viewMode === "original" ? "Original Leaf" : "Marked Leaf Analysis"}
+                    className="max-h-96 w-full object-contain transition duration-200 group-hover:scale-[1.01]"
+                  />
+                  <div className="absolute top-3 right-3 bg-white/90 hover:bg-white text-gray-800 text-xs font-semibold px-2.5 py-1.5 rounded-lg shadow-sm border border-gray-200 flex items-center gap-1.5 backdrop-blur-xs transition">
+                    <Maximize2 className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Enlarge</span>
+                  </div>
+                  <div className="absolute top-3 left-3 bg-amber-900/80 text-white text-[11px] font-bold px-2.5 py-1 rounded-md shadow-xs backdrop-blur-xs">
+                    {viewMode === "original" ? "Original Upload" : "Marked Length & Width Lines"}
+                  </div>
+                </div>
+
+                {!markedImageSrc && (
+                  <div className="mt-2.5 p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-start gap-2.5">
+                    <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <strong>Dimension Detection Active:</strong> Measured Length ({analysisResult.leaf_length_cm != null ? `${analysisResult.leaf_length_cm} cm` : "N/A"}) and Width ({analysisResult.leaf_width_cm != null ? `${analysisResult.leaf_width_cm} cm` : "N/A"}). The marked overlay displaying the tip-to-base and width lines will be shown directly on the leaf.
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -339,6 +532,76 @@ export default function AnalyseFertilizer({ selectedPlant, selectedUser, onBack 
               </ul>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Fullscreen / Lightbox Zoom Modal for Marked Leaf Details */}
+      {isZoomOpen && analysisResult && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 animate-fade-in"
+          onClick={() => setIsZoomOpen(false)}
+        >
+          <div
+            className="bg-white rounded-2xl max-w-4xl w-full max-h-[92vh] overflow-y-auto p-4 sm:p-6 shadow-2xl space-y-4 border border-gray-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b pb-3">
+              <div>
+                <h3 className="text-base font-extrabold text-gray-900 flex items-center gap-2">
+                  <Ruler className="w-5 h-5 text-amber-600" />
+                  Marked Leaf Measurement & Line Feature Inspection
+                </h3>
+                <p className="text-xs text-gray-500">
+                  Full resolution view of tip-to-base line (length) and maximum width line markings
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsZoomOpen(false)}
+                className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-800 transition cursor-pointer"
+                aria-label="Close modal"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Image View */}
+            <div className="bg-gray-950/5 rounded-xl p-2 flex items-center justify-center border border-gray-200 min-h-[300px]">
+              <img
+                src={displayImageSrc}
+                alt="Enlarged Marked Leaf"
+                className="max-h-[60vh] w-auto max-w-full object-contain rounded-lg shadow-sm"
+              />
+            </div>
+
+            {/* Key Metrics Strip */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
+              <div className="p-2.5 bg-sky-50 border border-sky-200 rounded-lg">
+                <span className="text-[11px] text-sky-700 block font-medium">Tip-to-Base Length</span>
+                <strong className="text-sm font-extrabold text-sky-950">
+                  {analysisResult.leaf_length_cm != null ? `${analysisResult.leaf_length_cm} cm` : "N/A"}
+                </strong>
+              </div>
+              <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-lg">
+                <span className="text-[11px] text-rose-700 block font-medium">Maximum Width</span>
+                <strong className="text-sm font-extrabold text-rose-950">
+                  {analysisResult.leaf_width_cm != null ? `${analysisResult.leaf_width_cm} cm` : "N/A"}
+                </strong>
+              </div>
+              <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg">
+                <span className="text-[11px] text-amber-700 block font-medium">Surface Area</span>
+                <strong className="text-sm font-extrabold text-amber-950">
+                  {analysisResult.leaf_area_cm2 != null ? `${analysisResult.leaf_area_cm2} cm²` : "N/A"}
+                </strong>
+              </div>
+              <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg">
+                <span className="text-[11px] text-emerald-700 block font-medium">Growth Stage</span>
+                <strong className="text-sm font-extrabold text-emerald-950">
+                  {analysisResult.growth_stage || "Analyzed"}
+                </strong>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
