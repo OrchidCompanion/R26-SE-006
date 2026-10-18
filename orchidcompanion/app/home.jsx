@@ -975,7 +975,13 @@ export default function HomeScreen() {
                           onPress={() =>
                             router.push({
                               pathname: "/plant-details",
-                              params: { id: plant.plant_id || plant.id },
+                              params: {
+                                id: plant.plant_id || plant.id,
+                                plant_name: plant.plant_name || plant.name || "",
+                                plant_species: plant.plant_species || plant.species || "Dendrobium",
+                                location_id: plant.location_id || loc.location_id || "",
+                                location_name: loc.location_name || "",
+                              },
                             })
                           }
                         />
@@ -1005,7 +1011,13 @@ export default function HomeScreen() {
                     onPress={() =>
                       router.push({
                         pathname: "/plant-details",
-                        params: { id: plant.plant_id || plant.id },
+                        params: {
+                          id: plant.plant_id || plant.id,
+                          plant_name: plant.plant_name || plant.name || "",
+                          plant_species: plant.plant_species || plant.species || "Dendrobium",
+                          location_id: "",
+                          location_name: "Unassigned Zone",
+                        },
                       })
                     }
                   />

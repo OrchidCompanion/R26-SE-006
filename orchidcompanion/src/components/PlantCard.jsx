@@ -19,7 +19,16 @@ export default function PlantCard({ plant, onPress }) {
     if (onPress) {
       onPress();
     } else {
-      router.push({ pathname: "/plant-details", params: { id: plantId } });
+      router.push({
+        pathname: "/plant-details",
+        params: {
+          id: plantId,
+          plant_name: plantName,
+          plant_species: species,
+          location_id: plant.location_id || "",
+          location_name: locationDisplay,
+        },
+      });
     }
   };
 

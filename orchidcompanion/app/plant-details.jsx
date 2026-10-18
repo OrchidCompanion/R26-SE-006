@@ -42,12 +42,25 @@ const SPECIES_OPTIONS = ["Dendrobium", "Phalaenopsis", "Oncidium", "Cattleya", "
 
 export default function PlantDetailsScreen() {
   const router = useRouter();
-  const { id } = useLocalSearchParams();
+  const params = useLocalSearchParams();
+  const id = params.id;
   const { user, token } = useSelector((state) => state.auth);
 
-  const [plant, setPlant] = useState(null);
+  const [plant, setPlant] = useState(() => {
+    if (params.plant_name) {
+      return {
+        plant_id: id,
+        id: id,
+        plant_name: params.plant_name,
+        plant_species: params.plant_species || "Dendrobium",
+        location_id: params.location_id || null,
+        locations: params.location_name ? { location_name: params.location_name } : undefined,
+      };
+    }
+    return null;
+  });
   const [locations, setLocations] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !params.plant_name);
   const [refreshing, setRefreshing] = useState(false);
 
   // Active Screen Segment Tab: "care" | "sensors"
@@ -78,9 +91,9 @@ export default function PlantDetailsScreen() {
 
   // Edit Plant Modal State
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const [formName, setFormName] = useState("");
-  const [formSpecies, setFormSpecies] = useState("Dendrobium");
-  const [formLocationId, setFormLocationId] = useState("");
+  const [formName, setFormName] = useState(params.plant_name || "");
+  const [formSpecies, setFormSpecies] = useState(params.plant_species || "Dendrobium");
+  const [formLocationId, setFormLocationId] = useState(params.location_id || "");
   const [showSpeciesDropdown, setShowSpeciesDropdown] = useState(false);
   const [savingUpdate, setSavingUpdate] = useState(false);
 
@@ -112,16 +125,36 @@ export default function PlantDetailsScreen() {
     try {
       const headers = getAuthHeaders(token);
 
-      // 1. Fetch Plant & Locations
-      const [pRes, locRes, modRes] = await Promise.all([
+      // Fetch all required data concurrently in parallel
+      const [
+        pRes,
+        locRes,
+        modRes,
+        dhtRes,
+        bhRes,
+        npkRes,
+        fertRes,
+        diseaseRes,
+        bloomRes,
+      ] = await Promise.all([
         fetch(`${API_BASE_URL}/plants/${id}`, { headers }),
-        fetch(`${API_BASE_URL}/locations/user/${user.user_id}`, { headers }),
-        fetch(`${API_BASE_URL}/sensors/modules/user/${user.user_id}`, { headers }),
+        user?.user_id
+          ? fetch(`${API_BASE_URL}/locations/user/${user.user_id}`, { headers })
+          : Promise.resolve({ ok: false }),
+        user?.user_id
+          ? fetch(`${API_BASE_URL}/sensors/modules/user/${user.user_id}`, { headers })
+          : Promise.resolve({ ok: false }),
+        fetch(`${API_BASE_URL}/sensors/dht11/plant/${id}?page=1&limit=20`, { headers }),
+        fetch(`${API_BASE_URL}/sensors/bh1750/plant/${id}?page=1&limit=20`, { headers }),
+        fetch(`${API_BASE_URL}/sensors/npk/plant/${id}?page=1&limit=20`, { headers }),
+        fetch(`${API_BASE_URL}/fertilizer/plant/${id}?page=1&limit=20`, { headers }),
+        fetch(`${API_BASE_URL}/disease/plant/${id}?page=1&limit=20`, { headers }),
+        fetch(`${API_BASE_URL}/bloom/plant/${id}?page=1&limit=20`, { headers }),
       ]);
 
       if (pRes.ok) {
         const pData = await pRes.json();
-        setPlant(pData);
+        setPlant((prev) => ({ ...prev, ...pData }));
         setFormName(pData.plant_name);
         setFormSpecies(pData.plant_species);
         setFormLocationId(pData.location_id || "");
@@ -130,24 +163,25 @@ export default function PlantDetailsScreen() {
       if (modRes.ok) {
         const mods = await modRes.json();
         setModules(mods);
-        if (mods.length > 0 && !selectedModuleId) {
-          const npkMod = mods.find((m) => m.module_id === "441bf68cbc78" || m.device_name?.toLowerCase().includes("npk"));
-          setSelectedModuleId(npkMod ? npkMod.module_id : mods[0].module_id);
-        }
+        setSelectedModuleId((prev) => {
+          if (prev) return prev;
+          if (mods.length > 0) {
+            const npkMod = mods.find(
+              (m) =>
+                m.module_id === "441bf68cbc78" ||
+                m.device_name?.toLowerCase().includes("npk")
+            );
+            return npkMod ? npkMod.module_id : mods[0].module_id;
+          }
+          return "";
+        });
       }
 
-      // 2. Fetch Real-Time Microclimate Telemetry (DHT11 & BH1750)
-      const [dhtRes, bhRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/sensors/dht11/plant/${id}?page=1&limit=20`, { headers }),
-        fetch(`${API_BASE_URL}/sensors/bh1750/plant/${id}?page=1&limit=20`, { headers }),
-      ]);
-
+      // Microclimate (DHT11 & BH1750)
       const dhtData = dhtRes.ok ? await dhtRes.json() : null;
       const bhData = bhRes.ok ? await bhRes.json() : null;
-
       const latestDht = extractLatestItem(dhtData);
       const latestBh = extractLatestItem(bhData);
-
       if (latestDht || latestBh) {
         setAmbientTelemetry({
           temp: latestDht?.temperature ?? "--",
@@ -158,8 +192,7 @@ export default function PlantDetailsScreen() {
         });
       }
 
-      // 3. Fetch Last NPK Reading
-      const npkRes = await fetch(`${API_BASE_URL}/sensors/npk/plant/${id}?page=1&limit=20`, { headers });
+      // NPK Telemetry
       if (npkRes.ok) {
         const npkData = await npkRes.json();
         const latest = extractLatestItem(npkData);
@@ -174,24 +207,21 @@ export default function PlantDetailsScreen() {
         }
       }
 
-      // 4. Fetch Last Fertilizer Schedule
-      const fertRes = await fetch(`${API_BASE_URL}/fertilizer/plant/${id}?page=1&limit=20`, { headers });
+      // Fertilizer Recommendation
       if (fertRes.ok) {
         const fertData = await fertRes.json();
         const latestFert = extractLatestItem(fertData);
         if (latestFert) setLastFertilizerSchedule(latestFert);
       }
 
-      // 5. Fetch Last Disease Output
-      const diseaseRes = await fetch(`${API_BASE_URL}/disease/plant/${id}?page=1&limit=20`, { headers });
+      // Disease Diagnosis
       if (diseaseRes.ok) {
         const disData = await diseaseRes.json();
         const latestDis = extractLatestItem(disData);
         if (latestDis) setLastDiseaseOutput(latestDis);
       }
 
-      // 6. Fetch Last Bloom Prediction
-      const bloomRes = await fetch(`${API_BASE_URL}/bloom/plant/${id}?page=1&limit=20`, { headers });
+      // Bloom Forecast
       if (bloomRes.ok) {
         const bData = await bloomRes.json();
         const latestBloom = extractLatestItem(bData);
@@ -203,7 +233,7 @@ export default function PlantDetailsScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [id, token, user?.user_id, selectedModuleId]);
+  }, [id, token, user?.user_id]);
 
   useEffect(() => {
     fetchPlantData();
@@ -383,10 +413,32 @@ export default function PlantDetailsScreen() {
     );
   };
 
-  if (loading || !plant) {
+  if (loading && !plant) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center" style={{ backgroundColor: "#f8fafc" }}>
-        <ActivityIndicator color={colors.primary} size="large" />
+      <SafeAreaView className="flex-1" style={{ backgroundColor: "#f8fafc" }}>
+        <Header title="Orchid Overview" />
+        <View className="flex-1 items-center justify-center p-6">
+          <ActivityIndicator color={colors.primary} size="large" />
+          <Text className="text-xs text-gray-400 font-semibold mt-3">Loading orchid data...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!plant) {
+    return (
+      <SafeAreaView className="flex-1" style={{ backgroundColor: "#f8fafc" }}>
+        <Header title="Orchid Overview" />
+        <View className="flex-1 items-center justify-center p-6">
+          <Text className="text-base font-extrabold text-gray-800 mb-1">Orchid Not Found</Text>
+          <Text className="text-xs text-gray-400 text-center mb-4">Could not retrieve information for this plant.</Text>
+          <TouchableOpacity
+            onPress={fetchPlantData}
+            className="px-4 py-2 rounded-xl bg-emerald-600 shadow-xs"
+          >
+            <Text className="text-xs font-bold text-white">Retry</Text>
+          </TouchableOpacity>
+        </View>
       </SafeAreaView>
     );
   }
