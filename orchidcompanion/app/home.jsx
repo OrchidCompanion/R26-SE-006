@@ -23,6 +23,7 @@ import {
   Trash2,
   ChevronRight,
   ChevronDown,
+  ChevronUp,
   X,
   Radio,
   Clock,
@@ -67,6 +68,12 @@ export default function HomeScreen() {
 
   // Zone Active Time Slot Tabs: { [locationId]: "morning" | "afternoon" | "evening" }
   const [activeZoneSlots, setActiveZoneSlots] = useState({});
+
+  // Zone Accordion State for Sensor Readings: { [locationId]: boolean }
+  const [expandedZoneSensors, setExpandedZoneSensors] = useState({});
+
+  const toggleZoneSensors = (locId) =>
+    setExpandedZoneSensors((prev) => ({ ...prev, [locId]: !prev[locId] }));
 
   // Location Modals & Edit States
   const [showLocationModal, setShowLocationModal] = useState(false);
@@ -428,220 +435,216 @@ export default function HomeScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Quick Metrics Banner */}
-            <View className="flex-row items-center justify-between pt-3 border-t border-gray-100">
-              <View className="flex-row items-center flex-1">
-                <View className="w-8 h-8 rounded-xl bg-emerald-50 items-center justify-center mr-2">
-                  <Text className="text-base">🪴</Text>
+            {/* Creative Orchids, Zones & Sensors Metric Cards */}
+            <View className="flex-row gap-2.5 pt-3.5 border-t border-gray-100/90">
+              {/* Orchids Card */}
+              <View className="flex-1 bg-emerald-50/70 rounded-2xl p-3 border border-emerald-100 shadow-2xs">
+                <View className="flex-row justify-between items-center mb-1.5">
+                  <View className="w-7 h-7 rounded-lg bg-white shadow-2xs items-center justify-center border border-emerald-100">
+                    <Text className="text-xs">🪴</Text>
+                  </View>
+                  <View className="flex-row items-center gap-1 bg-emerald-100/80 px-1.5 py-0.5 rounded-full">
+                    <View className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                    <Text className="text-[9px] font-extrabold text-emerald-800">LIVE</Text>
+                  </View>
                 </View>
-                <View>
-                  <Text className="text-xs font-black text-gray-900">{plants.length}</Text>
-                  <Text className="text-[10px] font-medium text-gray-400">Orchids</Text>
-                </View>
+                <Text className="text-2xl font-black text-gray-900 tracking-tight leading-none mb-0.5">
+                  {plants.length}
+                </Text>
+                <Text className="text-[10px] font-black uppercase tracking-wider text-emerald-800">
+                  Orchids
+                </Text>
+                <Text className="text-[9px] text-gray-400 font-medium mt-0.5" numberOfLines={1}>
+                  Tracked Plants
+                </Text>
               </View>
 
-              <View className="h-6 w-px bg-gray-100" />
-
-              <View className="flex-row items-center flex-1 pl-3">
-                <View className="w-8 h-8 rounded-xl bg-sky-50 items-center justify-center mr-2">
-                  <Text className="text-base">📍</Text>
+              {/* Zones Card */}
+              <View className="flex-1 bg-sky-50/70 rounded-2xl p-3 border border-sky-100 shadow-2xs">
+                <View className="flex-row justify-between items-center mb-1.5">
+                  <View className="w-7 h-7 rounded-lg bg-white shadow-2xs items-center justify-center border border-sky-100">
+                    <Text className="text-xs">🏡</Text>
+                  </View>
+                  <View className="flex-row items-center gap-1 bg-sky-100/80 px-1.5 py-0.5 rounded-full">
+                    <View className="w-1.5 h-1.5 rounded-full bg-sky-600" />
+                    <Text className="text-[9px] font-extrabold text-sky-800">ZONE</Text>
+                  </View>
                 </View>
-                <View>
-                  <Text className="text-xs font-black text-gray-900">{locations.length}</Text>
-                  <Text className="text-[10px] font-medium text-gray-400">Zones</Text>
-                </View>
+                <Text className="text-2xl font-black text-gray-900 tracking-tight leading-none mb-0.5">
+                  {locations.length}
+                </Text>
+                <Text className="text-[10px] font-black uppercase tracking-wider text-sky-800">
+                  Zones
+                </Text>
+                <Text className="text-[9px] text-gray-400 font-medium mt-0.5" numberOfLines={1}>
+                  Microclimates
+                </Text>
               </View>
 
-              <View className="h-6 w-px bg-gray-100" />
-
-              <View className="flex-row items-center flex-1 pl-3">
-                <View className="w-8 h-8 rounded-xl bg-amber-50 items-center justify-center mr-2">
-                  <Text className="text-base">⚡</Text>
+              {/* Sensors Card */}
+              <View className="flex-1 bg-amber-50/70 rounded-2xl p-3 border border-amber-100 shadow-2xs">
+                <View className="flex-row justify-between items-center mb-1.5">
+                  <View className="w-7 h-7 rounded-lg bg-white shadow-2xs items-center justify-center border border-amber-100">
+                    <Text className="text-xs">⚡</Text>
+                  </View>
+                  <View className="flex-row items-center gap-1 bg-amber-100/80 px-1.5 py-0.5 rounded-full">
+                    <View className="w-1.5 h-1.5 rounded-full bg-amber-600" />
+                    <Text className="text-[9px] font-extrabold text-amber-800">NODE</Text>
+                  </View>
                 </View>
-                <View>
-                  <Text className="text-xs font-black text-gray-900">{modules.length}</Text>
-                  <Text className="text-[10px] font-medium text-gray-400">Sensors</Text>
-                </View>
+                <Text className="text-2xl font-black text-gray-900 tracking-tight leading-none mb-0.5">
+                  {modules.length}
+                </Text>
+                <Text className="text-[10px] font-black uppercase tracking-wider text-amber-800">
+                  Sensors
+                </Text>
+                <Text className="text-[9px] text-gray-400 font-medium mt-0.5" numberOfLines={1}>
+                  Active Nodes
+                </Text>
               </View>
             </View>
           </View>
 
           {/* 2. CORE ACTIONS HUB (Care Tools - Removed redundant My Orchid Plants) */}
-          <View className="mb-5">
-            <Text className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2.5 px-0.5">
-              🛠️ Care Tools & Diagnostics
-            </Text>
+          <View className="mb-7">
+            {/* Section Header */}
+            <View className="flex-row justify-between items-center mb-3 px-0.5">
+              <View>
+                <View className="flex-row items-center gap-1.5 mb-0.5">
+                  <Text className="text-base">🛠️</Text>
+                  <Text className="text-base font-extrabold text-gray-900 tracking-tight">
+                    Care & Diagnostic Tools
+                  </Text>
+                </View>
+                <Text className="text-[11px] text-gray-400">
+                  AI diagnostics, microclimates & sensor telemetry
+                </Text>
+              </View>
+              <View className="bg-emerald-100/70 px-2 py-0.5 rounded-full border border-emerald-200/60 flex-row items-center gap-1">
+                <Sparkles size={11} color={colors.primary} />
+                <Text className="text-[10px] font-black text-emerald-800">SMART CARE</Text>
+              </View>
+            </View>
 
-            <View className="space-y-2.5">
+            {/* Creative Bento Grid */}
+            <View className="gap-3">
+              {/* Feature Hero Card: AI Species Identification */}
               <TouchableOpacity
                 onPress={() => router.push("/identify-species")}
                 activeOpacity={0.8}
-                className="p-3.5 rounded-2xl bg-white border border-gray-100 shadow-xs flex-row items-center justify-between"
+                className="bg-emerald-50/70 rounded-3xl p-4 border border-emerald-200/70 shadow-xs"
               >
-                <View className="flex-row items-center gap-3 flex-1 pr-2">
-                  <View className="w-11 h-11 rounded-2xl bg-emerald-50 border border-emerald-100 items-center justify-center">
-                    <Text className="text-xl">🔍</Text>
-                  </View>
-                  <View className="flex-1">
-                    <View className="flex-row items-center gap-1.5">
-                      <Text className="text-sm font-extrabold text-gray-900">Identify Species</Text>
-                      <View className="bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
-                        <Text className="text-[10px] font-bold text-emerald-800">✨ AI Powered</Text>
-                      </View>
+                <View className="flex-row items-center justify-between mb-2">
+                  <View className="flex-row items-center gap-2.5">
+                    <View className="w-10 h-10 rounded-2xl bg-white shadow-2xs items-center justify-center border border-emerald-100">
+                      <Text className="text-lg">🔍</Text>
                     </View>
-                    <Text className="text-xs text-gray-400 font-medium mt-0.5" numberOfLines={1}>
-                      Scan flower or foliage to classify variety
+                    <View>
+                      <View className="flex-row items-center gap-1.5">
+                        <Text className="text-sm font-black text-gray-900 tracking-tight">
+                          Identify Species
+                        </Text>
+                        <View className="bg-emerald-600 px-2 py-0.5 rounded-full shadow-2xs">
+                          <Text className="text-[9px] font-black text-white uppercase tracking-wider">
+                            ✨ AI Vision
+                          </Text>
+                        </View>
+                      </View>
+                      <Text className="text-[11px] text-emerald-800/80 font-medium">
+                        Instant classification & care guides
+                      </Text>
+                    </View>
+                  </View>
+                  <View className="w-8 h-8 rounded-full bg-white/90 border border-emerald-200/60 items-center justify-center">
+                    <ChevronRight size={15} color={colors.primary} />
+                  </View>
+                </View>
+
+                <View className="flex-row items-center justify-between pt-2.5 border-t border-emerald-100/80 mt-1">
+                  <Text className="text-[11px] text-gray-500 font-medium flex-1 mr-2" numberOfLines={1}>
+                    Scan flower or foliage for instant genus match
+                  </Text>
+                  <View className="bg-white px-2.5 py-1 rounded-xl border border-emerald-200 shadow-2xs">
+                    <Text className="text-[10px] font-extrabold text-emerald-800">
+                      Open Camera 📸
                     </Text>
                   </View>
                 </View>
-                <ChevronRight size={16} color="#9CA3AF" />
               </TouchableOpacity>
 
-              <TouchableOpacity
-                onPress={() => router.push("/analyse-location")}
-                activeOpacity={0.8}
-                className="p-3.5 rounded-2xl bg-white border border-gray-100 shadow-xs flex-row items-center justify-between"
-              >
-                <View className="flex-row items-center gap-3 flex-1 pr-2">
-                  <View className="w-11 h-11 rounded-2xl bg-sky-50 border border-sky-100 items-center justify-center">
-                    <Text className="text-xl">🌤️</Text>
-                  </View>
-                  <View className="flex-1">
-                    <View className="flex-row items-center gap-1.5">
-                      <Text className="text-sm font-extrabold text-gray-900">Analyze Location</Text>
-                      <View className="bg-sky-50 px-2 py-0.5 rounded-full border border-sky-100">
-                        <Text className="text-[10px] font-bold text-sky-800">📍 Microclimate</Text>
+              {/* Two Side-by-Side Companion Cards */}
+              <View className="flex-row gap-3">
+                {/* Analyze Location Card */}
+                <TouchableOpacity
+                  onPress={() => router.push("/analyse-location")}
+                  activeOpacity={0.8}
+                  className="flex-1 bg-sky-50/70 rounded-3xl p-3.5 border border-sky-100 shadow-xs flex-col justify-between"
+                >
+                  <View>
+                    <View className="flex-row justify-between items-center mb-2.5">
+                      <View className="w-9 h-9 rounded-2xl bg-white shadow-2xs items-center justify-center border border-sky-100">
+                        <Text className="text-base">🌤️</Text>
+                      </View>
+                      <View className="bg-sky-100 px-2 py-0.5 rounded-full">
+                        <Text className="text-[9px] font-bold text-sky-800">LOCATION</Text>
                       </View>
                     </View>
-                    <Text className="text-xs text-gray-400 font-medium mt-0.5" numberOfLines={1}>
-                      Assess temp, humidity & sunlight suitability
+
+                    <Text className="text-sm font-black text-gray-900 tracking-tight mb-0.5">
+                      Analyze Zone
+                    </Text>
+                    <Text className="text-[11px] text-gray-500 font-medium leading-tight mb-3" numberOfLines={2}>
+                      Evaluate light, temp & humidity suitability
                     </Text>
                   </View>
-                </View>
-                <ChevronRight size={16} color="#9CA3AF" />
-              </TouchableOpacity>
 
-              <TouchableOpacity
-                onPress={() => router.push("/sensors")}
-                activeOpacity={0.8}
-                className="p-3.5 rounded-2xl bg-white border border-gray-100 shadow-xs flex-row items-center justify-between"
-              >
-                <View className="flex-row items-center gap-3 flex-1 pr-2">
-                  <View className="w-11 h-11 rounded-2xl bg-purple-50 border border-purple-100 items-center justify-center">
-                    <Text className="text-xl">⚡</Text>
-                  </View>
-                  <View className="flex-1">
-                    <View className="flex-row items-center gap-1.5">
-                      <Text className="text-sm font-extrabold text-gray-900">Hardware Sensor Nodes</Text>
-                      <View className="bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100">
-                        <Text className="text-[10px] font-bold text-purple-800">📡 ESP32 Hub</Text>
-                      </View>
+                  <View className="flex-row items-center justify-between pt-2 border-t border-sky-100/80">
+                    <Text className="text-[10px] font-bold text-sky-800">Inspect</Text>
+                    <View className="w-5 h-5 rounded-full bg-white items-center justify-center border border-sky-200">
+                      <ChevronRight size={12} color="#0284C7" />
                     </View>
-                    <Text className="text-xs text-gray-400 font-medium mt-0.5" numberOfLines={1}>
-                      Manage paired DHT11, BH1750 & NPK nodes ({modules.length})
-                    </Text>
                   </View>
-                </View>
-                <ChevronRight size={16} color="#9CA3AF" />
-              </TouchableOpacity>
-            </View>
-          </View>
+                </TouchableOpacity>
 
-          {/* 3. HARDWARE SENSOR MODULE CONTROLS */}
-          <View className="bg-white rounded-2xl p-4 border border-gray-100 shadow-xs mb-5">
-            <View className="flex-row justify-between items-center mb-3">
-              <View className="flex-row items-center gap-2">
-                <Text className="text-base">⚡</Text>
-                <Text className="text-xs font-bold uppercase tracking-wider text-gray-800">
-                  Active Sensor Node
-                </Text>
-              </View>
-
-              <View className="flex-row items-center gap-2">
+                {/* Hardware Sensor Nodes Card */}
                 <TouchableOpacity
                   onPress={() => router.push("/sensors")}
-                  className="px-2.5 py-1 rounded-lg bg-gray-50 border border-gray-200"
+                  activeOpacity={0.8}
+                  className="flex-1 bg-purple-50/70 rounded-3xl p-3.5 border border-purple-100 shadow-xs flex-col justify-between"
                 >
-                  <Text className="text-[10px] font-bold text-gray-700">⚙️ Hub</Text>
-                </TouchableOpacity>
+                  <View>
+                    <View className="flex-row justify-between items-center mb-2.5">
+                      <View className="w-9 h-9 rounded-2xl bg-white shadow-2xs items-center justify-center border border-purple-100">
+                        <Text className="text-base">⚡</Text>
+                      </View>
+                      <View className="bg-purple-100 px-2 py-0.5 rounded-full">
+                        <Text className="text-[9px] font-bold text-purple-800">
+                          {modules.length} {modules.length === 1 ? "NODE" : "NODES"}
+                        </Text>
+                      </View>
+                    </View>
 
-                <TouchableOpacity
-                  onPress={handleCheckSensorStatus}
-                  disabled={checkingStatus || !selectedModuleId}
-                  className="px-3 py-1 rounded-lg bg-emerald-50 border border-emerald-200"
-                >
-                  <Text className="text-[10px] font-bold text-emerald-800">
-                    {checkingStatus ? "📡 Pinging..." : "📶 Ping Node"}
-                  </Text>
+                    <Text className="text-sm font-black text-gray-900 tracking-tight mb-0.5">
+                      Sensor Nodes
+                    </Text>
+                    <Text className="text-[11px] text-gray-500 font-medium leading-tight mb-3" numberOfLines={2}>
+                      Manage DHT11, BH1750 & NPK hardware
+                    </Text>
+                  </View>
+
+                  <View className="flex-row items-center justify-between pt-2 border-t border-purple-100/80">
+                    <Text className="text-[10px] font-bold text-purple-800">Configure</Text>
+                    <View className="w-5 h-5 rounded-full bg-white items-center justify-center border border-purple-200">
+                      <ChevronRight size={12} color="#7E22CE" />
+                    </View>
+                  </View>
                 </TouchableOpacity>
               </View>
             </View>
-
-            {/* Module Picker Chips */}
-            {modules.length > 0 ? (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row gap-2 mb-2">
-                {modules.map((m) => {
-                  const isSelected = selectedModuleId === m.module_id;
-                  return (
-                    <TouchableOpacity
-                      key={m.module_id}
-                      onPress={() => {
-                        setSelectedModuleId(m.module_id);
-                        setSensorStatus(null);
-                      }}
-                      className={`px-3 py-1.5 rounded-xl border flex-row items-center gap-1 ${
-                        isSelected
-                          ? "bg-emerald-50 border-emerald-500"
-                          : "bg-gray-50 border-gray-100"
-                      }`}
-                    >
-                      <Text className="text-[11px]">{isSelected ? "🟢" : "⚪"}</Text>
-                      <Text
-                        className={`text-xs font-bold ${
-                          isSelected ? "text-emerald-800" : "text-gray-600"
-                        }`}
-                      >
-                        {m.device_name || m.module_id}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            ) : (
-              <Text className="text-xs text-gray-400 italic mb-2">
-                No sensor nodes linked yet.
-              </Text>
-            )}
-
-            {/* Live Hardware Status Pills */}
-            {sensorStatus && (
-              <View className="flex-row justify-between pt-2.5 border-t border-gray-100 mt-1">
-                <View className="flex-row items-center gap-1.5">
-                  <Text className="text-[10px]">{sensorStatus.online ? "🟢" : "🔴"}</Text>
-                  <Text className="text-[11px] font-bold text-gray-700">
-                    ESP32: {sensorStatus.online ? "Online" : "Offline"}
-                  </Text>
-                </View>
-
-                <View className="flex-row items-center gap-1.5">
-                  <Text className="text-[10px]">{sensorStatus.dht11 ? "🌡️" : "⚠️"}</Text>
-                  <Text className="text-[11px] font-bold text-gray-700">
-                    DHT11: {sensorStatus.dht11 ? "Ready" : "Error"}
-                  </Text>
-                </View>
-
-                <View className="flex-row items-center gap-1.5">
-                  <Text className="text-[10px]">{sensorStatus.bh1750 ? "💡" : "⚠️"}</Text>
-                  <Text className="text-[11px] font-bold text-gray-700">
-                    BH1750: {sensorStatus.bh1750 ? "Ready" : "Error"}
-                  </Text>
-                </View>
-              </View>
-            )}
           </View>
 
-          {/* 4. GROWING ZONES & ORCHIDS HEADER */}
-          <View className="flex-row justify-between items-center mb-3 px-0.5">
+          {/* 3. GROWING ZONES & ORCHIDS HEADER */}
+          <View className="flex-row justify-between items-center mb-3 mt-2 px-0.5">
             <View>
               <View className="flex-row items-center gap-1.5 mb-0.5">
                 <Text className="text-base">🏡</Text>
@@ -720,36 +723,50 @@ export default function HomeScreen() {
                 evening: "🌙",
               }[activeSlot] || "⏱️";
 
+              const isZoneSampling = samplingSlotKey?.startsWith(`${loc.location_id}_`);
+              const isExpanded = isZoneSampling || Boolean(expandedZoneSensors[loc.location_id]);
+
+              const morningStaged = stagedReadings[`${loc.location_id}_morning`];
+              const afternoonStaged = stagedReadings[`${loc.location_id}_afternoon`];
+              const eveningStaged = stagedReadings[`${loc.location_id}_evening`];
+              const latestStaged = staged || morningStaged || afternoonStaged || eveningStaged;
+
               return (
                 <View
                   key={loc.location_id}
                   className="mb-5 rounded-3xl border border-gray-100 bg-white overflow-hidden shadow-xs"
                 >
                   {/* Zone Header Banner */}
-                  <View className="p-4 bg-emerald-50/40 border-b border-gray-100 flex-row justify-between items-center">
-                    <View className="flex-1 mr-2">
-                      <View className="flex-row items-center gap-2 mb-0.5">
-                        <View className="w-7 h-7 rounded-lg bg-emerald-100/70 items-center justify-center">
+                  <View className="p-4 bg-emerald-50/40 border-b border-gray-100 flex-row justify-between items-start">
+                    <View className="flex-1 mr-3">
+                      <View className="flex-row items-center gap-2 mb-1">
+                        <View className="w-7 h-7 rounded-lg bg-emerald-100/70 items-center justify-center shrink-0">
                           <Text className="text-xs">📍</Text>
                         </View>
-                        <Text className="text-base font-black text-gray-900 tracking-tight">
+                        <Text
+                          className="text-base font-black text-gray-900 tracking-tight flex-1"
+                          numberOfLines={2}
+                        >
                           {loc.location_name}
                         </Text>
-                        <View className="bg-emerald-100 px-2 py-0.5 rounded-full">
+                      </View>
+
+                      <View className="flex-row items-center flex-wrap gap-2 pl-9">
+                        <View className="bg-emerald-100 px-2 py-0.5 rounded-full shrink-0">
                           <Text className="text-[10px] font-bold text-emerald-800">
                             🪴 {locPlants.length} Orchids
                           </Text>
                         </View>
+                        {loc.description ? (
+                          <Text className="text-xs text-gray-500 flex-1" numberOfLines={1}>
+                            {loc.description}
+                          </Text>
+                        ) : null}
                       </View>
-                      {loc.description ? (
-                        <Text className="text-xs text-gray-500 pl-9" numberOfLines={1}>
-                          {loc.description}
-                        </Text>
-                      ) : null}
                     </View>
 
                     {/* Zone Actions */}
-                    <View className="flex-row items-center gap-2">
+                    <View className="flex-row items-center gap-2 shrink-0 pt-0.5" style={{ flexShrink: 0 }}>
                       <TouchableOpacity
                         onPress={() => {
                           setEditingLocation(loc);
@@ -757,189 +774,252 @@ export default function HomeScreen() {
                           setLocationDesc(loc.description || "");
                           setShowLocationModal(true);
                         }}
-                        className="w-8 h-8 rounded-full bg-white border border-gray-100 items-center justify-center"
+                        className="w-8 h-8 rounded-full bg-white border border-gray-200 items-center justify-center shadow-xs"
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       >
                         <Edit2 size={13} color={colors.mediumGray} />
                       </TouchableOpacity>
                       <TouchableOpacity
                         onPress={() => handleDeleteLocation(loc)}
-                        className="w-8 h-8 rounded-full bg-white border border-gray-100 items-center justify-center"
+                        className="w-8 h-8 rounded-full bg-white border border-rose-200 items-center justify-center shadow-xs"
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       >
                         <Trash2 size={13} color={colors.danger} />
                       </TouchableOpacity>
                     </View>
                   </View>
 
-                  {/* Zone Ambient Telemetry (Tabbed UI for Clean UX) */}
-                  <View className="p-4 border-b border-gray-100 bg-gray-50/50">
-                    <View className="flex-row justify-between items-center mb-2.5">
-                      <View className="flex-row items-center gap-1.5">
-                        <Text className="text-xs">⏱️</Text>
-                        <Text className="text-xs font-bold uppercase tracking-wider text-gray-700">
-                          Ambient Telemetry (30s Live)
-                        </Text>
-                      </View>
-                      <Text className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md">
-                        🌡️ DHT11 & 💡 BH1750
-                      </Text>
-                    </View>
-
-                    {/* Time Slot Selector Pills */}
-                    <View className="flex-row gap-2 mb-3">
-                      {[
-                        { slot: "morning", label: "Morning", emoji: "☀️" },
-                        { slot: "afternoon", label: "Afternoon", emoji: "⛅" },
-                        { slot: "evening", label: "Evening", emoji: "🌙" },
-                      ].map(({ slot, label, emoji }) => {
-                        const key = `${loc.location_id}_${slot}`;
-                        const currentStaged = stagedReadings[key];
-                        const isSelected = activeSlot === slot;
-
-                        return (
-                          <TouchableOpacity
-                            key={slot}
-                            onPress={() => setZoneSlot(loc.location_id, slot)}
-                            className={`flex-1 py-1.5 px-2 rounded-xl border flex-row items-center justify-center gap-1 ${
-                              isSelected
-                                ? "bg-white border-emerald-600 shadow-xs"
-                                : "bg-white/80 border-gray-100"
-                            }`}
-                          >
-                            <Text className="text-[10px]">{emoji}</Text>
-                            <Text
-                              className={`text-[11px] font-bold ${
-                                isSelected ? "text-emerald-800" : "text-gray-600"
-                              }`}
-                            >
-                              {label}
-                            </Text>
-                            <View
-                              className={`w-1.5 h-1.5 rounded-full ml-0.5 ${
-                                currentStaged?.submitted
-                                  ? "bg-emerald-500"
-                                  : currentStaged
-                                  ? "bg-amber-500"
-                                  : "bg-gray-300"
-                              }`}
-                            />
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-
-                    {/* Active Selected Slot Content Card */}
-                    <View className="p-3.5 bg-white rounded-2xl border border-gray-100 shadow-xs">
-                      <View className="flex-row justify-between items-center mb-2">
-                        <View className="flex-row items-center gap-1">
-                          <Text className="text-xs">{slotEmoji}</Text>
-                          <Text className="text-xs font-extrabold capitalize text-gray-800">
-                            {activeSlot} Microclimate
+                  {/* Zone Ambient Telemetry Accordion */}
+                  <View className="border-b border-gray-100 bg-gray-50/60 overflow-hidden">
+                    {/* Accordion Toggle Header */}
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={() => toggleZoneSensors(loc.location_id)}
+                      className="p-4 flex-row justify-between items-center"
+                    >
+                      <View className="flex-1 mr-3">
+                        <View className="flex-row items-center gap-1.5 mb-1">
+                          <Text className="text-xs">⏱️</Text>
+                          <Text className="text-xs font-bold uppercase tracking-wider text-gray-800">
+                            Ambient Telemetry (30s Live)
                           </Text>
                         </View>
-                        {staged?.submitted ? (
-                          <View className="bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-100 flex-row items-center gap-1">
-                            <Text className="text-[10px] font-bold text-emerald-800">✅ Saved to DB</Text>
-                          </View>
-                        ) : staged ? (
-                          <View className="bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-100">
-                            <Text className="text-[10px] font-bold text-amber-800">🟡 Ready to Save</Text>
-                          </View>
-                        ) : (
-                          <Text className="text-[10px] text-gray-400 font-medium">⚪ Pending Sample</Text>
-                        )}
+                        <View className="flex-row items-center gap-2">
+                          {isZoneSampling ? (
+                            <View className="flex-row items-center gap-1">
+                              <ActivityIndicator size="small" color={colors.primary} />
+                              <Text className="text-[11px] font-bold text-emerald-700">
+                                Sampling {activeSlot} ({countdown}s)...
+                              </Text>
+                            </View>
+                          ) : staged ? (
+                            <Text className="text-[11px] text-gray-600 font-medium">
+                              {slotEmoji} {staged.temp}°C · {staged.hum}% · {staged.lux} Lux
+                            </Text>
+                          ) : latestStaged ? (
+                            <Text className="text-[11px] text-gray-600 font-medium">
+                              {latestStaged.temp}°C · {latestStaged.hum}% · {latestStaged.lux} Lux
+                            </Text>
+                          ) : (
+                            <Text className="text-[11px] text-gray-400 font-medium">
+                              🌡️ DHT11 & 💡 BH1750 microclimate
+                            </Text>
+                          )}
+                        </View>
                       </View>
 
-                      {/* 30s Countdown Progress Bar */}
-                      {isSampling ? (
-                        <View className="p-3 bg-emerald-50/80 rounded-xl border border-emerald-200/80 mb-2.5">
-                          <View className="flex-row justify-between items-center mb-1.5">
-                            <Text className="text-xs font-bold text-emerald-800">
-                              📡 Sampling Live ({burstSamplesCount}/3)...
-                            </Text>
-                            <Text className="text-xs font-black text-emerald-800">
+                      <View className="flex-row items-center gap-2">
+                        {isZoneSampling ? (
+                          <View className="bg-emerald-100 px-2 py-0.5 rounded-full">
+                            <Text className="text-[10px] font-bold text-emerald-800">
                               ⏱️ {countdown}s
                             </Text>
                           </View>
-                          <View className="w-full bg-emerald-200/80 rounded-full h-2 overflow-hidden mb-1">
-                            <View
-                              className="bg-emerald-600 h-full rounded-full"
-                              style={{ width: `${((30 - countdown) / 30) * 100}%` }}
-                            />
+                        ) : staged?.submitted ? (
+                          <View className="bg-emerald-100 px-2 py-0.5 rounded-full">
+                            <Text className="text-[10px] font-bold text-emerald-800">✅ Saved</Text>
                           </View>
-                          <Text className="text-[10px] text-emerald-700 font-medium">
-                            Capturing at 1s, 15s, and 28s (30s average)
-                          </Text>
-                        </View>
-                      ) : staged ? (
-                        /* Results Display */
-                        <View className="p-2.5 bg-gray-50/80 rounded-xl border border-gray-100 mb-2.5">
-                          <View className="flex-row justify-between items-center py-0.5">
-                            <View className="items-center flex-1">
-                              <Text className="text-[10px] font-bold text-gray-400 uppercase">🌡️ Temp</Text>
-                              <Text className="text-sm font-black text-rose-600">{staged.temp} °C</Text>
-                            </View>
-                            <View className="items-center flex-1 border-x border-gray-200">
-                              <Text className="text-[10px] font-bold text-gray-400 uppercase">💧 Humidity</Text>
-                              <Text className="text-sm font-black text-sky-600">{staged.hum} %</Text>
-                            </View>
-                            <View className="items-center flex-1">
-                              <Text className="text-[10px] font-bold text-gray-400 uppercase">☀️ Light</Text>
-                              <Text className="text-sm font-black text-amber-600">{staged.lux} Lux</Text>
-                            </View>
+                        ) : staged ? (
+                          <View className="bg-amber-100 px-2 py-0.5 rounded-full">
+                            <Text className="text-[10px] font-bold text-amber-800">🟡 Ready</Text>
                           </View>
-                          <Text className="text-[10px] text-gray-400 text-center border-t border-gray-200 pt-1 mt-1">
-                            30s average recorded at {staged.timestamp}
-                          </Text>
-                        </View>
-                      ) : (
-                        <Text className="text-xs italic text-gray-400 py-1.5 mb-1.5">
-                          No telemetry recorded for this time slot. Tap below to capture 30-second live sensor reading.
-                        </Text>
-                      )}
-
-                      {/* Action Buttons */}
-                      <View className="flex-row gap-2">
-                        {isSampling ? (
-                          <View className="flex-1 py-2.5 bg-emerald-100 rounded-xl items-center justify-center">
-                            <Text className="text-xs font-bold text-emerald-800">
-                              Sampling ({countdown}s)...
-                            </Text>
-                          </View>
-                        ) : staged && !staged.submitted ? (
-                          <>
-                            <TouchableOpacity
-                              onPress={() => handleSubmitReading(loc.location_id, activeSlot)}
-                              disabled={isSubmitting || Boolean(samplingSlotKey)}
-                              className="flex-1 py-2.5 rounded-xl bg-emerald-600 items-center justify-center shadow-xs"
-                            >
-                              <Text className="text-xs font-bold text-white">
-                                {isSubmitting ? "Saving..." : "💾 Save Reading to DB"}
-                              </Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                              onPress={() => handleStartBurstSampling(loc.location_id, activeSlot)}
-                              disabled={Boolean(samplingSlotKey) || isSubmitting}
-                              className="px-3.5 py-2.5 bg-gray-50 rounded-xl border border-gray-200 items-center justify-center"
-                            >
-                              <Text className="text-xs font-bold text-gray-700">🔄 Re-Sample</Text>
-                            </TouchableOpacity>
-                          </>
                         ) : (
-                          <TouchableOpacity
-                            onPress={() => handleStartBurstSampling(loc.location_id, activeSlot)}
-                            disabled={Boolean(samplingSlotKey)}
-                            className="flex-1 py-2.5 bg-emerald-50/80 rounded-xl border border-emerald-200 items-center justify-center"
-                          >
-                            <Text className="text-xs font-bold text-emerald-800">
-                              {staged?.submitted
-                                ? `🔄 Re-Sample ${activeSlot.toUpperCase()} (30s)`
-                                : `📡 Read ${activeSlot.toUpperCase()} Sensor Data (30s)`}
-                            </Text>
-                          </TouchableOpacity>
+                          <View className="bg-gray-100 px-2 py-0.5 rounded-full">
+                            <Text className="text-[10px] font-medium text-gray-500">⚪ Measure</Text>
+                          </View>
                         )}
+
+                        <View className="w-7 h-7 rounded-full bg-white border border-gray-200 items-center justify-center">
+                          {isExpanded ? (
+                            <ChevronUp size={14} color={colors.darkGray} />
+                          ) : (
+                            <ChevronDown size={14} color={colors.mediumGray} />
+                          )}
+                        </View>
                       </View>
-                    </View>
+                    </TouchableOpacity>
+
+                    {/* Accordion Collapsible Content */}
+                    {isExpanded && (
+                      <View className="px-4 pb-4 pt-1 border-t border-gray-100/80">
+                        {/* Time Slot Selector Pills */}
+                        <View className="flex-row gap-2 mb-3">
+                          {[
+                            { slot: "morning", label: "Morning", emoji: "☀️" },
+                            { slot: "afternoon", label: "Afternoon", emoji: "⛅" },
+                            { slot: "evening", label: "Evening", emoji: "🌙" },
+                          ].map(({ slot, label, emoji }) => {
+                            const key = `${loc.location_id}_${slot}`;
+                            const currentStaged = stagedReadings[key];
+                            const isSelected = activeSlot === slot;
+
+                            return (
+                              <TouchableOpacity
+                                key={slot}
+                                onPress={() => setZoneSlot(loc.location_id, slot)}
+                                className={`flex-1 py-1.5 px-2 rounded-xl border flex-row items-center justify-center gap-1 ${
+                                  isSelected
+                                    ? "bg-white border-emerald-600 shadow-xs"
+                                    : "bg-white/80 border-gray-100"
+                                }`}
+                              >
+                                <Text className="text-[10px]">{emoji}</Text>
+                                <Text
+                                  className={`text-[11px] font-bold ${
+                                    isSelected ? "text-emerald-800" : "text-gray-600"
+                                  }`}
+                                >
+                                  {label}
+                                </Text>
+                                <View
+                                  className={`w-1.5 h-1.5 rounded-full ml-0.5 ${
+                                    currentStaged?.submitted
+                                      ? "bg-emerald-500"
+                                      : currentStaged
+                                      ? "bg-amber-500"
+                                      : "bg-gray-300"
+                                  }`}
+                                />
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+
+                        {/* Active Selected Slot Content Card */}
+                        <View className="p-3.5 bg-white rounded-2xl border border-gray-100 shadow-xs">
+                          <View className="flex-row justify-between items-center mb-2">
+                            <View className="flex-row items-center gap-1">
+                              <Text className="text-xs">{slotEmoji}</Text>
+                              <Text className="text-xs font-extrabold capitalize text-gray-800">
+                                {activeSlot} Microclimate
+                              </Text>
+                            </View>
+                            {staged?.submitted ? (
+                              <View className="bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-100 flex-row items-center gap-1">
+                                <Text className="text-[10px] font-bold text-emerald-800">✅ Saved to DB</Text>
+                              </View>
+                            ) : staged ? (
+                              <View className="bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-100">
+                                <Text className="text-[10px] font-bold text-amber-800">🟡 Ready to Save</Text>
+                              </View>
+                            ) : (
+                              <Text className="text-[10px] text-gray-400 font-medium">⚪ Pending Sample</Text>
+                            )}
+                          </View>
+
+                          {/* 30s Countdown Progress Bar */}
+                          {isSampling ? (
+                            <View className="p-3 bg-emerald-50/80 rounded-xl border border-emerald-200/80 mb-2.5">
+                              <View className="flex-row justify-between items-center mb-1.5">
+                                <Text className="text-xs font-bold text-emerald-800">
+                                  📡 Sampling Live ({burstSamplesCount}/3)...
+                                </Text>
+                                <Text className="text-xs font-black text-emerald-800">
+                                  ⏱️ {countdown}s
+                                </Text>
+                              </View>
+                              <View className="w-full bg-emerald-200/80 rounded-full h-2 overflow-hidden mb-1">
+                                <View
+                                  className="bg-emerald-600 h-full rounded-full"
+                                  style={{ width: `${((30 - countdown) / 30) * 100}%` }}
+                                />
+                              </View>
+                              <Text className="text-[10px] text-emerald-700 font-medium">
+                                Capturing at 1s, 15s, and 28s (30s average)
+                              </Text>
+                            </View>
+                          ) : staged ? (
+                            /* Results Display */
+                            <View className="p-2.5 bg-gray-50/80 rounded-xl border border-gray-100 mb-2.5">
+                              <View className="flex-row justify-between items-center py-0.5">
+                                <View className="items-center flex-1">
+                                  <Text className="text-[10px] font-bold text-gray-400 uppercase">🌡️ Temp</Text>
+                                  <Text className="text-sm font-black text-rose-600">{staged.temp} °C</Text>
+                                </View>
+                                <View className="items-center flex-1 border-x border-gray-200">
+                                  <Text className="text-[10px] font-bold text-gray-400 uppercase">💧 Humidity</Text>
+                                  <Text className="text-sm font-black text-sky-600">{staged.hum} %</Text>
+                                </View>
+                                <View className="items-center flex-1">
+                                  <Text className="text-[10px] font-bold text-gray-400 uppercase">☀️ Light</Text>
+                                  <Text className="text-sm font-black text-amber-600">{staged.lux} Lux</Text>
+                                </View>
+                              </View>
+                              <Text className="text-[10px] text-gray-400 text-center border-t border-gray-200 pt-1 mt-1">
+                                30s average recorded at {staged.timestamp}
+                              </Text>
+                            </View>
+                          ) : (
+                            <Text className="text-xs italic text-gray-400 py-1.5 mb-1.5">
+                              No telemetry recorded for this time slot. Tap below to capture 30-second live sensor reading.
+                            </Text>
+                          )}
+
+                          {/* Action Buttons */}
+                          <View className="flex-row gap-2">
+                            {isSampling ? (
+                              <View className="flex-1 py-2.5 bg-emerald-100 rounded-xl items-center justify-center">
+                                <Text className="text-xs font-bold text-emerald-800">
+                                  Sampling ({countdown}s)...
+                                </Text>
+                              </View>
+                            ) : staged && !staged.submitted ? (
+                              <>
+                                <TouchableOpacity
+                                  onPress={() => handleSubmitReading(loc.location_id, activeSlot)}
+                                  disabled={isSubmitting || Boolean(samplingSlotKey)}
+                                  className="flex-1 py-2.5 rounded-xl bg-emerald-600 items-center justify-center shadow-xs"
+                                >
+                                  <Text className="text-xs font-bold text-white">
+                                    {isSubmitting ? "Saving..." : "💾 Save Reading to DB"}
+                                  </Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                  onPress={() => handleStartBurstSampling(loc.location_id, activeSlot)}
+                                  disabled={Boolean(samplingSlotKey) || isSubmitting}
+                                  className="px-3.5 py-2.5 bg-gray-50 rounded-xl border border-gray-200 items-center justify-center"
+                                >
+                                  <Text className="text-xs font-bold text-gray-700">🔄 Re-Sample</Text>
+                                </TouchableOpacity>
+                              </>
+                            ) : (
+                              <TouchableOpacity
+                                onPress={() => handleStartBurstSampling(loc.location_id, activeSlot)}
+                                disabled={Boolean(samplingSlotKey)}
+                                className="flex-1 py-2.5 bg-emerald-50/80 rounded-xl border border-emerald-200 items-center justify-center"
+                              >
+                                <Text className="text-xs font-bold text-emerald-800">
+                                  {staged?.submitted
+                                    ? `🔄 Re-Sample ${activeSlot.toUpperCase()} (30s)`
+                                    : `📡 Read ${activeSlot.toUpperCase()} Sensor Data (30s)`}
+                                </Text>
+                              </TouchableOpacity>
+                            )}
+                          </View>
+                        </View>
+                      </View>
+                    )}
                   </View>
 
                   {/* Assigned Orchids in Zone */}
