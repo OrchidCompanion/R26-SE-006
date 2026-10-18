@@ -18,6 +18,8 @@ import {
   AlertCircle,
   Info,
   RotateCcw,
+  Plus,
+  Minus,
 } from "lucide-react-native";
 import Header from "../src/components/Header";
 import { colors } from "../src/constants/colors";
@@ -250,18 +252,50 @@ export default function AnalyseFertilizerScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Leaf Count Input */}
+        {/* Leaf Count Adder / Counter */}
         <View
           className="p-4 bg-amber-50/60 rounded-xl border border-amber-200 mb-4 flex-row justify-between items-center shadow-xs"
         >
-          <Text className="text-sm font-bold text-gray-700">Leaf Count:</Text>
-          <TextInput
-            keyboardType="numeric"
-            value={String(leafCount)}
-            onChangeText={(v) => setLeafCount(Math.max(1, parseInt(v, 10) || 1))}
-            className="w-24 px-3 py-2 border rounded-lg text-center font-bold text-gray-800 bg-white"
-            style={{ borderColor: colors.borderGray }}
-          />
+          <View>
+            <Text className="text-sm font-bold text-gray-700">Leaf Count:</Text>
+            <Text className="text-[11px] text-gray-500">Min: 1 leaf</Text>
+          </View>
+          <View className="flex-row items-center">
+            <TouchableOpacity
+              onPress={() => setLeafCount((prev) => Math.max(1, (parseInt(prev, 10) || 1) - 1))}
+              disabled={Number(leafCount) <= 1}
+              className={`w-9 h-9 rounded-lg border border-amber-300 items-center justify-center ${
+                Number(leafCount) <= 1 ? "bg-gray-100 opacity-40" : "bg-white"
+              }`}
+            >
+              <Minus size={16} color={colors.textPrimary} />
+            </TouchableOpacity>
+            <TextInput
+              keyboardType="numeric"
+              value={String(leafCount)}
+              onChangeText={(v) => {
+                if (v === "") {
+                  setLeafCount("");
+                } else {
+                  const num = parseInt(v, 10);
+                  setLeafCount(isNaN(num) ? 1 : Math.max(1, num));
+                }
+              }}
+              onBlur={() => {
+                if (!leafCount || Number(leafCount) < 1) {
+                  setLeafCount(1);
+                }
+              }}
+              className="w-16 px-2 py-1.5 border border-amber-300 rounded-lg text-center font-bold text-base text-gray-800 bg-white mx-2"
+              style={{ borderColor: colors.borderGray }}
+            />
+            <TouchableOpacity
+              onPress={() => setLeafCount((prev) => Math.min(100, (parseInt(prev, 10) || 1) + 1))}
+              className="w-9 h-9 rounded-lg border border-amber-300 bg-white items-center justify-center"
+            >
+              <Plus size={16} color={colors.textPrimary} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {error ? (
