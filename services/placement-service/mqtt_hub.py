@@ -204,12 +204,14 @@ def trigger_mqtt_npk_read(module_id: str, timeout_seconds: float = 6.0) -> Optio
     """Publishes a trigger command over MQTT to the NPK ESP32 and waits for response."""
     global _client
     if not _client or not _client.is_connected():
+        print(f"[MQTT] trigger_mqtt_npk_read error: client is not connected to broker!")
         return None
 
     clean_mac = normalize_mac(module_id)
     prev_time = latest_npk_readings.get(clean_mac, {}).get("timestamp")
 
     cmd = json.dumps({"action": "read_npk"})
+    print(f"[MQTT] Publishing read_npk command to orchid/{clean_mac}/command and orchid/npk/{clean_mac}/command...")
     _client.publish(f"orchid/{clean_mac}/command", cmd)
     _client.publish(f"orchid/npk/{clean_mac}/command", cmd)
     _client.publish("orchid/commands/npk", cmd)
@@ -219,13 +221,16 @@ def trigger_mqtt_npk_read(module_id: str, timeout_seconds: float = 6.0) -> Optio
         time.sleep(0.2)
         curr = latest_npk_readings.get(clean_mac)
         if curr and curr.get("timestamp") != prev_time and "nitrogen_n" in curr:
+            print(f"[MQTT] Received fresh NPK reading for {clean_mac} in {time.time() - start:.2f}s: N={curr.get('nitrogen_n')}, P={curr.get('phosphorus_p')}, K={curr.get('potassium_k')}")
             return curr
 
     # If ESP32 did not respond with fresh reading in time, check recent cached reading (within 120s)
     curr = latest_npk_readings.get(clean_mac)
     if curr and is_recently_active(curr.get("timestamp"), max_age_seconds=120.0) and "nitrogen_n" in curr:
+        print(f"[MQTT] trigger_mqtt_npk_read: Returning cached NPK reading for {clean_mac}")
         return curr
 
+    print(f"[MQTT] trigger_mqtt_npk_read: Timed out after {timeout_seconds}s waiting for fresh response from {clean_mac}")
     return None
 
 
