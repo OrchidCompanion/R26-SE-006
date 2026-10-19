@@ -73,9 +73,20 @@ def load_bloom_models():
         p02 = MODELS_DIR / "gradient_boosting_experiment.joblib"
         if p02.exists():
             print(f"[ModelService] Loading Gradient Boosting model from {p02}...")
-            _model02 = joblib.load(str(p02))
+            try:
+                import sklearn.compose._column_transformer as ct
+                if not hasattr(ct, "_RemainderColsList"):
+                    ct._RemainderColsList = type("_RemainderColsList", (list,), {})
+            except Exception:
+                pass
+            try:
+                _model02 = joblib.load(str(p02))
+            except Exception as e:
+                print(f"[ModelService] Warning: Could not load Model 02 ({e})")
+                _model02 = None
         else:
             print(f"[ModelService] Missing {p02}")
+
 
     return _model01, _model02
 
