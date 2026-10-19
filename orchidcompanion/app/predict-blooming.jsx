@@ -804,9 +804,12 @@ export default function PredictBloomingScreen() {
                   style={{ borderColor: colors.borderGray }}
                 >
                   <View>
-                    <Text className="text-xs font-bold text-purple-950">{item.weeks} Weeks</Text>
+                    <Text className="text-xs font-bold text-purple-950">
+                      {item.current_stage ? `${item.current_stage} • ` : ""}
+                      {item.weeks === 0 ? "Currently Blooming" : `Ready in ~${item.weeks ?? 1} Wks`}
+                    </Text>
                     <Text className="text-[9px] text-gray-400 font-mono">
-                      {item.created_at ? new Date(item.created_at).toLocaleString() : "—"}
+                      {item.flowering_date_range_display || item.estimated_flowering_date || (item.created_at ? new Date(item.created_at).toLocaleString() : "—")}
                     </Text>
                   </View>
                   <Text className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md">

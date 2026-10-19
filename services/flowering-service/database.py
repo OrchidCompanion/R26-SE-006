@@ -123,7 +123,14 @@ def get_plant_prediction_history(plant_id: str, page: int = 1, limit: int = 10) 
                     (plant_id, limit, offset),
                 )
                 rows = cur.fetchall()
-                return {"data": [dict(r) for r in rows] if rows else [], "total": total, "page": page, "limit": limit}
+                data_list = []
+                for r in (rows or []):
+                    item = dict(r)
+                    if item.get("weeks") is None:
+                        days = item.get("display_total_days") or item.get("total_days_to_flowering") or 0
+                        item["weeks"] = max(1, round(days / 7)) if days else 1
+                    data_list.append(item)
+                return {"data": data_list, "total": total, "page": page, "limit": limit}
         except Exception as e:
             print(f"[Database] Failed to fetch bloom history for plant {plant_id}: {e}")
             return {"data": [], "total": 0, "page": page, "limit": limit}
@@ -147,7 +154,14 @@ def get_user_prediction_history(user_id: str, limit: int = 20) -> List[Dict[str,
                     (user_id, limit),
                 )
                 rows = cur.fetchall()
-                return [dict(r) for r in rows] if rows else []
+                data_list = []
+                for r in (rows or []):
+                    item = dict(r)
+                    if item.get("weeks") is None:
+                        days = item.get("display_total_days") or item.get("total_days_to_flowering") or 0
+                        item["weeks"] = max(1, round(days / 7)) if days else 1
+                    data_list.append(item)
+                return data_list
         except Exception as e:
             print(f"[Database] Failed to fetch bloom records for user {user_id}: {e}")
             return []
