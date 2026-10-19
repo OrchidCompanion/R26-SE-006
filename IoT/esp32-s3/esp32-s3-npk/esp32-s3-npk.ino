@@ -174,7 +174,7 @@ int readPotassium()   { return readModbusRegister(potaCmd, sizeof(potaCmd)); }
 // =============================================================================
 void sendStatusHeartbeat(bool probeOk = true) {
   if (!mqttClient.connected()) return;
-  StaticJsonDocument<256> doc;
+  StaticJsonDocument<512> doc;
   doc["device_id"]    = macAddress;
   doc["module_id"]    = macAddress;
   doc["device_name"]  = "NPK Sensor";
@@ -184,7 +184,7 @@ void sendStatusHeartbeat(bool probeOk = true) {
   doc["sensor_ok"]    = probeOk;
   doc["npk_probe"]    = probeOk;
 
-  char jsonBuffer[256];
+  char jsonBuffer[512];
   serializeJson(doc, jsonBuffer);
   mqttClient.publish(statusTopic.c_str(), jsonBuffer);
   mqttClient.publish(("orchid/" + macAddress + "/status").c_str(), jsonBuffer);
@@ -200,7 +200,7 @@ void flushOfflineBuffer() {
   Serial.printf("[BUFFER] Flushing %d offline NPK readings to MQTT broker...\n", bufferCount);
 
   for (int i = 0; i < bufferCount; i++) {
-    StaticJsonDocument<256> doc;
+    StaticJsonDocument<512> doc;
     doc["device_id"]    = macAddress;
     doc["module_id"]    = macAddress;
     doc["device_name"]  = "NPK Sensor";
@@ -217,7 +217,7 @@ void flushOfflineBuffer() {
     doc["npk_probe"]    = offlineBuffer[i].sensor_ok;
     doc["buffered"]     = true;
 
-    char jsonBuf[256];
+    char jsonBuf[512];
     serializeJson(doc, jsonBuf);
 
     mqttClient.publish(telemetryTopic.c_str(), jsonBuf);
@@ -289,7 +289,7 @@ void collectAndSendNPK() {
     ledActOn();
     setRGB_Violet(); // Violet: Transmitting MQTT
 
-    StaticJsonDocument<256> doc;
+    StaticJsonDocument<512> doc;
     doc["device_id"]    = macAddress;
     doc["module_id"]    = macAddress;
     doc["device_name"]  = "NPK Sensor";
@@ -306,7 +306,7 @@ void collectAndSendNPK() {
     doc["npk_probe"]    = sensor_ok;
     doc["buffered"]     = false;
 
-    char jsonBuffer[256];
+    char jsonBuffer[512];
     serializeJson(doc, jsonBuffer);
 
     mqttClient.publish(telemetryTopic.c_str(), jsonBuffer);
@@ -360,7 +360,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   Serial.print("[MQTT] Command received on topic: ");
   Serial.println(topic);
 
-  StaticJsonDocument<256> doc;
+  StaticJsonDocument<512> doc;
   DeserializationError err = deserializeJson(doc, payload, length);
   if (err) {
     Serial.print("[MQTT] JSON parse error: ");
