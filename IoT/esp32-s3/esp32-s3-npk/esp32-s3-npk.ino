@@ -103,11 +103,11 @@ void showIdleScreen() {
   lcd.setCursor(0, 0);
   lcd.print("ORCHID COMPANION");
   lcd.setCursor(0, 1);
-  lcd.print("Status: MQTT ONLINE");
+  lcd.print("Waiting for");
   lcd.setCursor(0, 2);
-  lcd.print("Node  : " + macAddress.substring(0, 8) + "...");
+  lcd.print("Commands");
   lcd.setCursor(0, 3);
-  lcd.print("Mode  : SOIL NPK");
+  lcd.print("Status: ONLINE");
 }
 
 // =============================================================================
@@ -133,7 +133,7 @@ int readModbusRegister(const byte* cmd, size_t cmdSize) {
   Serial1.flush();
 
   unsigned long startTime = millis();
-  while (Serial1.available() < 7 && millis() - startTime < 800) {
+  while (Serial1.available() < 7 && millis() - startTime < 450) {
     delay(1);
   }
 
@@ -161,6 +161,28 @@ int readPhosphorus()  { return readModbusRegister(phosCmd, sizeof(phosCmd)); }
 int readPotassium()   { return readModbusRegister(potaCmd, sizeof(potaCmd)); }
 
 // =============================================================================
+// IMMEDIATE ONLINE STATUS HEARTBEAT TRANSMISSION
+// =============================================================================
+void sendStatusHeartbeat(bool probeOk = true) {
+  if (!mqttClient.connected()) return;
+  StaticJsonDocument<256> doc;
+  doc["device_id"]    = macAddress;
+  doc["module_id"]    = macAddress;
+  doc["device_name"]  = "NPK Sensor";
+  doc["device_type"]  = "npk";
+  doc["status"]       = "online";
+  doc["online"]       = true;
+  doc["sensor_ok"]    = probeOk;
+  doc["npk_probe"]    = probeOk;
+
+  char jsonBuffer[256];
+  serializeJson(doc, jsonBuffer);
+  mqttClient.publish(statusTopic.c_str(), jsonBuffer);
+  mqttClient.publish(("orchid/" + macAddress + "/status").c_str(), jsonBuffer);
+  mqttClient.publish("orchid/sensors/npk", jsonBuffer);
+}
+
+// =============================================================================
 // STORE-AND-FORWARD OFFLINE BUFFER FLUSH
 // =============================================================================
 void flushOfflineBuffer() {
@@ -173,6 +195,7 @@ void flushOfflineBuffer() {
     doc["device_id"]    = macAddress;
     doc["module_id"]    = macAddress;
     doc["device_name"]  = "NPK Sensor";
+    doc["device_type"]  = "npk";
     doc["nitrogen"]     = offlineBuffer[i].nitrogen;
     doc["phosphorus"]   = offlineBuffer[i].phosphorus;
     doc["potassium"]    = offlineBuffer[i].potassium;
@@ -193,13 +216,13 @@ void flushOfflineBuffer() {
     mqttClient.publish("orchid/telemetry/npk", jsonBuf);
     mqttClient.publish(("orchid/" + macAddress + "/npk").c_str(), jsonBuf);
 
-    delay(100);
+    delay(50);
   }
 
   bufferCount = 0;
   Serial.println("[BUFFER] Flush complete.");
   setRGB_Violet();
-  delay(300);
+  delay(200);
   setRGB_SoftGreen();
 }
 
@@ -209,54 +232,51 @@ void flushOfflineBuffer() {
 void collectAndSendNPK() {
   ledActOn();       // Turn Activity LED ON
   setRGB_Blue();    // Blue: Reading Modbus
-  Serial.println("[NPK] Triggering RS485 Modbus read...");
+  Serial.println("[NPK] >> Reading values from Soil NPK sensor (RS485 probe)...");
 
-  // Update LCD to indicate reading
+  // Update LCD to indicate reading in progress
   lcd.clear();
   lcd.setCursor(0, 0);
   lcd.print("ORCHID COMPANION");
   lcd.setCursor(0, 1);
-  lcd.print("Reading RS485...");
+  lcd.print("Reading NPK Soil");
   lcd.setCursor(0, 2);
-  lcd.print("Soil NPK Probe");
+  lcd.print("Sampling Probe..");
   lcd.setCursor(0, 3);
   lcd.print("ID: " + macAddress.substring(0, 8) + "...");
 
   int n = readNitrogen();
-  delay(150);
+  delay(80);
   int p = readPhosphorus();
-  delay(150);
+  delay(80);
   int k = readPotassium();
 
   bool sensor_ok = (n >= 0 && p >= 0 && k >= 0);
 
   if (!sensor_ok) {
-    Serial.println("[NPK] Probe disconnected or RS485 communication error! Using calibrated fallback.");
+    Serial.println("[NPK] Probe disconnected or RS485 communication error! No default values used.");
     flashErrorAct(); // Fast double-flash to indicate probe communication issue
     setRGB_Red();    // Red: Hardware sensor error
-    // Calibrated nominal defaults for Dendrobium
-    n = 45;
-    p = 25;
-    k = 80;
+    n = 0;
+    p = 0;
+    k = 0;
   } else {
-    Serial.printf("[NPK] Read Success -> N: %d mg/kg | P: %d mg/kg | K: %d mg/kg\n", n, p, k);
+    Serial.println("[NPK] >> NPK Sensor reading completed successfully. Status: OK");
   }
 
-  // Update LCD with latest reading
+  // Update LCD with reading status indicator (no raw values displayed)
   lcd.clear();
   lcd.setCursor(0, 0);
-  lcd.printf("N:%d P:%d K:%d", n, p, k);
+  lcd.print("ORCHID COMPANION");
   lcd.setCursor(0, 1);
-  lcd.print(sensor_ok ? "Probe: OK (mg/kg)" : "Probe: NO SIGNAL");
+  lcd.print(sensor_ok ? "NPK: SAMPLING OK" : "NPK: NO PROBE   ");
   lcd.setCursor(0, 2);
-  lcd.print("ID: " + macAddress.substring(0, 8) + "...");
+  lcd.print("Soil: SAMPLED   ");
   lcd.setCursor(0, 3);
-  lcd.print(WiFi.status() == WL_CONNECTED && mqttClient.connected() ? "Status: ONLINE" : "Status: BUFFERED");
+  lcd.print(WiFi.status() == WL_CONNECTED && mqttClient.connected() ? "Status: ONLINE  " : "Status: BUFFERED");
 
   // Publish to MQTT if connected
   if (WiFi.status() == WL_CONNECTED && mqttClient.connected()) {
-    flushOfflineBuffer(); // Flush any stored offline measurements first
-
     ledActOn();
     setRGB_Violet(); // Violet: Transmitting MQTT
 
@@ -264,6 +284,7 @@ void collectAndSendNPK() {
     doc["device_id"]    = macAddress;
     doc["module_id"]    = macAddress;
     doc["device_name"]  = "NPK Sensor";
+    doc["device_type"]  = "npk";
     doc["status"]       = "online";
     doc["online"]       = true;
     doc["nitrogen"]     = n;
@@ -289,18 +310,22 @@ void collectAndSendNPK() {
     Serial.print("[MQTT] Telemetry published: ");
     Serial.println(jsonBuffer);
 
-    delay(400);
     ledActOff();
 
     if (sensor_ok) {
       setRGB_LimeGreen();
-      delay(800);
+      delay(200);
       setRGB_SoftGreen();
     } else {
       setRGB_Red();
-      delay(1000);
+      delay(300);
       setRGB_SoftGreen();
     }
+
+    // Flush offline buffer after live telemetry has already been dispatched
+    flushOfflineBuffer();
+    delay(2000);
+    showIdleScreen();
   } else {
     // Save to Offline Store-and-Forward Buffer
     if (bufferCount < MAX_BUFFERED_READINGS) {
@@ -314,7 +339,8 @@ void collectAndSendNPK() {
     }
     ledActOff();
     setRGB_Orange();
-    delay(800);
+    delay(2000);
+    showIdleScreen();
   }
 }
 
@@ -336,11 +362,13 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   const char* action = doc["action"];
   if (!action) return;
 
+  // Immediate status reply to confirm device is reachable
+  sendStatusHeartbeat(true);
+
   if (strcmp(action, "read_npk") == 0 || 
       strcmp(action, "read_sensors") == 0 || 
       strcmp(action, "read_now") == 0 ||
       strcmp(action, "health_check") == 0 || 
-      strcmp(action, "ping") == 0 ||
       strcmp(action, "status") == 0 ||
       strcmp(action, "check_status") == 0) {
     collectAndSendNPK();
@@ -359,6 +387,13 @@ void reconnectMQTT() {
     Serial.print(MQTT_SERVER);
     Serial.print("...");
 
+    // 6. "Connecting to Server"
+    lcd.clear();
+    lcd.setCursor(1, 1);
+    lcd.print("Connecting to");
+    lcd.setCursor(3, 2);
+    lcd.print("Server...");
+
     String clientId = "ESP32-NPK-" + macAddress;
     bool connected = false;
 
@@ -372,6 +407,16 @@ void reconnectMQTT() {
       Serial.println(" CONNECTED!");
       ledSysOn();     // Port 6: Solid ON indicates operational connection
       setRGB_SoftGreen();
+
+      // 7. "Connection Successful"
+      lcd.clear();
+      lcd.setCursor(3, 1);
+      lcd.print("Connection");
+      lcd.setCursor(3, 2);
+      lcd.print("Successful");
+      delay(1500);
+
+      // 8. "Waiting for Commands"
       showIdleScreen();
 
       // Subscribe to module-specific and broadcast command topics
@@ -379,8 +424,8 @@ void reconnectMQTT() {
       mqttClient.subscribe(("orchid/" + macAddress + "/command").c_str());
       mqttClient.subscribe("orchid/commands/npk");
 
-      // Publish fresh live NPK reading immediately on connect
-      collectAndSendNPK();
+      // Send online heartbeat
+      sendStatusHeartbeat(true);
 
       // Flush offline readings if any accumulated
       flushOfflineBuffer();
@@ -440,12 +485,21 @@ void setup() {
   lcd.init();
   Wire.begin(LCD_SDA_PIN, LCD_SCL_PIN); // Re-assert custom pins
   lcd.backlight();
-  lcd.clear();
   delay(50);
-  lcd.setCursor(0, 0);
-  lcd.print("ORCHID COMPANION");
-  lcd.setCursor(0, 1);
-  lcd.print("BOOTING NPK NODE");
+
+  // 1. "Powering ON..."
+  lcd.clear();
+  lcd.setCursor(1, 1);
+  lcd.print("Powering ON...");
+  delay(1200);
+
+  // 2. "Welcome to Orchid Companion"
+  lcd.clear();
+  lcd.setCursor(3, 1);
+  lcd.print("Welcome to");
+  lcd.setCursor(0, 2);
+  lcd.print("Orchid Companion");
+  delay(1800);
 
   // Initialize RS485 Modbus UART (Serial1 at 4800 baud)
   Serial1.begin(4800, SERIAL_8N1, RX_PIN, TX_PIN);
@@ -463,13 +517,26 @@ void setup() {
   Serial.println("[MQTT] Telemetry Topic: " + telemetryTopic);
   Serial.println("[MQTT] Command Topic:   " + commandTopic);
 
+  // 3. "MAC Address : "
+  lcd.clear();
+  lcd.setCursor(0, 1);
+  lcd.print("MAC Address :");
+  lcd.setCursor(2, 2);
+  lcd.print(macAddress);
+  delay(2000);
+
   // Configure Wi-Fi Multi-AP
   wifiMulti.addAP("Galaxy A20s5650", "azdrea7339");
-  wifiMulti.addAP("SLT_FIBRE", "0112760972");
   wifiMulti.addAP("Dialog 4G 096", "B6582be1");
+  wifiMulti.addAP("SLT_FIBRE", "0112760972");
+  wifiMulti.addAP("Galaxy M31B79A", "yaluwek@23");
 
-  lcd.setCursor(0, 2);
-  lcd.print("Connecting WiFi...");
+  // 4. "Connecting to Wifi"
+  lcd.clear();
+  lcd.setCursor(1, 1);
+  lcd.print("Connecting to");
+  lcd.setCursor(5, 2);
+  lcd.print("Wifi...");
   setRGB_Cyan();
   Serial.print("[Wi-Fi] Connecting to Wi-Fi");
 
@@ -482,10 +549,12 @@ void setup() {
   }
 
   Serial.println("\n[Wi-Fi] Connected! IP: " + WiFi.localIP().toString());
-  lcd.setCursor(0, 2);
-  lcd.print("WiFi Connected!   ");
-  lcd.setCursor(0, 3);
-  lcd.print("IP:" + WiFi.localIP().toString().substring(0, 13));
+
+  // 5. "Wifi Connected"
+  lcd.clear();
+  lcd.setCursor(1, 1);
+  lcd.print("Wifi Connected");
+  delay(1200);
 
   setRGB_Cyan();
 
@@ -498,8 +567,8 @@ void setup() {
 
   reconnectMQTT();
 
-  // Execute initial boot telemetry reading
-  collectAndSendNPK();
+  // 8. "Waiting for Commands"
+  showIdleScreen();
   lastPublishTime = millis();
 }
 

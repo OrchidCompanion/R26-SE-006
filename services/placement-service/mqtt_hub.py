@@ -39,9 +39,12 @@ def on_connect(client, userdata, flags, rc, properties=None):
         client.subscribe("orchid/sensors/env")
         client.subscribe("orchid/telemetry/env")
         client.subscribe("orchid/+/status")
+        client.subscribe("orchid/+/npk")
+        client.subscribe("orchid/+/npk/+")
         client.subscribe("orchid/npk/+/status")
         client.subscribe("orchid/npk/+/telemetry")
         client.subscribe("orchid/sensors/npk")
+        client.subscribe("orchid/telemetry/npk")
     else:
         print(f"[MQTT] Connection returned error code: {rc}")
 
@@ -57,8 +60,11 @@ def on_message(client, userdata, msg):
             or payload.get("mac_address")
             or payload.get("device_id")
         )
-        if not module_id and len(parts) >= 3 and parts[1] != "sensors" and parts[1] != "commands":
-            module_id = parts[1]  # e.g., orchid/<mac>/env
+        if not module_id and len(parts) >= 3:
+            if parts[1] == "npk" and len(parts) >= 4:
+                module_id = parts[2]
+            elif parts[1] not in ("sensors", "commands", "telemetry"):
+                module_id = parts[1]
         if not module_id and len(parts) == 3 and parts[0] == "orchid" and parts[2] == "status":
             module_id = parts[1]
 
@@ -67,11 +73,18 @@ def on_message(client, userdata, msg):
 
         clean_mac = normalize_mac(module_id)
 
+        is_npk = (
+            "npk" in msg.topic.lower()
+            or "npk" in str(payload.get("device_type", "")).lower()
+            or "npk" in str(payload.get("device_name", "")).lower()
+            or "nitrogen" in payload
+            or "nitrogen_n" in payload
+        )
+
         # Handle online status heartbeats
-        if "status" in payload:
-            is_online = payload.get("status") == "online"
+        if "status" in payload or payload.get("online") is True:
+            is_online = payload.get("status") == "online" or payload.get("online") is True
             now_iso = datetime.now(timezone.utc).isoformat()
-            is_npk = "npk" in msg.topic or "npk" in str(payload.get("device_type", "")).lower()
             target_dict = latest_npk_readings if is_npk else latest_readings
 
             if clean_mac not in target_dict:
@@ -88,9 +101,11 @@ def on_message(client, userdata, msg):
                 target_dict[clean_mac]["bh1750"] = bool(payload["bh1750"])
             if "npk_probe" in payload:
                 target_dict[clean_mac]["npk_probe"] = bool(payload["npk_probe"])
+            elif "sensor_ok" in payload and is_npk:
+                target_dict[clean_mac]["npk_probe"] = bool(payload["sensor_ok"])
 
             update_module_last_seen(clean_mac)
-            print(f"[MQTT] Heartbeat received from {clean_mac} ({'NPK' if is_npk else 'ENV'}): online={is_online}, dht11={target_dict[clean_mac].get('dht11')}, bh1750={target_dict[clean_mac].get('bh1750')}")
+            print(f"[MQTT] Heartbeat received from {clean_mac} ({'NPK' if is_npk else 'ENV'}): online={is_online}")
 
         temp = payload.get("temperature") or payload.get("temp")
         hum = payload.get("humidity") or payload.get("hum")
@@ -146,6 +161,8 @@ def on_message(client, userdata, msg):
                 "nitrogen_n": float(n),
                 "phosphorus_p": float(p),
                 "potassium_k": float(k),
+                "npk_probe": bool(payload.get("npk_probe", payload.get("sensor_ok", True))),
+                "sensor_ok": bool(payload.get("sensor_ok", payload.get("npk_probe", True))),
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "online": True,
             }
@@ -183,7 +200,7 @@ def trigger_mqtt_ambient_read(module_id: str, timeout_seconds: float = 3.0) -> O
     return None
 
 
-def trigger_mqtt_npk_read(module_id: str, timeout_seconds: float = 4.0) -> Optional[Dict[str, Any]]:
+def trigger_mqtt_npk_read(module_id: str, timeout_seconds: float = 6.0) -> Optional[Dict[str, Any]]:
     """Publishes a trigger command over MQTT to the NPK ESP32 and waits for response."""
     global _client
     if not _client or not _client.is_connected():
@@ -204,7 +221,11 @@ def trigger_mqtt_npk_read(module_id: str, timeout_seconds: float = 4.0) -> Optio
         if curr and curr.get("timestamp") != prev_time and "nitrogen_n" in curr:
             return curr
 
-    # If ESP32 did not respond within timeout, it is offline
+    # If ESP32 did not respond with fresh reading in time, check recent cached reading (within 120s)
+    curr = latest_npk_readings.get(clean_mac)
+    if curr and is_recently_active(curr.get("timestamp"), max_age_seconds=120.0) and "nitrogen_n" in curr:
+        return curr
+
     return None
 
 
@@ -300,7 +321,7 @@ def get_latest_sensor_data(module_id: str) -> Dict[str, Any]:
     }
 
 
-def is_recently_active(timestamp_str: Optional[str], max_age_seconds: float = 60.0) -> bool:
+def is_recently_active(timestamp_str: Optional[str], max_age_seconds: float = 180.0) -> bool:
     if not timestamp_str:
         return False
     try:
@@ -316,8 +337,13 @@ def get_sensor_module_status(module_id: str, is_npk: bool = False) -> Dict[str, 
     clean_mac = normalize_mac(module_id)
     if is_npk:
         cached = latest_npk_readings.get(clean_mac)
-        has_recent = cached and is_recently_active(cached.get("timestamp"), max_age_seconds=60.0)
+        has_recent = cached and is_recently_active(cached.get("timestamp"), max_age_seconds=180.0)
         is_online = bool(has_recent and cached.get("online", False))
+        if not is_online:
+            # Fallback to general readings heartbeat if received
+            gen_cached = latest_readings.get(clean_mac)
+            if gen_cached and is_recently_active(gen_cached.get("timestamp"), max_age_seconds=180.0) and gen_cached.get("online"):
+                is_online = True
         return {
             "module_id": clean_mac,
             "online": is_online,
@@ -330,7 +356,7 @@ def get_sensor_module_status(module_id: str, is_npk: bool = False) -> Dict[str, 
         }
     else:
         cached = latest_readings.get(clean_mac)
-        has_recent = cached and is_recently_active(cached.get("timestamp"), max_age_seconds=60.0)
+        has_recent = cached and is_recently_active(cached.get("timestamp"), max_age_seconds=180.0)
         is_online = bool(has_recent and cached.get("online", False))
         dht_ok = is_online and bool(cached.get("dht11", cached.get("dht_ok", True)))
         bh_ok = is_online and bool(cached.get("bh1750", True))
