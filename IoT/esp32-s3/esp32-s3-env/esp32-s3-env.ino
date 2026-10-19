@@ -432,6 +432,7 @@ void setup() {
   wifiMulti.addAP("Galaxy A20s5650", "azdrea7339");
   wifiMulti.addAP("Dialog 4G 096", "B6582be1");
   wifiMulti.addAP("SLT_FIBRE", "0112760972");
+  wifiMulti.addAP("Galaxy M31B79A", "yaluwek@23");
 
   lcd.setCursor(0, 2);
   lcd.print("Connecting WiFi...");
