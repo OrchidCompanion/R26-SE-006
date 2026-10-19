@@ -17,6 +17,19 @@ This microservice handles orchid leaf disease diagnosis (**Bacterial Brown Spot*
    ```
 4. Access interactive API documentation: [http://localhost:7861/docs](http://localhost:7861/docs)
 
+Run tests (no real YOLO/TensorFlow weights required):
+
+```bash
+python -m pip install pytest fastapi python-multipart pillow numpy httpx pydantic python-dotenv
+python -m pytest -q
+```
+
+Unit tests cover verdict/ensemble/API mocks. Integration tests (`tests/integration/`) run `/analyze` with the real NPK HTTP client (fertilizer-service responses mocked):
+
+```bash
+python -m pytest -q -m integration
+```
+
 ---
 
 ## 2. Deploying to Hugging Face Spaces (Docker)
