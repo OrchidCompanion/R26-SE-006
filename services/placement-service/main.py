@@ -27,6 +27,7 @@ from mqtt_hub import (
     start_mqtt_hub,
     get_latest_sensor_data,
     get_sensor_module_status,
+    send_mqtt_ping,
     trigger_mqtt_ambient_read,
     trigger_mqtt_npk_read,
     trigger_mqtt_session,
@@ -179,6 +180,9 @@ async def check_module_status(module_id: str):
             }
 
     if is_npk:
+        # Actively trigger hardware ping so LCD and status LEDs respond immediately
+        send_mqtt_ping(clean_id)
+
         # If module has a recent status/reading (within 180s), return immediately
         status_info = get_sensor_module_status(clean_id, is_npk=True)
         if status_info.get("online"):
