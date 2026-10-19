@@ -1,4 +1,26 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import {
+  ArrowLeft,
+  MapPin,
+  User,
+  Activity,
+  Cpu,
+  Wifi,
+  WifiOff,
+  AlertCircle,
+  RefreshCw,
+  Sun,
+  Sunset,
+  Moon,
+  Sparkles,
+  FlaskConical,
+  Flower2,
+  Layers,
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  CheckCircle2,
+} from "lucide-react";
 import AnalyseDisease from "./AnalyseDisease";
 import AnalyseFertilizer from "./AnalyseFertilizer";
 import PredictBlooming from "./PredictBlooming";
@@ -7,6 +29,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack }) {
   const [currentView, setCurrentView] = useState("details");
+  const [activeMainTab, setActiveMainTab] = useState("sampling"); // 'sampling' | 'telemetry' | 'diagnostics'
 
   // Telemetry Tab & Pagination State
   const [sensorTab, setSensorTab] = useState("npk"); // 'dht11' | 'bh1750' | 'npk'
@@ -35,29 +58,85 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
   const [selectedImage, setSelectedImage] = useState(null);
   const LIMIT = 10;
 
-  useEffect(() => {
-    setSensorPage(1);
-  }, [sensorTab]);
+  const fetchSensorData = useCallback(async () => {
+    if (!selectedPlant?.plant_id) return;
+    setLoadingSensors(true);
+    try {
+      const token = localStorage.getItem("admin_token");
+      let endpoint = "";
 
-  useEffect(() => {
-    setOutputPage(1);
-  }, [outputTab]);
+      if (sensorTab === "dht11")
+        endpoint = `${API_BASE_URL}/sensors/dht11/plant/${selectedPlant.plant_id}?page=${sensorPage}&limit=${LIMIT}`;
+      if (sensorTab === "bh1750")
+        endpoint = `${API_BASE_URL}/sensors/bh1750/plant/${selectedPlant.plant_id}?page=${sensorPage}&limit=${LIMIT}`;
+      if (sensorTab === "npk")
+        endpoint = `${API_BASE_URL}/sensors/npk/plant/${selectedPlant.plant_id}?page=${sensorPage}&limit=${LIMIT}`;
 
-  useEffect(() => {
-    fetchSensorData();
-  }, [sensorTab, sensorPage, selectedPlant]);
+      const res = await fetch(endpoint, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-  useEffect(() => {
-    fetchOutputData();
-  }, [outputTab, outputPage, selectedPlant]);
-
-  useEffect(() => {
-    if (selectedUser?.user_id) {
-      fetchUserModules(selectedUser.user_id);
+      if (res.ok) {
+        const responseData = await res.json();
+        if (responseData.data && Array.isArray(responseData.data)) {
+          setSensorData(responseData.data);
+          setSensorTotal(responseData.total ?? responseData.data.length);
+        } else if (Array.isArray(responseData)) {
+          setSensorData(responseData);
+          setSensorTotal(responseData.length);
+        }
+      } else {
+        setSensorData([]);
+        setSensorTotal(0);
+      }
+    } catch (err) {
+      console.error(err);
+      setSensorData([]);
+    } finally {
+      setLoadingSensors(false);
     }
-  }, [selectedUser]);
+  }, [selectedPlant, sensorTab, sensorPage]);
 
-  const fetchUserModules = async (userId) => {
+  const fetchOutputData = useCallback(async () => {
+    if (!selectedPlant?.plant_id) return;
+    setLoadingOutputs(true);
+    try {
+      const token = localStorage.getItem("admin_token");
+      let endpoint = "";
+
+      if (outputTab === "disease")
+        endpoint = `${API_BASE_URL}/disease/plant/${selectedPlant.plant_id}?page=${outputPage}&limit=${LIMIT}`;
+      if (outputTab === "fertilizer")
+        endpoint = `${API_BASE_URL}/fertilizer/plant/${selectedPlant.plant_id}?page=${outputPage}&limit=${LIMIT}`;
+      if (outputTab === "bloom")
+        endpoint = `${API_BASE_URL}/bloom/plant/${selectedPlant.plant_id}?page=${outputPage}&limit=${LIMIT}`;
+
+      const res = await fetch(endpoint, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (res.ok) {
+        const responseData = await res.json();
+        if (responseData.data && Array.isArray(responseData.data)) {
+          setOutputData(responseData.data);
+          setOutputTotal(responseData.total ?? responseData.data.length);
+        } else if (Array.isArray(responseData)) {
+          setOutputData(responseData);
+          setOutputTotal(responseData.length);
+        }
+      } else {
+        setOutputData([]);
+        setOutputTotal(0);
+      }
+    } catch (err) {
+      console.error(err);
+      setOutputData([]);
+    } finally {
+      setLoadingOutputs(false);
+    }
+  }, [selectedPlant, outputTab, outputPage]);
+
+  const fetchUserModules = useCallback(async (userId) => {
     try {
       const token = localStorage.getItem("admin_token");
       const res = await fetch(`${API_BASE_URL}/sensors/modules/user/${userId}`, {
@@ -67,7 +146,6 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
         const data = await res.json();
         setModules(data);
         if (data.length > 0) {
-          // Preselect NPK module if found, else default to first
           const npkMod = data.find((m) => m.module_id === "441bf68cbc78" || m.device_name?.toLowerCase().includes("npk"));
           setSelectedModuleId(npkMod ? npkMod.module_id : data[0].module_id);
         }
@@ -75,7 +153,24 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
     } catch (err) {
       console.error("Error fetching user modules:", err);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchSensorData();
+  }, [fetchSensorData]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchOutputData();
+  }, [fetchOutputData]);
+
+  useEffect(() => {
+    if (selectedUser?.user_id) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      fetchUserModules(selectedUser.user_id);
+    }
+  }, [selectedUser, fetchUserModules]);
 
   const handleCheckSensorStatus = async () => {
     if (!selectedModuleId) return;
@@ -210,79 +305,16 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
     }
   };
 
-  const fetchSensorData = async () => {
-    setLoadingSensors(true);
-    try {
-      const token = localStorage.getItem("admin_token");
-      let endpoint = "";
-
-      if (sensorTab === "dht11")
-        endpoint = `${API_BASE_URL}/sensors/dht11/plant/${selectedPlant.plant_id}?page=${sensorPage}&limit=${LIMIT}`;
-      if (sensorTab === "bh1750")
-        endpoint = `${API_BASE_URL}/sensors/bh1750/plant/${selectedPlant.plant_id}?page=${sensorPage}&limit=${LIMIT}`;
-      if (sensorTab === "npk")
-        endpoint = `${API_BASE_URL}/sensors/npk/plant/${selectedPlant.plant_id}?page=${sensorPage}&limit=${LIMIT}`;
-
-      const res = await fetch(endpoint, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (res.ok) {
-        const responseData = await res.json();
-        if (responseData.data && Array.isArray(responseData.data)) {
-          setSensorData(responseData.data);
-          setSensorTotal(responseData.total ?? responseData.data.length);
-        } else if (Array.isArray(responseData)) {
-          setSensorData(responseData);
-          setSensorTotal(responseData.length);
-        }
-      } else {
-        setSensorData([]);
-        setSensorTotal(0);
-      }
-    } catch (err) {
-      console.error(err);
-      setSensorData([]);
-    } finally {
-      setLoadingSensors(false);
-    }
-  };
-
-  const fetchOutputData = async () => {
-    setLoadingOutputs(true);
-    try {
-      const token = localStorage.getItem("admin_token");
-      let endpoint = "";
-
-      if (outputTab === "disease")
-        endpoint = `${API_BASE_URL}/disease/plant/${selectedPlant.plant_id}?page=${outputPage}&limit=${LIMIT}`;
-      if (outputTab === "fertilizer")
-        endpoint = `${API_BASE_URL}/fertilizer/plant/${selectedPlant.plant_id}?page=${outputPage}&limit=${LIMIT}`;
-      if (outputTab === "bloom")
-        endpoint = `${API_BASE_URL}/bloom/plant/${selectedPlant.plant_id}?page=${outputPage}&limit=${LIMIT}`;
-
-      const res = await fetch(endpoint, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (res.ok) {
-        const responseData = await res.json();
-        if (responseData.data && Array.isArray(responseData.data)) {
-          setOutputData(responseData.data);
-          setOutputTotal(responseData.total ?? responseData.data.length);
-        } else if (Array.isArray(responseData)) {
-          setOutputData(responseData);
-          setOutputTotal(responseData.length);
-        }
-      } else {
-        setOutputData([]);
-        setOutputTotal(0);
-      }
-    } catch (err) {
-      console.error(err);
-      setOutputData([]);
-    } finally {
-      setLoadingOutputs(false);
+  const getSlotIcon = (slot) => {
+    switch (slot) {
+      case "morning":
+        return <Sun className="w-4 h-4 text-amber-500" />;
+      case "afternoon":
+        return <Sunset className="w-4 h-4 text-orange-500" />;
+      case "evening":
+        return <Moon className="w-4 h-4 text-indigo-400" />;
+      default:
+        return <Activity className="w-4 h-4 text-teal-500" />;
     }
   };
 
@@ -329,464 +361,634 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
   const outputTotalPages = Math.ceil(outputTotal / LIMIT) || 1;
 
   return (
-    <div className="bg-white p-6 rounded-xl border border-[#e5e7eb] shadow-sm space-y-6">
-      {/* Plant Header */}
-      <div className="border-b pb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <button
-            onClick={onBack}
-            className="text-xs text-emerald-600 hover:underline font-semibold mb-1 block"
-          >
-            ← Back to Plants
-          </button>
-          <h2 className="text-[#1f2937] text-2xl font-extrabold">{selectedPlant.plant_name}</h2>
-          <div className="flex flex-wrap space-x-4 text-xs text-gray-500 mt-1">
-            <span>Species: <strong className="text-gray-700">{selectedPlant.plant_species || "N/A"}</strong></span>
-            <span>Location: <strong className="text-gray-700">{selectedPlant.plant_location || selectedPlant.locations?.location_name || "Unassigned"}</strong></span>
-            <span>Owner: <strong className="text-gray-700">{selectedUser.first_name} {selectedUser.last_name}</strong></span>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => setCurrentView("analyse_disease")}
-            className="px-3 py-2 bg-[#059669] hover:bg-[#047857] text-white text-xs font-bold rounded-lg shadow-xs transition"
-          >
-            Analyse Disease
-          </button>
-          <button
-            onClick={() => setCurrentView("analyse_fertilizer")}
-            className="px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-lg shadow-xs transition"
-          >
-            Analyse Fertilizer
-          </button>
-          <button
-            onClick={() => setCurrentView("predict_blooming")}
-            className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-lg shadow-xs transition"
-          >
-            Predict Blooming
-          </button>
-        </div>
-      </div>
-
-      {/* Spot-Check NPK Sampling Box */}
-      <div className="border border-teal-200 bg-teal-50/20 rounded-xl p-5 space-y-4">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-teal-100 pb-3">
-          <div>
-            <h3 className="font-bold text-gray-800 text-base">
-              Daily Plant NPK Sampling
-            </h3>
-            <p className="text-xs text-gray-500">
-              Trigger instant live NPK readings from the connected ESP32-S3 node via MQTT.
-            </p>
-          </div>
-
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full md:w-auto">
-            <select
-              value={selectedModuleId}
-              onChange={(e) => {
-                setSelectedModuleId(e.target.value);
-                setSensorStatus(null);
-              }}
-              className="text-xs bg-white border border-gray-300 rounded-lg px-3 py-2 font-medium focus:ring-2 focus:ring-teal-500 focus:outline-none w-full sm:w-auto"
-            >
-              <option value="">-- Select Sensor Module --</option>
-              {modules.map((m) => (
-                <option key={m.module_id} value={m.module_id}>
-                  {m.device_name} ({m.module_id})
-                </option>
-              ))}
-            </select>
+    <div className="space-y-6 max-w-7xl mx-auto pb-12">
+      {/* Modern Hero Plant Card */}
+      <div className="bg-white p-6 sm:p-7 rounded-2xl border border-gray-100 shadow-sm transition hover:shadow-md">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+          <div className="space-y-2">
             <button
-              onClick={handleCheckSensorStatus}
-              disabled={checkingStatus || !selectedModuleId}
-              className="px-3 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-lg transition disabled:opacity-50 shrink-0 w-full sm:w-auto"
+              onClick={onBack}
+              className="text-xs text-emerald-600 hover:text-emerald-700 font-bold inline-flex items-center gap-1.5 transition group mb-1"
             >
-              {checkingStatus ? "Checking..." : "Check Status"}
+              <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
+              Back to Orchids
+            </button>
+
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-100 via-teal-100 to-emerald-200 flex items-center justify-center text-3xl shadow-xs shrink-0">
+                🪴
+              </div>
+              <div>
+                <h1 className="text-gray-900 text-2xl sm:text-3xl font-black tracking-tight">
+                  {selectedPlant.plant_name}
+                </h1>
+                <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-gray-500">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-emerald-50 text-emerald-700 font-bold rounded-full border border-emerald-200/50">
+                    {selectedPlant.plant_species || "Orchid"}
+                  </span>
+                  <span className="text-gray-300">•</span>
+                  <span className="inline-flex items-center gap-1 text-gray-600 font-medium">
+                    <MapPin className="w-3 h-3 text-emerald-600" />
+                    {selectedPlant.plant_location || selectedPlant.locations?.location_name || "Unassigned Zone"}
+                  </span>
+                  <span className="text-gray-300">•</span>
+                  <span className="inline-flex items-center gap-1 text-gray-600 font-medium">
+                    <User className="w-3 h-3 text-gray-400" />
+                    {selectedUser.first_name} {selectedUser.last_name}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* AI Diagnostics Suite Action Group */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full lg:w-auto">
+            <button
+              onClick={() => setCurrentView("analyse_disease")}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs hover:shadow transition"
+            >
+              <Sparkles className="w-4 h-4" />
+              Analyse Disease
+            </button>
+            <button
+              onClick={() => setCurrentView("analyse_fertilizer")}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl shadow-xs hover:shadow transition"
+            >
+              <FlaskConical className="w-4 h-4" />
+              Analyse Fertilizer
+            </button>
+            <button
+              onClick={() => setCurrentView("predict_blooming")}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-xl shadow-xs hover:shadow transition"
+            >
+              <Flower2 className="w-4 h-4" />
+              Predict Blooming
             </button>
           </div>
         </div>
 
-        {/* Status Indicator Banner */}
-        {sensorStatus && (
-          <div
-            className={`p-3 rounded-lg text-xs font-medium flex items-center justify-between ${sensorStatus.online
-              ? "bg-emerald-50 border border-emerald-200 text-emerald-800"
-              : "bg-rose-50 border border-rose-200 text-rose-800"
-              }`}
-          >
-            <span>
-              <strong>Module Status:</strong> {sensorStatus.online ? "Online & Ready" : "Disconnected / Offline"} (
-              {sensorStatus.msg})
-            </span>
-            <span className="text-[11px] font-semibold uppercase tracking-wider">
-              {sensorStatus.device || "Node"}
-            </span>
-          </div>
-        )}
-
-        {actionError && (
-          <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 text-xs font-medium">
-            {actionError}
-          </div>
-        )}
-
-        {/* NPK Time-slot Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {["morning", "afternoon", "evening"].map((slot) => {
-            const key = `npk_${slot}`;
-            const res = readingResults[key];
-            const isLoading = activeReadingSlot === key;
-            const isSaving = savingSlotKey === key;
-
+        {/* Top-Level Segmented Tabs Navigation */}
+        <div className="mt-7 pt-5 border-t border-gray-100 flex items-center gap-2 overflow-x-auto">
+          {[
+            { id: "sampling", label: "Daily NPK Sampling", icon: Activity, count: null },
+            { id: "telemetry", label: "Sensor Telemetry History", icon: Cpu, count: sensorTotal },
+            { id: "diagnostics", label: "AI Diagnostic Records", icon: Layers, count: outputTotal },
+          ].map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeMainTab === tab.id;
             return (
-              <div
-                key={slot}
-                className="p-3.5 bg-white border border-gray-200 rounded-xl flex flex-col justify-between space-y-3 shadow-xs"
+              <button
+                key={tab.id}
+                onClick={() => setActiveMainTab(tab.id)}
+                className={`inline-flex items-center gap-2 px-4 py-2.5 text-xs font-bold rounded-xl transition shrink-0 ${
+                  isActive
+                    ? "bg-slate-900 text-white shadow-xs"
+                    : "bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200/50"
+                }`}
               >
-                <div className="flex items-center justify-between">
-                  <span className="capitalize font-bold text-xs text-gray-800">
-                    {slot} Reading
+                <Icon className={`w-4 h-4 ${isActive ? "text-emerald-400" : "text-gray-400"}`} />
+                <span>{tab.label}</span>
+                {tab.count !== null && (
+                  <span
+                    className={`ml-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                      isActive ? "bg-slate-700 text-emerald-300" : "bg-gray-200 text-gray-600"
+                    }`}
+                  >
+                    {tab.count}
                   </span>
-                  <div className="flex items-center gap-1.5">
-                    {res && (
-                      <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                          res.saved
-                            ? "bg-emerald-100 text-emerald-800"
-                            : "bg-amber-100 text-amber-800"
-                        }`}
-                      >
-                        {res.saved ? "Saved" : "Unsaved"}
-                      </span>
-                    )}
-                    <span className="text-[10px] uppercase font-semibold text-teal-700 bg-teal-50 px-2 py-0.5 rounded">
-                      NPK
-                    </span>
-                  </div>
-                </div>
-
-                {res ? (
-                  <div className="text-xs font-semibold space-y-1">
-                    <div className="text-emerald-700">Nitrogen (N): <strong>{res.n} mg/kg</strong></div>
-                    <div className="text-amber-700">Phosphorus (P): <strong>{res.p} mg/kg</strong></div>
-                    <div className="text-rose-700">Potassium (K): <strong>{res.k} mg/kg</strong></div>
-                    <span className="text-gray-400 text-[10px] block pt-1">
-                      {res.saved
-                        ? `Saved at ${res.savedAt || res.timestamp}`
-                        : `Sampled at ${res.timestamp}`} • {res.date || new Date().toLocaleDateString()}
-                    </span>
-                  </div>
-                ) : (
-                  <p className="text-xs text-gray-400 italic">No reading recorded for {slot}.</p>
                 )}
-
-                {isLoading ? (
-                  <button
-                    disabled
-                    className="w-full py-2 bg-teal-100 text-teal-800 font-bold text-xs rounded-lg transition opacity-75"
-                  >
-                    Reading Sensor...
-                  </button>
-                ) : res && !res.saved ? (
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleSaveNPKData(slot)}
-                      disabled={isSaving || Boolean(activeReadingSlot)}
-                      className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-xs transition disabled:opacity-50"
-                    >
-                      {isSaving ? "Saving..." : "Save Reading"}
-                    </button>
-                    <button
-                      onClick={() => handleReadNPKData(slot)}
-                      disabled={Boolean(activeReadingSlot) || isSaving}
-                      title="Re-read sensor"
-                      className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-lg transition disabled:opacity-50 shrink-0"
-                    >
-                      Re-Read
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => handleReadNPKData(slot)}
-                    disabled={Boolean(activeReadingSlot) || isSaving}
-                    className="w-full py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-lg shadow-xs transition disabled:opacity-50"
-                  >
-                    {res?.saved ? "Re-Read NPK Data" : "Read NPK Data"}
-                  </button>
-                )}
-              </div>
+              </button>
             );
           })}
         </div>
       </div>
 
-      {/* 1. Real-Time Hardware Sensor Telemetry */}
-      <div className="border border-gray-200 rounded-xl p-4 bg-gray-50/50 space-y-4">
-        <h3 className="font-bold text-gray-800 text-base">1. Real-Time Hardware Sensor Telemetry</h3>
+      {/* TAB 1: Daily Plant NPK Sampling */}
+      {activeMainTab === "sampling" && (
+        <div className="bg-white border border-gray-200/80 rounded-2xl p-6 shadow-xs space-y-5 animate-in fade-in duration-200">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-gray-100 pb-4">
+            <div className="space-y-0.5">
+              <h2 className="font-extrabold text-gray-900 text-base flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-teal-500 animate-pulse"></span>
+                Daily Orchid NPK Sampling
+              </h2>
+              <p className="text-xs text-gray-500">
+                Trigger live Nitrogen, Phosphorus, and Potassium soil telemetry from your wireless ESP32 node via MQTT.
+              </p>
+            </div>
 
-        {/* Sensor Tabs */}
-        <div className="flex space-x-2 border-b border-gray-200 pb-2">
-          {[
-            { id: "npk", label: "NPK Sensor" },
-            { id: "dht11", label: "DHT11 Temp/Humidity" },
-            { id: "bh1750", label: "BH1750 Light" },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setSensorTab(tab.id)}
-              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${sensorTab === tab.id
-                ? "bg-[#059669] text-white"
-                : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-100"
-                }`}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2.5 w-full md:w-auto">
+              <select
+                value={selectedModuleId}
+                onChange={(e) => {
+                  setSelectedModuleId(e.target.value);
+                  setSensorStatus(null);
+                }}
+                className="text-xs bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-medium focus:ring-2 focus:ring-teal-500 focus:outline-none w-full sm:w-auto shadow-xs"
+              >
+                <option value="">-- Select NPK Module --</option>
+                {modules.map((m) => (
+                  <option key={m.module_id} value={m.module_id}>
+                    {m.device_name} ({m.module_id})
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={handleCheckSensorStatus}
+                disabled={checkingStatus || !selectedModuleId}
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl transition disabled:opacity-50 shrink-0 w-full sm:w-auto shadow-xs"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${checkingStatus ? "animate-spin" : ""}`} />
+                {checkingStatus ? "Connecting..." : "Check Status"}
+              </button>
+            </div>
+          </div>
+
+          {/* Status Indicator Banner */}
+          {sensorStatus && (
+            <div
+              className={`p-3.5 rounded-xl text-xs font-medium flex items-center justify-between border ${
+                sensorStatus.online
+                  ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                  : "bg-rose-50 border-rose-200 text-rose-800"
+              }`}
             >
-              {tab.label}
-            </button>
-          ))}
+              <div className="flex items-center gap-2.5">
+                {sensorStatus.online ? (
+                  <Wifi className="w-4 h-4 text-emerald-600" />
+                ) : (
+                  <WifiOff className="w-4 h-4 text-rose-600" />
+                )}
+                <span>
+                  <strong>Module Status:</strong> {sensorStatus.online ? "Online & Ready" : "Disconnected / Offline"} (
+                  {sensorStatus.msg || (sensorStatus.online ? "Ready to sample" : "Offline")})
+                </span>
+              </div>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-white uppercase tracking-wider shadow-2xs">
+                {sensorStatus.device || (modules.find((m) => m.module_id === selectedModuleId)?.device_name) || "ESP32 Node"}
+              </span>
+            </div>
+          )}
+
+          {actionError && (
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs font-medium flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{actionError}</span>
+            </div>
+          )}
+
+          {/* NPK Time-slot Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {["morning", "afternoon", "evening"].map((slot) => {
+              const key = `npk_${slot}`;
+              const res = readingResults[key];
+              const isLoading = activeReadingSlot === key;
+              const isSaving = savingSlotKey === key;
+
+              return (
+                <div
+                  key={slot}
+                  className="p-5 bg-gradient-to-b from-white to-slate-50/50 border border-gray-200/80 rounded-2xl flex flex-col justify-between space-y-4 shadow-xs hover:border-teal-300 transition"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="capitalize font-bold text-xs text-gray-800 flex items-center gap-1.5">
+                      {getSlotIcon(slot)}
+                      {slot} Slot
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      {res && (
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            res.saved
+                              ? "bg-emerald-100 text-emerald-800"
+                              : "bg-amber-100 text-amber-800"
+                          }`}
+                        >
+                          {res.saved ? "Saved" : "Unsaved"}
+                        </span>
+                      )}
+                      <span className="text-[10px] uppercase font-bold text-teal-800 bg-teal-100/70 px-2 py-0.5 rounded-md">
+                        NPK
+                      </span>
+                    </div>
+                  </div>
+
+                  {res ? (
+                    <div className="p-3 bg-white rounded-xl border border-gray-200/60 shadow-2xs space-y-2">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-gray-500 font-medium">Nitrogen (N):</span>
+                        <span className="font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
+                          {res.n} mg/kg
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-gray-500 font-medium">Phosphorus (P):</span>
+                        <span className="font-extrabold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md">
+                          {res.p} mg/kg
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-gray-500 font-medium">Potassium (K):</span>
+                        <span className="font-extrabold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-md">
+                          {res.k} mg/kg
+                        </span>
+                      </div>
+                      <span className="text-gray-400 text-[10px] block pt-1.5 border-t border-gray-100">
+                        {res.saved
+                          ? `Saved at ${res.savedAt || res.timestamp}`
+                          : `Sampled at ${res.timestamp}`} • {res.date || "Today"}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="py-4 text-center">
+                      <p className="text-xs text-gray-400 italic">No reading recorded for {slot}.</p>
+                    </div>
+                  )}
+
+                  {isLoading ? (
+                    <button
+                      disabled
+                      className="w-full py-2.5 bg-teal-100 text-teal-800 font-bold text-xs rounded-xl transition opacity-75 flex items-center justify-center gap-2"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      Reading NPK Sensor...
+                    </button>
+                  ) : res && !res.saved ? (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleSaveNPKData(slot)}
+                        disabled={isSaving || Boolean(activeReadingSlot)}
+                        className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition disabled:opacity-50"
+                      >
+                        {isSaving ? "Saving..." : "Save to DB"}
+                      </button>
+                      <button
+                        onClick={() => handleReadNPKData(slot)}
+                        disabled={Boolean(activeReadingSlot) || isSaving}
+                        title="Re-read sensor"
+                        className="px-3.5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl transition disabled:opacity-50 shrink-0"
+                      >
+                        Re-Read
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => handleReadNPKData(slot)}
+                      disabled={Boolean(activeReadingSlot) || isSaving}
+                      className="w-full py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl shadow-xs transition disabled:opacity-50"
+                    >
+                      {res?.saved ? "Re-Read NPK Slot" : "Read Live NPK"}
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
+      )}
 
-        {/* Sensor Table */}
-        {loadingSensors ? (
-          <p className="text-gray-400 text-sm py-4">Loading sensor data...</p>
-        ) : sensorData.length === 0 ? (
-          <p className="text-gray-500 text-sm py-4">No sensor readings logged for this tab.</p>
-        ) : (
-          <div className="overflow-x-auto bg-white rounded-lg border border-gray-200">
-            <table className="w-full text-left text-sm text-[#1f2937]">
-              <thead className="bg-[#f9fafb] text-[#6b7280] uppercase text-xs border-b border-gray-200">
-                <tr>
-                  <th className="px-4 py-3">Date</th>
-                  <th className="px-4 py-3">Time</th>
-                  <th className="px-4 py-3">Time Slot</th>
-                  {sensorTab === "dht11" && (
-                    <>
-                      <th className="px-4 py-3">Temperature (°C)</th>
-                      <th className="px-4 py-3">Humidity (%)</th>
-                    </>
-                  )}
-                  {sensorTab === "bh1750" && (
-                    <th className="px-4 py-3">Light Level (Lux)</th>
-                  )}
-                  {sensorTab === "npk" && (
-                    <>
-                      <th className="px-4 py-3">Nitrogen (N)</th>
-                      <th className="px-4 py-3">Phosphorus (P)</th>
-                      <th className="px-4 py-3">Potassium (K)</th>
-                    </>
-                  )}
-                  <th className="px-4 py-3">Sensor</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#e5e7eb]">
-                {sensorData.map((row, idx) => {
-                  const sensorDeviceName =
-                    row.device_name ||
-                    modules.find((m) => m.module_id === row.module_id)?.device_name ||
-                    row.module_id ||
-                    "N/A";
+      {/* TAB 2: Hardware Sensor Telemetry History */}
+      {activeMainTab === "telemetry" && (
+        <div className="bg-white border border-gray-200/80 rounded-2xl p-6 shadow-xs space-y-5 animate-in fade-in duration-200">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-gray-100 pb-4">
+            <div>
+              <h2 className="font-extrabold text-gray-900 text-base">Historical Hardware Telemetry</h2>
+              <p className="text-xs text-gray-500">
+                Logged sensor readings for NPK nutrient levels, ambient DHT11 temperature/humidity, and BH1750 lux.
+              </p>
+            </div>
 
-                  return (
-                    <tr key={idx} className="hover:bg-slate-50">
-                      <td className="px-4 py-3 text-xs text-gray-600">
-                        {row.created_at ? new Date(row.created_at).toLocaleDateString() : "N/A"}
+            {/* Sensor Sub-Tabs */}
+            <div className="flex items-center gap-1.5 bg-gray-100 p-1 rounded-xl">
+              {[
+                { id: "npk", label: "NPK Sensor" },
+                { id: "dht11", label: "DHT11 Temp/Humidity" },
+                { id: "bh1750", label: "BH1750 Light" },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setSensorTab(tab.id)}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
+                    sensorTab === tab.id
+                      ? "bg-white text-emerald-700 shadow-xs"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Sensor Table */}
+          {loadingSensors ? (
+            <div className="p-12 text-center">
+              <div className="w-8 h-8 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+              <p className="text-gray-400 text-xs font-semibold">Loading sensor telemetry records...</p>
+            </div>
+          ) : sensorData.length === 0 ? (
+            <div className="p-12 text-center border border-dashed border-gray-200 rounded-2xl bg-gray-50/50">
+              <p className="text-gray-500 text-xs font-semibold">No telemetry records logged yet for {sensorTab.toUpperCase()}.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto rounded-xl border border-gray-200">
+              <table className="w-full text-left text-xs text-gray-700">
+                <thead className="bg-gray-50 text-gray-500 font-bold uppercase text-[11px] border-b border-gray-200">
+                  <tr>
+                    <th className="px-4 py-3.5">Date & Time</th>
+                    <th className="px-4 py-3.5">Time Slot</th>
+                    {sensorTab === "dht11" && (
+                      <>
+                        <th className="px-4 py-3.5">Temperature</th>
+                        <th className="px-4 py-3.5">Humidity</th>
+                      </>
+                    )}
+                    {sensorTab === "bh1750" && (
+                      <th className="px-4 py-3.5">Light Level</th>
+                    )}
+                    {sensorTab === "npk" && (
+                      <>
+                        <th className="px-4 py-3.5">Nitrogen (N)</th>
+                        <th className="px-4 py-3.5">Phosphorus (P)</th>
+                        <th className="px-4 py-3.5">Potassium (K)</th>
+                      </>
+                    )}
+                    <th className="px-4 py-3.5">Sensor Node</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 bg-white">
+                  {sensorData.map((row, idx) => {
+                    const sensorDeviceName =
+                      row.device_name ||
+                      modules.find((m) => m.module_id === row.module_id)?.device_name ||
+                      row.module_id ||
+                      "Node";
+
+                    return (
+                      <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-4 py-3 text-gray-600 font-medium whitespace-nowrap">
+                          {row.created_at ? (
+                            <div>
+                              <span>{new Date(row.created_at).toLocaleDateString()}</span>
+                              <span className="text-gray-400 text-[10px] block">{new Date(row.created_at).toLocaleTimeString()}</span>
+                            </div>
+                          ) : (
+                            "N/A"
+                          )}
+                        </td>
+                        <td className="px-4 py-3 capitalize font-semibold text-gray-700">
+                          {row.time_slot || "N/A"}
+                        </td>
+
+                        {sensorTab === "dht11" && (
+                          <>
+                            <td className="px-4 py-3 font-bold text-rose-600">
+                              <span className="bg-rose-50 px-2 py-0.5 rounded-md">{row.temperature} °C</span>
+                            </td>
+                            <td className="px-4 py-3 font-bold text-sky-600">
+                              <span className="bg-sky-50 px-2 py-0.5 rounded-md">{row.humidity} %</span>
+                            </td>
+                          </>
+                        )}
+
+                        {sensorTab === "bh1750" && (
+                          <td className="px-4 py-3 font-bold text-amber-600">
+                            <span className="bg-amber-50 px-2 py-0.5 rounded-md">{row.lux} Lux</span>
+                          </td>
+                        )}
+
+                        {sensorTab === "npk" && (
+                          <>
+                            <td className="px-4 py-3 font-bold text-emerald-700">
+                              <span className="bg-emerald-50 px-2 py-0.5 rounded-md">{row.nitrogen_n} mg/kg</span>
+                            </td>
+                            <td className="px-4 py-3 font-bold text-amber-700">
+                              <span className="bg-amber-50 px-2 py-0.5 rounded-md">{row.phosphorus_p} mg/kg</span>
+                            </td>
+                            <td className="px-4 py-3 font-bold text-rose-700">
+                              <span className="bg-rose-50 px-2 py-0.5 rounded-md">{row.potassium_k} mg/kg</span>
+                            </td>
+                          </>
+                        )}
+
+                        <td className="px-4 py-3 font-medium text-gray-500">
+                          <span className="inline-flex items-center gap-1 bg-gray-100 px-2 py-0.5 rounded text-[11px]">
+                            <Cpu className="w-3 h-3 text-indigo-500" />
+                            {sensorDeviceName}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Pagination */}
+          <div className="flex justify-between items-center pt-2 text-xs">
+            <span className="text-gray-500">
+              Page <strong>{sensorPage}</strong> of <strong>{sensorTotalPages}</strong> ({sensorTotal} records)
+            </span>
+            <div className="flex items-center gap-1.5">
+              <button
+                disabled={sensorPage === 1}
+                onClick={() => setSensorPage((p) => Math.max(p - 1, 1))}
+                className="inline-flex items-center gap-1 px-3 py-1.5 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 disabled:opacity-40 transition font-medium"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+                Previous
+              </button>
+              <button
+                disabled={sensorPage >= sensorTotalPages}
+                onClick={() => setSensorPage((p) => p + 1)}
+                className="inline-flex items-center gap-1 px-3 py-1.5 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 disabled:opacity-40 transition font-medium"
+              >
+                Next
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: Diagnostic & Algorithmic System Outputs */}
+      {activeMainTab === "diagnostics" && (
+        <div className="bg-white border border-gray-200/80 rounded-2xl p-6 shadow-xs space-y-5 animate-in fade-in duration-200">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-gray-100 pb-4">
+            <div>
+              <h2 className="font-extrabold text-gray-900 text-base">AI Diagnostic & Prediction Records</h2>
+              <p className="text-xs text-gray-500">
+                Historical records of YOLO leaf disease detections, XGBoost fertilizer recommendations, and blooming forecasts.
+              </p>
+            </div>
+
+            {/* Diagnostic Sub-Tabs */}
+            <div className="flex items-center gap-1.5 bg-gray-100 p-1 rounded-xl">
+              {[
+                { id: "disease", label: "Disease AI" },
+                { id: "fertilizer", label: "Fertilizer Schedule" },
+                { id: "bloom", label: "Bloom Predictions" },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setOutputTab(tab.id)}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
+                    outputTab === tab.id
+                      ? "bg-white text-emerald-700 shadow-xs"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {loadingOutputs ? (
+            <div className="p-12 text-center">
+              <div className="w-8 h-8 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+              <p className="text-gray-400 text-xs font-semibold">Loading diagnostic history...</p>
+            </div>
+          ) : outputData.length === 0 ? (
+            <div className="p-12 text-center border border-dashed border-gray-200 rounded-2xl bg-gray-50/50">
+              <p className="text-gray-500 text-xs font-semibold">No records found for {outputTab.toUpperCase()}.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto rounded-xl border border-gray-200">
+              <table className="w-full text-left text-xs text-gray-700">
+                <thead className="bg-gray-50 text-gray-500 font-bold uppercase text-[11px] border-b border-gray-200">
+                  <tr>
+                    <th className="px-4 py-3.5">Date & Time</th>
+                    <th className="px-4 py-3.5">Diagnosis / Schedule</th>
+                    <th className="px-4 py-3.5">Confidence</th>
+                    <th className="px-4 py-3.5">Verdict Status</th>
+                    <th className="px-4 py-3.5">Result Artifact</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 bg-white">
+                  {outputData.map((row, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-4 py-3 text-gray-600 font-medium whitespace-nowrap">
+                        {row.created_at ? (
+                          <div>
+                            <span>{new Date(row.created_at).toLocaleDateString()}</span>
+                            <span className="text-gray-400 text-[10px] block">{new Date(row.created_at).toLocaleTimeString()}</span>
+                          </div>
+                        ) : (
+                          "N/A"
+                        )}
                       </td>
-                      <td className="px-4 py-3 text-xs text-gray-600">
-                        {row.created_at ? new Date(row.created_at).toLocaleTimeString() : "N/A"}
+
+                      {/* Output Details */}
+                      <td className="px-4 py-3 font-bold text-gray-900">
+                        {outputTab === "disease" && (row.disease_name || "N/A")}
+                        {outputTab === "fertilizer" && `${row.fertilizer || "N/A"} (${row.qty || 0} ${row.unit || ""})`}
+                        {outputTab === "bloom" && (row.weeks ? `${row.weeks} Weeks` : (row.bloom_status || row.prediction || "N/A"))}
                       </td>
-                      <td className="px-4 py-3 text-xs capitalize text-gray-600">
-                        {row.time_slot || "N/A"}
+
+                      {/* Confidence */}
+                      <td className="px-4 py-3 font-semibold text-gray-700">
+                        {row.confidence !== undefined && row.confidence !== null ? (
+                          <span className="inline-flex items-center gap-1 bg-gray-100 px-2 py-0.5 rounded text-[11px] font-bold">
+                            {row.confidence}%
+                          </span>
+                        ) : (
+                          "N/A"
+                        )}
                       </td>
 
-                      {sensorTab === "dht11" && (
-                        <>
-                          <td className="px-4 py-3 font-semibold text-rose-600">{row.temperature} °C</td>
-                          <td className="px-4 py-3 font-semibold text-sky-600">{row.humidity} %</td>
-                        </>
-                      )}
+                      {/* Verdict */}
+                      <td className="px-4 py-3">
+                        {outputTab === "disease" ? (
+                          <span
+                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                              row.verdict === "HEALTHY"
+                                ? "bg-emerald-100 text-emerald-800"
+                                : "bg-rose-100 text-rose-800"
+                            }`}
+                          >
+                            {row.verdict === "HEALTHY" ? <CheckCircle2 className="w-3.5 h-3.5" /> : null}
+                            {row.verdict || "N/A"}
+                          </span>
+                        ) : (
+                          <span className="px-2.5 py-0.5 bg-gray-100 text-gray-700 rounded-full font-semibold text-xs capitalize">
+                            {row.status || row.verdict || "Completed"}
+                          </span>
+                        )}
+                      </td>
 
-                      {sensorTab === "bh1750" && (
-                        <td className="px-4 py-3 font-semibold text-amber-600">{row.lux} Lux</td>
-                      )}
-
-                      {sensorTab === "npk" && (
-                        <>
-                          <td className="px-4 py-3 font-semibold text-emerald-700">{row.nitrogen_n} mg/kg</td>
-                          <td className="px-4 py-3 font-semibold text-amber-700">{row.phosphorus_p} mg/kg</td>
-                          <td className="px-4 py-3 font-semibold text-rose-700">{row.potassium_k} mg/kg</td>
-                        </>
-                      )}
-
-                      <td className="px-4 py-3 text-xs font-medium text-gray-700">
-                        {sensorDeviceName}
+                      {/* Annotated Image */}
+                      <td className="px-4 py-3">
+                        {row.result_image_b64 ? (
+                          <button
+                            onClick={() => setSelectedImage(`data:image/jpeg;base64,${row.result_image_b64}`)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-sky-50 text-sky-700 hover:bg-sky-100 rounded-lg text-xs font-bold border border-sky-200/60 transition"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            Preview Image
+                          </button>
+                        ) : (
+                          <span className="text-gray-400 text-xs">No image</span>
+                        )}
                       </td>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
 
-        <div className="flex justify-between items-center pt-2 text-xs">
-          <span className="text-gray-500">
-            Page <strong>{sensorPage}</strong> of <strong>{sensorTotalPages}</strong> ({sensorTotal} items)
-          </span>
-          <div className="space-x-2">
-            <button
-              disabled={sensorPage === 1}
-              onClick={() => setSensorPage((p) => Math.max(p - 1, 1))}
-              className="px-3 py-1 bg-white border text-gray-700 rounded hover:bg-gray-100 disabled:opacity-50"
-            >
-              ← Previous
-            </button>
-            <button
-              disabled={sensorPage >= sensorTotalPages}
-              onClick={() => setSensorPage((p) => p + 1)}
-              className="px-3 py-1 bg-white border text-gray-700 rounded hover:bg-gray-100 disabled:opacity-50"
-            >
-              Next →
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* 2. Diagnostic & Algorithmic System Outputs */}
-      <div className="border border-gray-200 rounded-xl p-4 bg-gray-50/50 space-y-4">
-        <h3 className="font-bold text-gray-800 text-base">Diagnostic & Algorithmic System Outputs</h3>
-
-        <div className="flex space-x-2 border-b border-gray-200 pb-2">
-          {[
-            { id: "disease", label: "Disease AI Outputs" },
-            { id: "fertilizer", label: "Fertilizer Schedule" },
-            { id: "bloom", label: "Bloom Predictions" },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setOutputTab(tab.id)}
-              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${outputTab === tab.id
-                ? "bg-[#059669] text-white"
-                : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-100"
-                }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {loadingOutputs ? (
-          <p className="text-gray-400 text-sm py-4">Loading outputs...</p>
-        ) : outputData.length === 0 ? (
-          <p className="text-gray-500 text-sm py-4">No diagnostic history logged for this tab.</p>
-        ) : (
-          <div className="overflow-x-auto bg-white rounded-lg border border-gray-200">
-            <table className="w-full text-left text-sm text-[#1f2937]">
-              <thead className="bg-[#f9fafb] text-[#6b7280] uppercase text-xs border-b border-gray-200">
-                <tr>
-                  <th className="px-4 py-3">Date</th>
-                  <th className="px-4 py-3">Time</th>
-                  <th className="px-4 py-3">Output</th>
-                  <th className="px-4 py-3">Confidence</th>
-                  <th className="px-4 py-3">Verdict</th>
-                  <th className="px-4 py-3">Annotated Image</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#e5e7eb]">
-                {outputData.map((row, idx) => (
-                  <tr key={idx} className="hover:bg-slate-50">
-                    <td className="px-4 py-3 text-xs text-gray-600">
-                      {row.created_at ? new Date(row.created_at).toLocaleDateString() : "N/A"}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-gray-600">
-                      {row.created_at ? new Date(row.created_at).toLocaleTimeString() : "N/A"}
-                    </td>
-
-                    {/* Output */}
-                    <td className="px-4 py-3 font-semibold text-gray-800">
-                      {outputTab === "disease" && (row.disease_name || "N/A")}
-                      {outputTab === "fertilizer" && `${row.fertilizer || "N/A"} (${row.qty || 0} ${row.unit || ""})`}
-                      {outputTab === "bloom" && (row.weeks ? `${row.weeks} Weeks` : (row.bloom_status || row.prediction || "N/A"))}
-                    </td>
-
-                    {/* Confidence */}
-                    <td className="px-4 py-3 font-bold text-gray-700">
-                      {row.confidence !== undefined && row.confidence !== null ? `${row.confidence}%` : "N/A"}
-                    </td>
-
-                    {/* Verdict */}
-                    <td className="px-4 py-3">
-                      {outputTab === "disease" ? (
-                        <span
-                          className={`px-2 py-1 rounded text-xs font-bold ${row.verdict === "HEALTHY"
-                            ? "bg-emerald-100 text-emerald-800"
-                            : "bg-rose-100 text-rose-800"
-                            }`}
-                        >
-                          {row.verdict || "N/A"}
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded font-semibold text-xs capitalize">
-                          {row.status || row.verdict || "Completed"}
-                        </span>
-                      )}
-                    </td>
-
-                    {/* Annotated Image */}
-                    <td className="px-4 py-3">
-                      {row.result_image_b64 ? (
-                        <button
-                          onClick={() => setSelectedImage(`data:image/jpeg;base64,${row.result_image_b64}`)}
-                          className="px-2 py-1 bg-sky-100 text-sky-700 rounded text-xs font-semibold hover:bg-sky-200"
-                        >
-                          Preview Image
-                        </button>
-                      ) : (
-                        <span className="text-gray-400 text-xs">No Image</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        <div className="flex justify-between items-center pt-2 text-xs">
-          <span className="text-gray-500">
-            Page <strong>{outputPage}</strong> of <strong>{outputTotalPages}</strong> ({outputTotal} items)
-          </span>
-          <div className="space-x-2">
-            <button
-              disabled={outputPage === 1}
-              onClick={() => setOutputPage((p) => Math.max(p - 1, 1))}
-              className="px-3 py-1 bg-white border text-gray-700 rounded hover:bg-gray-100 disabled:opacity-50"
-            >
-              ← Previous
-            </button>
-            <button
-              disabled={outputPage >= outputTotalPages}
-              onClick={() => setOutputPage((p) => p + 1)}
-              className="px-3 py-1 bg-white border text-gray-700 rounded hover:bg-gray-100 disabled:opacity-50"
-            >
-              Next →
-            </button>
+          {/* Pagination */}
+          <div className="flex justify-between items-center pt-2 text-xs">
+            <span className="text-gray-500">
+              Page <strong>{outputPage}</strong> of <strong>{outputTotalPages}</strong> ({outputTotal} records)
+            </span>
+            <div className="flex items-center gap-1.5">
+              <button
+                disabled={outputPage === 1}
+                onClick={() => setOutputPage((p) => Math.max(p - 1, 1))}
+                className="inline-flex items-center gap-1 px-3 py-1.5 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 disabled:opacity-40 transition font-medium"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+                Previous
+              </button>
+              <button
+                disabled={outputPage >= outputTotalPages}
+                onClick={() => setOutputPage((p) => p + 1)}
+                className="inline-flex items-center gap-1 px-3 py-1.5 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 disabled:opacity-40 transition font-medium"
+              >
+                Next
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Image Modal */}
+      {/* Image Preview Modal */}
       {selectedImage && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
-          <div className="bg-white p-4 rounded-xl max-w-2xl w-full">
-            <div className="flex justify-between items-center mb-2">
-              <h3 className="font-bold text-gray-800">YOLO Disease Detection Result</h3>
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
+          <div className="bg-white p-5 rounded-2xl max-w-2xl w-full shadow-2xl space-y-3">
+            <div className="flex justify-between items-center border-b border-gray-100 pb-3">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-emerald-600" />
+                <h3 className="font-extrabold text-gray-900 text-sm">YOLO Disease Detection Result</h3>
+              </div>
               <button
                 onClick={() => setSelectedImage(null)}
-                className="text-gray-500 font-bold hover:text-gray-800 text-lg"
+                className="w-7 h-7 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 text-sm font-bold flex items-center justify-center"
               >
                 ✕
               </button>
             </div>
-            <img src={selectedImage} alt="Annotated Leaf" className="w-full rounded-lg border max-h-[70vh] object-contain" />
+            <div className="rounded-xl overflow-hidden bg-black/5 flex items-center justify-center p-2">
+              <img
+                src={selectedImage}
+                alt="Annotated Orchid Leaf"
+                className="w-full rounded-lg max-h-[70vh] object-contain shadow-sm"
+              />
+            </div>
           </div>
         </div>
       )}
