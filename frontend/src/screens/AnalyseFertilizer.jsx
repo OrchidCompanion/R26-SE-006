@@ -47,10 +47,22 @@ export default function AnalyseFertilizer({ selectedPlant, selectedUser, onBack 
         body: formData,
       });
 
-      const data = await res.json();
+      let data;
+      const text = await res.text();
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = { detail: text || "Fertilizer analysis failed." };
+      }
 
       if (!res.ok) {
-        throw new Error(data.detail || "Fertilizer analysis failed.");
+        const errorMsg =
+          typeof data.detail === "string"
+            ? data.detail
+            : Array.isArray(data.detail)
+            ? data.detail.map((d) => d.msg || JSON.stringify(d)).join(", ")
+            : data.message || `Error ${res.status}: Fertilizer analysis failed.`;
+        throw new Error(errorMsg);
       }
 
       setAnalysisResult(data);
