@@ -211,10 +211,8 @@ def trigger_mqtt_npk_read(module_id: str, timeout_seconds: float = 6.0) -> Optio
     prev_time = latest_npk_readings.get(clean_mac, {}).get("timestamp")
 
     cmd = json.dumps({"action": "read_npk"})
-    print(f"[MQTT] Publishing read_npk command to orchid/{clean_mac}/command and orchid/npk/{clean_mac}/command...")
-    _client.publish(f"orchid/{clean_mac}/command", cmd)
+    print(f"[MQTT] Publishing read_npk command to orchid/npk/{clean_mac}/command...")
     _client.publish(f"orchid/npk/{clean_mac}/command", cmd)
-    _client.publish("orchid/commands/npk", cmd)
 
     start = time.time()
     while time.time() - start < timeout_seconds:
