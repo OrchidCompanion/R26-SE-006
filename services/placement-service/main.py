@@ -35,6 +35,7 @@ from mqtt_hub import (
     clear_session_readings,
     latest_readings,
     latest_npk_readings,
+    is_recently_active,
 )
 from ws_manager import ws_manager
 from placement_evaluator import evaluate_placement
