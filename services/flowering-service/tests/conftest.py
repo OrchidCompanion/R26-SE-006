@@ -11,19 +11,9 @@ if str(SERVICE_ROOT) not in sys.path:
 
 
 @pytest.fixture(autouse=True)
-def disable_external_services(monkeypatch):
-    """Disable MQTT subscriber and ML model preloading during unit tests."""
+def disable_mqtt(monkeypatch):
+    """Disable MQTT subscriber background thread across all tests."""
     monkeypatch.setenv("ENABLE_MQTT", "false")
     with patch("mqtt_consumer.start_mqtt_subscriber"):
-        with patch("model_service.load_bloom_models", return_value=(None, None)):
-            yield
+        yield
 
-
-@pytest.fixture
-def client():
-    """FastAPI TestClient fixture."""
-    # pyrefly: ignore[missing-import]
-    from fastapi.testclient import TestClient
-    from main import app
-    with TestClient(app) as test_client:
-        yield test_client

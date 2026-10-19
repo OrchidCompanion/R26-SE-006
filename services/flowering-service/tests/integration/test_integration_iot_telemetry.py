@@ -8,6 +8,9 @@ from main import app, evaluate_environmental_conditions
 from database import save_sensor_reading, get_sensor_statistics
 from mqtt_consumer import on_connect, on_message
 
+pytestmark = pytest.mark.integration
+
+
 
 def _create_synthetic_jpeg_bytes() -> io.BytesIO:
     """Helper to generate a valid JPEG photo in memory for testing multi-angle uploads."""

@@ -11,6 +11,9 @@ from database import (
     get_sensor_statistics,
 )
 
+pytestmark = pytest.mark.unit
+
+
 
 def test_get_db_offline_yields_none():
     """Verify get_db context manager yields None when database pool is None."""

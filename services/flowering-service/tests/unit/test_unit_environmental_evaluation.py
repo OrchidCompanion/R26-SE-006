@@ -1,6 +1,9 @@
 import pytest
 from main import evaluate_environmental_conditions
 
+pytestmark = pytest.mark.unit
+
+
 
 def test_evaluate_environmental_all_optimal():
     """Verify recommendation and status when all 3 factors are within optimal range."""

@@ -4,6 +4,9 @@ import pytest
 
 from mqtt_consumer import on_connect, on_message, start_mqtt_subscriber
 
+pytestmark = pytest.mark.unit
+
+
 
 def test_on_connect_subscribes_on_success():
     """Verify topic subscriptions are registered when rc == 0."""

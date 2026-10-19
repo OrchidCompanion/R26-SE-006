@@ -15,6 +15,9 @@ from model_service import (
     load_bloom_models,
 )
 
+pytestmark = pytest.mark.unit
+
+
 
 def test_constants_and_stage_mappings():
     """Verify standard biological stages and pipeline mappings."""

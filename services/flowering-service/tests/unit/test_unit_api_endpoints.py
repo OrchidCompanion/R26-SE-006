@@ -3,6 +3,9 @@ from unittest.mock import patch, MagicMock
 import pytest
 from PIL import Image
 
+pytestmark = pytest.mark.unit
+
+
 
 def _create_synthetic_jpeg_bytes() -> io.BytesIO:
     """Helper to generate valid JPEG image in memory."""
