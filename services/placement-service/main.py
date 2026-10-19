@@ -179,7 +179,13 @@ async def check_module_status(module_id: str):
             }
 
     if is_npk:
-        mqtt_live = trigger_mqtt_npk_read(clean_id, timeout_seconds=3.5)
+        # If module has a recent status/reading (within 180s), return immediately
+        status_info = get_sensor_module_status(clean_id, is_npk=True)
+        if status_info.get("online"):
+            return status_info
+
+        # Otherwise trigger a live MQTT read
+        mqtt_live = trigger_mqtt_npk_read(clean_id, timeout_seconds=5.0)
         if mqtt_live and "nitrogen_n" in mqtt_live:
             return {
                 "module_id": clean_id,
@@ -335,7 +341,7 @@ async def trigger_live_npk_read(module_id: str):
             raise HTTPException(status_code=500, detail=str(e))
 
     # Trigger live NPK read over MQTT
-    mqtt_npk = trigger_mqtt_npk_read(clean_id, timeout_seconds=4.0)
+    mqtt_npk = trigger_mqtt_npk_read(clean_id, timeout_seconds=6.0)
     if mqtt_npk and "nitrogen_n" in mqtt_npk:
         return {
             "nitrogen_n": float(mqtt_npk["nitrogen_n"]),
@@ -343,6 +349,18 @@ async def trigger_live_npk_read(module_id: str):
             "potassium_k": float(mqtt_npk["potassium_k"]),
             "module_id": clean_id,
             "timestamp": mqtt_npk.get("timestamp", datetime.now(timezone.utc).isoformat()),
+        }
+
+    # Fallback to recent cached reading if available (within 180s)
+    cached = latest_npk_readings.get(clean_id)
+    if cached and is_recently_active(cached.get("timestamp"), max_age_seconds=180.0) and "nitrogen_n" in cached:
+        return {
+            "nitrogen_n": float(cached["nitrogen_n"]),
+            "phosphorus_p": float(cached["phosphorus_p"]),
+            "potassium_k": float(cached["potassium_k"]),
+            "module_id": clean_id,
+            "timestamp": cached.get("timestamp", datetime.now(timezone.utc).isoformat()),
+            "cached": True,
         }
 
     # If neither WebSocket nor MQTT responded, raise error
