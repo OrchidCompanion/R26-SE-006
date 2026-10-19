@@ -164,7 +164,7 @@ export default function IdentifySpeciesScreen() {
     });
 
     try {
-      const res = await fetch(`${API_BASE_URL}/species/identify`, {
+      const res = await fetch(`${API_BASE_URL}/species/identify?conf_threshold=${CONFIDENCE_THRESHOLD}`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,

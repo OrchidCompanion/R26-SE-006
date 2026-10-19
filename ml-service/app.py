@@ -158,7 +158,7 @@ def health():
     return {"status": "running", "service": "Unified ML Service"}
 
 @app.post("/predict/species")
-async def predict_species(files: List[UploadFile] = File(...), conf_threshold: float = 0.35):
+async def predict_species(files: List[UploadFile] = File(...), conf_threshold: float = 0.60):
     model = get_species_model()
     if not files:
         raise HTTPException(status_code=400, detail="No files uploaded.")
@@ -172,6 +172,11 @@ async def predict_species(files: List[UploadFile] = File(...), conf_threshold: f
 
         preds = model.predict(source=pil_image, conf=conf_threshold, imgsz=640)
         result = preds[0]
+
+        # Explicitly filter boxes so only detections meeting the threshold are drawn on the image and returned
+        if result.boxes is not None and len(result.boxes) > 0:
+            result = result[result.boxes.conf >= conf_threshold]
+
         boxes = result.boxes
 
         detections = []
