@@ -22,14 +22,6 @@ TARGET_RATIOS = {
         "frequency": "Every 7 days",
         "notes": "Balanced ratio prepares mature pseudobulbs for flower spike initiation.",
     },
-    "Spike": {
-        "ratio_str": "20-20-20",
-        "n": 20.0,
-        "p": 20.0,
-        "k": 20.0,
-        "frequency": "Every 7 days",
-        "notes": "Supports healthy elongation of nascent flower spikes.",
-    },
     "Matured": {
         "ratio_str": "6-30-30",
         "n": 6.0,
@@ -38,22 +30,15 @@ TARGET_RATIOS = {
         "frequency": "Every 10–14 days",
         "notes": "High Phosphorus & Potassium booster promotes vibrant, long-lasting blossoms.",
     },
-    "Flowering": {
-        "ratio_str": "6-30-30",
-        "n": 6.0,
-        "p": 30.0,
-        "k": 30.0,
-        "frequency": "Every 14 days",
-        "notes": "Mild feeding to sustain bloom longevity without burning flower petals.",
-    },
-    "Seedling": {
-        "ratio_str": "10-10-10",
-        "n": 10.0,
-        "p": 10.0,
-        "k": 10.0,
-        "frequency": "Every 14 days (half strength)",
-        "notes": "Gentle, balanced feeding for delicate developing root systems.",
-    },
+}
+
+STAGE_ALIASES = {
+    "vegetative": "Vegetative",
+    "preflowering": "Pre Flowering",
+    "pre-flowering": "Pre Flowering",
+    "pre flowering": "Pre Flowering",
+    "matured": "Matured",
+    "mature": "Matured",
 }
 
 RATIO_TOLERANCE_PCT = 5.0
@@ -75,9 +60,14 @@ def evaluate_npk(
 ) -> Dict[str, Any]:
     """
     Evaluates NPK sensor readings against target fertilizer formulations
-    for the detected Dendrobium orchid growth stage.
+    for the detected Dendrobium orchid growth stage (Vegetative, Pre Flowering, or Matured).
     """
-    matched_stage = stage if stage in TARGET_RATIOS else "Vegetative"
+    stage_str = str(stage).strip() if stage is not None else ""
+    if stage_str in TARGET_RATIOS:
+        matched_stage = stage_str
+    else:
+        matched_stage = STAGE_ALIASES.get(stage_str.lower(), "Vegetative")
+
     target = TARGET_RATIOS[matched_stage]
 
     n_val = float(nitrogen)
