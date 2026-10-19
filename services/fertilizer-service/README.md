@@ -2,7 +2,7 @@
 
 This microservice handles **Leaf Physical Dimension Measurement**, **Botanical Growth Stage Classification**, and **Stage-Specific NPK Fertilizer Balancing** for Dendrobium orchids:
 - **Leaf & Coin Segmentation (YOLO)**: Detects the orchid leaf and a 2.3 cm reference coin to compute accurate real-world dimensions (length, width, surface area in cm²).
-- **Growth Stage Prediction**: Classifies plant lifecycle stage (Seedling, Vegetative, Pre Flowering, Matured, Flowering) based on physical dimensions and leaf count.
+- **Growth Stage Prediction**: Classifies plant lifecycle stage (Vegetative, Pre Flowering, Matured) based on physical dimensions and leaf count.
 - **NPK Formulation & Dosage Balancing**: Compares relative soil nutrient balance against stage targets (30-10-10 vegetative, 20-20-20 pre-flowering, 6-30-30 bloom booster) to output precise adjustment recommendations.
 - **MQTT Telemetry Integration**: Subscribes to live soil NPK readings from the ESP32-S3 NPK Module.
 
