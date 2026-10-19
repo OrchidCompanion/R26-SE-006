@@ -152,10 +152,10 @@ def on_message(client, userdata, msg):
             )
             print(f"[MQTT] Ambient reading recorded for {clean_mac} (sample {sample_data['sample_index']}/{sample_data['total_samples']}): T={temp}°C, H={hum}%, L={lux} Lux, buffered={sample_data['buffered']}")
 
-        # Handle NPK sensor telemetry
-        n = payload.get("nitrogen") or payload.get("nitrogen_n")
-        p = payload.get("phosphorus") or payload.get("phosphorus_p")
-        k = payload.get("potassium") or payload.get("potassium_k")
+        # Handle NPK sensor telemetry (safely handle 0 values)
+        n = payload.get("nitrogen") if payload.get("nitrogen") is not None else payload.get("nitrogen_n")
+        p = payload.get("phosphorus") if payload.get("phosphorus") is not None else payload.get("phosphorus_p")
+        k = payload.get("potassium") if payload.get("potassium") is not None else payload.get("potassium_k")
         if n is not None and p is not None and k is not None:
             latest_npk_readings[clean_mac] = {
                 "nitrogen_n": float(n),
@@ -227,6 +227,22 @@ def trigger_mqtt_npk_read(module_id: str, timeout_seconds: float = 6.0) -> Optio
         return curr
 
     return None
+
+
+def send_mqtt_ping(module_id: str) -> bool:
+    """Publishes a ping command over MQTT to wake up / trigger feedback on the hardware node."""
+    global _client
+    if not _client or not _client.is_connected():
+        return False
+
+    clean_mac = normalize_mac(module_id)
+    cmd = json.dumps({"action": "ping"})
+    _client.publish(f"orchid/{clean_mac}/command", cmd)
+    _client.publish(f"orchid/npk/{clean_mac}/command", cmd)
+    _client.publish("orchid/commands/npk", cmd)
+    _client.publish("orchid/commands/env", cmd)
+    print(f"[MQTT] Dispatched ping to {clean_mac}")
+    return True
 
 
 def trigger_mqtt_session(module_id: str, samples: int = 3, interval_sec: int = 20) -> bool:

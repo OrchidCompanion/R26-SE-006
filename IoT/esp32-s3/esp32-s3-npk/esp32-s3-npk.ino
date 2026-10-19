@@ -98,15 +98,24 @@ void flashErrorAct() {
 }
 
 // LCD UI HELPER FUNCTIONS
+// Correct HD44780 DDRAM offsets for 16x4 LCD: row 0=0x00, row 1=0x40, row 2=0x10, row 3=0x50.
+// Standard LiquidCrystal_I2C uses 20x4 offsets (0x14, 0x54) which shifts rows 2 & 3 right by 4 characters.
+void setLcdCursor(uint8_t col, uint8_t row) {
+  const uint8_t row_offsets[] = { 0x00, 0x40, 0x10, 0x50 };
+  if (row >= 4) row = 3;
+  if (col >= 16) col = 15;
+  lcd.command(0x80 | (col + row_offsets[row]));
+}
+
 void showIdleScreen() {
   lcd.clear();
-  lcd.setCursor(0, 0);
+  setLcdCursor(0, 0);
   lcd.print("ORCHID COMPANION");
-  lcd.setCursor(0, 1);
+  setLcdCursor(2, 1);
   lcd.print("Waiting for");
-  lcd.setCursor(0, 2);
+  setLcdCursor(4, 2);
   lcd.print("Commands");
-  lcd.setCursor(0, 3);
+  setLcdCursor(1, 3);
   lcd.print("Status: ONLINE");
 }
 
@@ -236,14 +245,14 @@ void collectAndSendNPK() {
 
   // Update LCD to indicate reading in progress
   lcd.clear();
-  lcd.setCursor(0, 0);
+  setLcdCursor(0, 0);
   lcd.print("ORCHID COMPANION");
-  lcd.setCursor(0, 1);
+  setLcdCursor(0, 1);
   lcd.print("Reading NPK Soil");
-  lcd.setCursor(0, 2);
+  setLcdCursor(0, 2);
   lcd.print("Sampling Probe..");
-  lcd.setCursor(0, 3);
-  lcd.print("ID: " + macAddress.substring(0, 8) + "...");
+  setLcdCursor(0, 3);
+  lcd.print("ID: " + macAddress.substring(0, 12));
 
   int n = readNitrogen();
   delay(80);
@@ -266,13 +275,13 @@ void collectAndSendNPK() {
 
   // Update LCD with reading status indicator (no raw values displayed)
   lcd.clear();
-  lcd.setCursor(0, 0);
+  setLcdCursor(0, 0);
   lcd.print("ORCHID COMPANION");
-  lcd.setCursor(0, 1);
+  setLcdCursor(0, 1);
   lcd.print(sensor_ok ? "NPK: SAMPLING OK" : "NPK: NO PROBE   ");
-  lcd.setCursor(0, 2);
+  setLcdCursor(0, 2);
   lcd.print("Soil: SAMPLED   ");
-  lcd.setCursor(0, 3);
+  setLcdCursor(0, 3);
   lcd.print(WiFi.status() == WL_CONNECTED && mqttClient.connected() ? "Status: ONLINE  " : "Status: BUFFERED");
 
   // Publish to MQTT if connected
@@ -365,12 +374,34 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   // Immediate status reply to confirm device is reachable
   sendStatusHeartbeat(true);
 
-  if (strcmp(action, "read_npk") == 0 || 
-      strcmp(action, "read_sensors") == 0 || 
-      strcmp(action, "read_now") == 0 ||
-      strcmp(action, "health_check") == 0 || 
+  if (strcmp(action, "ping") == 0 ||
+      strcmp(action, "health_check") == 0 ||
       strcmp(action, "status") == 0 ||
       strcmp(action, "check_status") == 0) {
+    ledActOn();
+    setRGB_Violet(); // Violet: Cloud ping received
+    
+    // Display ping confirmation on LCD
+    lcd.clear();
+    setLcdCursor(0, 0);
+    lcd.print("ORCHID COMPANION");
+    setLcdCursor(1, 1);
+    lcd.print("Ping Received");
+    setLcdCursor(1, 2);
+    lcd.print("Status: ONLINE");
+    setLcdCursor(2, 3);
+    lcd.print("Probe: READY");
+
+    delay(1500);
+    ledActOff();
+    setRGB_SoftGreen();
+    showIdleScreen();
+    return;
+  }
+
+  if (strcmp(action, "read_npk") == 0 || 
+      strcmp(action, "read_sensors") == 0 || 
+      strcmp(action, "read_now") == 0) {
     collectAndSendNPK();
   }
 }
@@ -389,9 +420,9 @@ void reconnectMQTT() {
 
     // 6. "Connecting to Server"
     lcd.clear();
-    lcd.setCursor(1, 1);
+    setLcdCursor(1, 1);
     lcd.print("Connecting to");
-    lcd.setCursor(3, 2);
+    setLcdCursor(3, 2);
     lcd.print("Server...");
 
     String clientId = "ESP32-NPK-" + macAddress;
@@ -410,9 +441,9 @@ void reconnectMQTT() {
 
       // 7. "Connection Successful"
       lcd.clear();
-      lcd.setCursor(3, 1);
+      setLcdCursor(3, 1);
       lcd.print("Connection");
-      lcd.setCursor(3, 2);
+      setLcdCursor(3, 2);
       lcd.print("Successful");
       delay(1500);
 
@@ -489,15 +520,15 @@ void setup() {
 
   // 1. "Powering ON..."
   lcd.clear();
-  lcd.setCursor(1, 1);
+  setLcdCursor(1, 1);
   lcd.print("Powering ON...");
   delay(1200);
 
   // 2. "Welcome to Orchid Companion"
   lcd.clear();
-  lcd.setCursor(3, 1);
+  setLcdCursor(3, 1);
   lcd.print("Welcome to");
-  lcd.setCursor(0, 2);
+  setLcdCursor(0, 2);
   lcd.print("Orchid Companion");
   delay(1800);
 
@@ -519,9 +550,9 @@ void setup() {
 
   // 3. "MAC Address : "
   lcd.clear();
-  lcd.setCursor(0, 1);
+  setLcdCursor(1, 1);
   lcd.print("MAC Address :");
-  lcd.setCursor(2, 2);
+  setLcdCursor(2, 2);
   lcd.print(macAddress);
   delay(2000);
 
@@ -533,9 +564,9 @@ void setup() {
 
   // 4. "Connecting to Wifi"
   lcd.clear();
-  lcd.setCursor(1, 1);
+  setLcdCursor(1, 1);
   lcd.print("Connecting to");
-  lcd.setCursor(5, 2);
+  setLcdCursor(4, 2);
   lcd.print("Wifi...");
   setRGB_Cyan();
   Serial.print("[Wi-Fi] Connecting to Wi-Fi");
@@ -552,7 +583,7 @@ void setup() {
 
   // 5. "Wifi Connected"
   lcd.clear();
-  lcd.setCursor(1, 1);
+  setLcdCursor(1, 1);
   lcd.print("Wifi Connected");
   delay(1200);
 
