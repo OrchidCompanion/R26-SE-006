@@ -186,7 +186,32 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
       );
 
       if (res.ok) {
-        setSensorStatus(await res.json());
+        const data = await res.json();
+        setSensorStatus(data);
+
+        // If sensor responded with live reading, populate slot if empty
+        if (data.latest_reading && "nitrogen_n" in data.latest_reading) {
+          const lr = data.latest_reading;
+          const currentHour = new Date().getHours();
+          const autoSlot = currentHour < 12 ? "morning" : currentHour < 17 ? "afternoon" : "evening";
+          const slotKey = `npk_${autoSlot}`;
+          setReadingResults((prev) => {
+            if (!prev[slotKey]) {
+              return {
+                ...prev,
+                [slotKey]: {
+                  n: Number(lr.nitrogen_n ?? lr.nitrogen ?? 0),
+                  p: Number(lr.phosphorus_p ?? lr.phosphorus ?? 0),
+                  k: Number(lr.potassium_k ?? lr.potassium ?? 0),
+                  timestamp: new Date().toLocaleTimeString(),
+                  date: new Date().toLocaleDateString(),
+                  saved: false,
+                },
+              };
+            }
+            return prev;
+          });
+        }
       } else {
         setSensorStatus({
           online: false,
@@ -206,10 +231,6 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
   const handleReadNPKData = async (timeSlot) => {
     if (!selectedModuleId) {
       setActionError("Please select a sensor module.");
-      return;
-    }
-    if (sensorStatus && !sensorStatus.online) {
-      setActionError("Cannot read: NPK Sensor module is offline. Please power on the ESP32 and check status.");
       return;
     }
     const slotKey = `npk_${timeSlot}`;
@@ -246,6 +267,14 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
           saved: false,
         },
       }));
+
+      // Live read succeeded -> update sensor status to online
+      setSensorStatus({
+        online: true,
+        sensor_type: "npk",
+        npk_probe: true,
+        msg: "NPK Sensor operational over MQTT.",
+      });
     } catch (err) {
       console.error(err);
       setActionError(err.message || `Error reading NPK data for ${timeSlot}.`);
