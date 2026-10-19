@@ -60,32 +60,69 @@ def health_check():
 
 
 # ==============================================================================
+# AGRONOMIC ENVIRONMENTAL OPTIMAL STANDARDS
+# ==============================================================================
+
+# Temperature standard for Dendrobium orchids (°C)
+OPTIMAL_TEMP_MIN_C: float = 25.0
+OPTIMAL_TEMP_MAX_C: float = 30.0
+
+# Relative Humidity standard for Dendrobium orchids (% RH)
+OPTIMAL_HUMIDITY_MIN_RH: float = 70.0
+OPTIMAL_HUMIDITY_MAX_RH: float = 75.0
+
+# Ambient light intensity standard for Dendrobium orchids (Lux)
+OPTIMAL_LIGHT_MIN_LUX: float = 16000.0
+OPTIMAL_LIGHT_MAX_LUX: float = 32000.0
+
+
+# ==============================================================================
 # 27-PERMUTATION AGRONOMIC ENVIRONMENTAL EVALUATION
 # ==============================================================================
 
 def evaluate_environmental_conditions(
-    avg_temp: float,
-    avg_humidity: float,
-    avg_light: float,
+    avg_temp: Optional[float],
+    avg_humidity: Optional[float],
+    avg_light: Optional[float],
 ) -> Dict[str, Any]:
-    temp = float(avg_temp) if avg_temp is not None else 27.5
-    humidity = float(avg_humidity) if avg_humidity is not None else 72.5
-    light = float(avg_light) if avg_light is not None else 20000.0
+    temp = float(avg_temp) if avg_temp is not None else None
+    humidity = float(avg_humidity) if avg_humidity is not None else None
+    light = float(avg_light) if avg_light is not None else None
 
-    temp_low = temp < 25
-    temp_normal = 25 <= temp <= 30
-    temp_high = temp > 30
+    missing_sensors = []
+    if temp is None:
+        missing_sensors.append("Temperature (DHT11)")
+    if humidity is None:
+        missing_sensors.append("Humidity (DHT11)")
+    if light is None:
+        missing_sensors.append("Light intensity (BH1750)")
 
-    humidity_low = humidity < 70
-    humidity_normal = 70 <= humidity <= 75
-    humidity_high = humidity > 75
+    temp_low = temp < OPTIMAL_TEMP_MIN_C if temp is not None else False
+    temp_normal = (OPTIMAL_TEMP_MIN_C <= temp <= OPTIMAL_TEMP_MAX_C) if temp is not None else False
+    temp_high = temp > OPTIMAL_TEMP_MAX_C if temp is not None else False
 
-    light_low = light < 16000
-    light_normal = 16000 <= light <= 32000
-    light_high = light > 32000
+    humidity_low = humidity < OPTIMAL_HUMIDITY_MIN_RH if humidity is not None else False
+    humidity_normal = (OPTIMAL_HUMIDITY_MIN_RH <= humidity <= OPTIMAL_HUMIDITY_MAX_RH) if humidity is not None else False
+    humidity_high = humidity > OPTIMAL_HUMIDITY_MAX_RH if humidity is not None else False
 
+    light_low = light < OPTIMAL_LIGHT_MIN_LUX if light is not None else False
+    light_normal = (OPTIMAL_LIGHT_MIN_LUX <= light <= OPTIMAL_LIGHT_MAX_LUX) if light is not None else False
+    light_high = light > OPTIMAL_LIGHT_MAX_LUX if light is not None else False
+
+    # If sensor data is completely or partially missing, inform the user clearly
+    if len(missing_sensors) == 3:
+        recommendation = (
+            "No environmental sensor data recorded. Connect your DHT11 and BH1750 "
+            "sensor module to monitor temperature, humidity, and light conditions."
+        )
+    elif len(missing_sensors) > 0:
+        missing_str = ", ".join(missing_sensors)
+        recommendation = (
+            f"Missing sensor data for {missing_str}. Please verify sensor connections. "
+            "Environmental recommendations require active temperature, humidity, and light readings."
+        )
     # 0 factors abnormal
-    if temp_normal and humidity_normal and light_normal:
+    elif temp_normal and humidity_normal and light_normal:
         recommendation = (
             "Environmental conditions are within the recommended range. "
             "Maintain the current orchid location and care routine."
@@ -203,13 +240,28 @@ def evaluate_environmental_conditions(
             "Continue monitoring the environmental conditions and make only small adjustments to the orchid's location."
         )
 
-    temp_status = "low" if temp_low else ("high" if temp_high else "optimal")
-    hum_status = "low" if humidity_low else ("high" if humidity_high else "optimal")
-    light_status = "low" if light_low else ("high" if light_high else "optimal")
+    temp_status = ("low" if temp_low else ("high" if temp_high else "optimal")) if temp is not None else "unknown"
+    hum_status = ("low" if humidity_low else ("high" if humidity_high else "optimal")) if humidity is not None else "unknown"
+    light_status = ("low" if light_low else ("high" if light_high else "optimal")) if light is not None else "unknown"
 
-    temp_labels = {"low": "Below Standard (< 25 °C)", "optimal": "Optimal (25–30 °C)", "high": "Above Standard (> 30 °C)"}
-    hum_labels = {"low": "Below Standard (< 70%)", "optimal": "Optimal (70–75%)", "high": "Above Standard (> 75%)"}
-    light_labels = {"low": "Below Standard (< 16,000 Lux)", "optimal": "Optimal (16,000–32,000 Lux)", "high": "Above Standard (> 32,000 Lux)"}
+    temp_labels = {
+        "low": f"Below Standard (< {int(OPTIMAL_TEMP_MIN_C)} °C)",
+        "optimal": f"Optimal ({int(OPTIMAL_TEMP_MIN_C)}–{int(OPTIMAL_TEMP_MAX_C)} °C)",
+        "high": f"Above Standard (> {int(OPTIMAL_TEMP_MAX_C)} °C)",
+        "unknown": "No Data (Sensor Disconnected)",
+    }
+    hum_labels = {
+        "low": f"Below Standard (< {int(OPTIMAL_HUMIDITY_MIN_RH)}%)",
+        "optimal": f"Optimal ({int(OPTIMAL_HUMIDITY_MIN_RH)}–{int(OPTIMAL_HUMIDITY_MAX_RH)}%)",
+        "high": f"Above Standard (> {int(OPTIMAL_HUMIDITY_MAX_RH)}%)",
+        "unknown": "No Data (Sensor Disconnected)",
+    }
+    light_labels = {
+        "low": f"Below Standard (< {int(OPTIMAL_LIGHT_MIN_LUX):,} Lux)",
+        "optimal": f"Optimal ({int(OPTIMAL_LIGHT_MIN_LUX):,}–{int(OPTIMAL_LIGHT_MAX_LUX):,} Lux)",
+        "high": f"Above Standard (> {int(OPTIMAL_LIGHT_MAX_LUX):,} Lux)",
+        "unknown": "No Data (Sensor Disconnected)",
+    }
 
     return {
         "temperature_status": temp_status.capitalize(),
@@ -217,22 +269,22 @@ def evaluate_environmental_conditions(
         "light_status": light_status.capitalize(),
         "recommendation": recommendation,
         "temperature": {
-            "value": round(temp, 2),
-            "target": "25–30 °C",
+            "value": round(temp, 2) if temp is not None else None,
+            "target": f"{int(OPTIMAL_TEMP_MIN_C)}–{int(OPTIMAL_TEMP_MAX_C)} °C",
             "status": temp_status,
-            "status_label": temp_labels.get(temp_status, "Optimal"),
+            "status_label": temp_labels.get(temp_status, "No Data"),
         },
         "humidity": {
-            "value": round(humidity, 2),
-            "target": "70–75 %",
+            "value": round(humidity, 2) if humidity is not None else None,
+            "target": f"{int(OPTIMAL_HUMIDITY_MIN_RH)}–{int(OPTIMAL_HUMIDITY_MAX_RH)} %",
             "status": hum_status,
-            "status_label": hum_labels.get(hum_status, "Optimal"),
+            "status_label": hum_labels.get(hum_status, "No Data"),
         },
         "light": {
-            "value": round(light, 2),
-            "target": "16,000–32,000 Lux",
+            "value": round(light, 2) if light is not None else None,
+            "target": f"{int(OPTIMAL_LIGHT_MIN_LUX):,}–{int(OPTIMAL_LIGHT_MAX_LUX):,} Lux",
             "status": light_status,
-            "status_label": light_labels.get(light_status, "Optimal"),
+            "status_label": light_labels.get(light_status, "No Data"),
         },
     }
 
@@ -382,9 +434,9 @@ async def predict_bloom(
 
     # 5. Evaluate environmental conditions
     env_eval = evaluate_environmental_conditions(
-        avg_temp=sensor_stats["avg_temp_c"],
-        avg_humidity=sensor_stats["avg_humidity_rh"],
-        avg_light=sensor_stats["avg_light_lux"],
+        avg_temp=sensor_stats.get("avg_temp_c") if sensor_stats else None,
+        avg_humidity=sensor_stats.get("avg_humidity_rh") if sensor_stats else None,
+        avg_light=sensor_stats.get("avg_light_lux") if sensor_stats else None,
     )
 
     # 6. Persist to Supabase
