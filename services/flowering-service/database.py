@@ -216,29 +216,12 @@ def get_sensor_statistics(
     plant_id: Optional[str] = None,
     user_id: Optional[str] = None,
     days: int = 30,
-) -> Dict[str, Any]:
+) -> Optional[Dict[str, Any]]:
     """
     Fetches rolling 30-day environmental telemetry summary for a plant directly
     from placement-service via internal Docker DNS (East-West communication).
+    Returns None if no live telemetry recorded (no fallback substitution).
     """
-    default_stats = {
-        "avg_temp_c": 27.5,
-        "min_temp_c": 25.0,
-        "max_temp_c": 30.0,
-        "temp_std_c": 1.5,
-        "avg_humidity_rh": 72.5,
-        "min_humidity_rh": 68.0,
-        "max_humidity_rh": 76.0,
-        "humidity_std_rh": 2.0,
-        "avg_light_lux": 20000.0,
-        "min_light_lux": 16000.0,
-        "max_light_lux": 26000.0,
-        "light_std_lux": 2500.0,
-        "data_window_days": days,
-        "telemetry_samples_count": 0,
-        "is_default_baseline": True,
-    }
-
     url = f"{PLACEMENT_SERVICE_URL}/telemetry/plant/{plant_id}/summary" if plant_id else f"{PLACEMENT_SERVICE_URL}/telemetry/plant/all/summary"
     params = {"days": days}
     if user_id:

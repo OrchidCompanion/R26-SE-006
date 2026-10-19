@@ -562,7 +562,7 @@ export default function PredictBloomingScreen() {
             <ActivityIndicator size="small" color="#7e22ce" className="py-4" />
           ) : telemetryReadings.length === 0 ? (
             <Text className="text-xs italic text-gray-400 text-center py-3">
-              No telemetry logs in the last 30 days. Standard baseline climate will be applied.
+              No telemetry logs in the last 30 days. Connect your DHT11 and BH1750 sensors.
             </Text>
           ) : (
             <View className="space-y-1.5 max-h-52">

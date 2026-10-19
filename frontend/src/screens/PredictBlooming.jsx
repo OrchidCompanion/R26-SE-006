@@ -69,7 +69,7 @@ const ANGLE_SLOTS = [
     key: "image2",
     title: "Angle 2: Lateral Profile 1",
     tag: "Side Angle 1",
-    requirement: "First lateral side profile (~120°) capturing pseudobulb canes, leaf junctions, and emerging nodes.",
+    requirement: "First lateral side profile (120°) capturing pseudobulb canes, leaf junctions, and emerging nodes.",
     icon: "📐",
   },
   {
@@ -77,7 +77,7 @@ const ANGLE_SLOTS = [
     key: "image3",
     title: "Angle 3: Lateral Profile 2",
     tag: "Side Angle 2",
-    requirement: "Opposite lateral side profile (~240°) displaying canopy density and active spike/bud tips.",
+    requirement: "Opposite lateral side profile (240°) displaying canopy density and active spike/bud tips.",
     icon: "🔄",
   },
 ];
@@ -242,7 +242,7 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
           throw new Error("Your session has expired. Please sign in again to run predictions.");
         }
         const errDetail = data.detail || "Bloom prediction analysis failed.";
-        
+
         // Parse if non-orchid / "Invalid" detected in specific angles
         const isNonOrchid =
           errDetail.toLowerCase().includes("non-orchid") ||
@@ -310,7 +310,7 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
               AI Bloom Prediction — {selectedPlant.plant_name}
             </h2>
             <p className="text-gray-500 text-sm">
-              3-Angle Stage Classification (RF-DETR) & Timeline Forecasting (Gradient Boosting) using 30-day ambient telemetry.
+              3 Angle Stage Classification (RF-DETR) & Timeline Forecasting (Gradient Boosting) using 30-day ambient telemetry.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -320,7 +320,7 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
                 className="bg-purple-50 hover:bg-purple-100 text-purple-800 text-xs font-bold px-3 py-1.5 rounded-lg border border-purple-200 transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
               >
                 <span></span>
-                <span>Re-scan This Plant</span>
+                <span>Re scan This Plant</span>
               </button>
             )}
             <span className="bg-purple-100 text-purple-800 text-xs font-bold px-3 py-1.5 rounded-full border border-purple-200">
@@ -389,11 +389,11 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
             </h3>
             <span
               className={`text-xs font-bold px-2.5 py-1 rounded-full border ${isReadyToPredict
-                  ? "bg-emerald-100 text-emerald-800 border-emerald-300"
-                  : "bg-amber-100 text-amber-800 border-amber-300"
+                ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                : "bg-amber-100 text-amber-800 border-amber-300"
                 }`}
             >
-              {isReadyToPredict ? "All 3 Angles Uploaded ✓" : `${uploadedCount} of 3 Angles Uploaded`}
+              {isReadyToPredict ? "All 3 Angles Uploaded" : `${uploadedCount} of 3 Angles Uploaded`}
             </span>
           </div>
 
@@ -406,13 +406,12 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
               return (
                 <div
                   key={slot.id}
-                  className={`relative rounded-xl border-2 transition-all p-3 flex flex-col justify-between min-h-[220px] ${
-                    isSlotInvalid
+                  className={`relative rounded-xl border-2 transition-all p-3 flex flex-col justify-between min-h-[220px] ${isSlotInvalid
                       ? "border-rose-500 bg-rose-50/50 shadow-md ring-2 ring-rose-300/50"
                       : preview
                         ? "border-purple-400 bg-purple-50/20 shadow-xs"
                         : "border-dashed border-gray-300 bg-gray-50/60 hover:border-purple-300 hover:bg-purple-50/10"
-                  }`}
+                    }`}
                 >
                   {/* Slot Header */}
                   <div className="flex items-center justify-between mb-2">
@@ -439,7 +438,7 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
                         />
                         {isSlotInvalid && (
                           <div className="absolute top-1.5 left-1.5 bg-rose-600 text-white text-[10px] font-black px-2 py-0.5 rounded shadow">
-                             Non-Orchid
+                            Non-Orchid
                           </div>
                         )}
                         <button
@@ -465,7 +464,7 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
                             htmlFor={`slotInput_${slot.id}`}
                             className="block w-full text-center bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold py-1 px-2 rounded-lg cursor-pointer transition shadow-2xs"
                           >
-                             Replace Photo
+                            Replace Photo
                           </label>
                         </div>
                       )}
@@ -516,11 +515,10 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
 
           {error && (
             <div
-              className={`p-4 rounded-xl border text-xs font-medium space-y-3 ${
-                error.toLowerCase().includes("non-orchid") || error.toLowerCase().includes("invalid") || error.toLowerCase().includes("not an orchid")
+              className={`p-4 rounded-xl border text-xs font-medium space-y-3 ${error.toLowerCase().includes("non-orchid") || error.toLowerCase().includes("invalid") || error.toLowerCase().includes("not an orchid")
                   ? "bg-rose-50/90 text-rose-950 border-rose-300 shadow-sm"
                   : "bg-rose-50 text-rose-700 border-rose-200"
-              }`}
+                }`}
             >
               <div className="flex items-start gap-2.5">
                 <span className="text-2xl shrink-0">
@@ -579,10 +577,10 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
                 </svg>
-                <span>Running 3-Angle Stage Detection & Timeline Forecast...</span>
+                <span>Running 3 Angle Stage Detection & Timeline Forecast...</span>
               </>
             ) : (
-              <span>🌸 {isReadyToPredict ? "Run AI Bloom Prediction (3 Angles Ready)" : `Upload 3 Angles to Run Prediction (${uploadedCount}/3)`}</span>
+              <span> {isReadyToPredict ? "Run Bloom Prediction" : `Upload 3 Angles to Run Prediction (${uploadedCount}/3)`}</span>
             )}
           </button>
         </div>
@@ -604,9 +602,9 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
             </div>
           ) : telemetryReadings.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center text-xs text-gray-400 p-4 text-center">
-              <span>No telemetry logs found in the last 30 days.</span>
+              <span>No sensor telemetry recorded in the last 30 days.</span>
               <span className="text-[11px] text-gray-400 mt-1">
-                Standard climate baseline will be applied automatically.
+                Connect DHT11 & BH1750 sensor module to record environmental readings.
               </span>
             </div>
           ) : (
@@ -723,11 +721,10 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
                       return (
                         <div
                           key={idx}
-                          className={`flex items-center justify-between text-xs p-2.5 rounded-lg border shadow-2xs ${
-                            isInvalid
+                          className={`flex items-center justify-between text-xs p-2.5 rounded-lg border shadow-2xs ${isInvalid
                               ? "bg-rose-50/80 border-rose-200"
                               : "bg-white border-gray-200"
-                          }`}
+                            }`}
                         >
                           <div>
                             <span className="font-bold text-gray-800 block">
@@ -855,9 +852,11 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
                   const isOptimal = temp.status === "optimal";
                   const badgeClass = isOptimal
                     ? "bg-emerald-100 text-emerald-800 border-emerald-300"
-                    : temp.status === "low"
-                      ? "bg-sky-100 text-sky-800 border-sky-300"
-                      : "bg-rose-100 text-rose-800 border-rose-300";
+                    : temp.status === "unknown"
+                      ? "bg-gray-100 text-gray-700 border-gray-300"
+                      : temp.status === "low"
+                        ? "bg-sky-100 text-sky-800 border-sky-300"
+                        : "bg-rose-100 text-rose-800 border-rose-300";
 
                   return (
                     <div className="bg-white p-4 rounded-xl border border-gray-200/80 shadow-2xs space-y-3">
@@ -873,7 +872,9 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
                       <div className="flex items-baseline justify-between bg-gray-50/90 p-2.5 rounded-lg border border-gray-100">
                         <div>
                           <span className="text-[10px] text-gray-400 block uppercase font-bold tracking-wide">30-Day Measured</span>
-                          <span className="text-base font-black text-rose-600">{Number(temp.value).toFixed(2)} °C</span>
+                          <span className="text-base font-black text-rose-600">
+                            {temp.value != null ? `${Number(temp.value).toFixed(2)} °C` : "No Data"}
+                          </span>
                         </div>
                         <div className="text-right">
                           <span className="text-[10px] text-gray-400 block uppercase font-bold tracking-wide">Target Range</span>
@@ -890,9 +891,11 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
                   const isOptimal = hum.status === "optimal";
                   const badgeClass = isOptimal
                     ? "bg-emerald-100 text-emerald-800 border-emerald-300"
-                    : hum.status === "low"
-                      ? "bg-amber-100 text-amber-800 border-amber-300"
-                      : "bg-sky-100 text-sky-800 border-sky-300";
+                    : hum.status === "unknown"
+                      ? "bg-gray-100 text-gray-700 border-gray-300"
+                      : hum.status === "low"
+                        ? "bg-amber-100 text-amber-800 border-amber-300"
+                        : "bg-sky-100 text-sky-800 border-sky-300";
 
                   return (
                     <div className="bg-white p-4 rounded-xl border border-gray-200/80 shadow-2xs space-y-3">
@@ -908,7 +911,9 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
                       <div className="flex items-baseline justify-between bg-gray-50/90 p-2.5 rounded-lg border border-gray-100">
                         <div>
                           <span className="text-[10px] text-gray-400 block uppercase font-bold tracking-wide">30-Day Measured</span>
-                          <span className="text-base font-black text-sky-600">{Number(hum.value).toFixed(2)} %</span>
+                          <span className="text-base font-black text-sky-600">
+                            {hum.value != null ? `${Number(hum.value).toFixed(2)} %` : "No Data"}
+                          </span>
                         </div>
                         <div className="text-right">
                           <span className="text-[10px] text-gray-400 block uppercase font-bold tracking-wide">Target Range</span>
@@ -925,9 +930,11 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
                   const isOptimal = light.status === "optimal";
                   const badgeClass = isOptimal
                     ? "bg-emerald-100 text-emerald-800 border-emerald-300"
-                    : light.status === "low"
-                      ? "bg-amber-100 text-amber-800 border-amber-300"
-                      : "bg-rose-100 text-rose-800 border-rose-300";
+                    : light.status === "unknown"
+                      ? "bg-gray-100 text-gray-700 border-gray-300"
+                      : light.status === "low"
+                        ? "bg-amber-100 text-amber-800 border-amber-300"
+                        : "bg-rose-100 text-rose-800 border-rose-300";
 
                   return (
                     <div className="bg-white p-4 rounded-xl border border-gray-200/80 shadow-2xs space-y-3">
@@ -944,7 +951,9 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
                         <div>
                           <span className="text-[10px] text-gray-400 block uppercase font-bold tracking-wide">30-Day Measured</span>
                           <span className="text-base font-black text-amber-600">
-                            {Number(light.value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Lux
+                            {light.value != null
+                              ? `${Number(light.value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Lux`
+                              : "No Data"}
                           </span>
                         </div>
                         <div className="text-right">
@@ -1014,7 +1023,7 @@ export default function PredictBlooming({ selectedPlant, selectedUser, onBack })
               className="bg-purple-600 hover:bg-purple-700 text-white font-bold text-sm px-6 py-3 rounded-xl transition shadow-md cursor-pointer inline-flex items-center gap-2"
             >
               <span>🔄</span>
-              <span>Re-scan This Plant (New Photos)</span>
+              <span>Re scan This Plant (New Photos)</span>
             </button>
           </div>
         </div>
