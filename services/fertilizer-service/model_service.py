@@ -20,20 +20,27 @@ _growth_model = None
 _growth_encoder = None
 
 
+def _find_model_file(filename: str) -> Path:
+    p = MODELS_DIR / filename
+    if p.exists():
+        return p
+    # Fallback to ml-service folder
+    alt = BASE_DIR.parent.parent / "ml-service" / filename
+    if alt.exists():
+        return alt
+    raise FileNotFoundError(f"Missing {filename} in {MODELS_DIR} or {alt}")
+
+
 def load_fertilizer_models():
     global _leaf_yolo, _growth_model, _growth_encoder
     if _leaf_yolo is None:
-        p_yolo = MODELS_DIR / "leaf_segmentation_best.pt"
-        if not p_yolo.exists():
-            raise FileNotFoundError(f"Missing {p_yolo}")
+        p_yolo = _find_model_file("leaf_segmentation_best.pt")
         print(f"[ModelService] Loading Leaf Segmentation YOLO from {p_yolo}...")
         _leaf_yolo = YOLO(str(p_yolo))
 
     if _growth_model is None or _growth_encoder is None:
-        p_gm = MODELS_DIR / "growth_stage_model.pkl"
-        p_enc = MODELS_DIR / "label_encoder.pkl"
-        if not p_gm.exists() or not p_enc.exists():
-            raise FileNotFoundError(f"Missing growth model {p_gm} or encoder {p_enc}")
+        p_gm = _find_model_file("growth_stage_model.pkl")
+        p_enc = _find_model_file("label_encoder.pkl")
         print(f"[ModelService] Loading Growth Stage Classifier from {p_gm}...")
         _growth_model = joblib.load(str(p_gm))
         _growth_encoder = joblib.load(str(p_enc))
@@ -466,33 +473,29 @@ def analyze_leaf_and_growth(img_bgr: np.ndarray, leaf_count: int) -> Dict[str, A
     _width_line = None
 
     if not detected_leaves:
-        # Fallback if leaf mask was not segmented cleanly
-        h, w = img_bgr.shape[:2]
-        length_cm = round((h * 0.4) / pixels_per_cm, 2)
-        width_cm = round((w * 0.2) / pixels_per_cm, 2)
-        leaf_area_cm2 = round(length_cm * width_cm * 0.7, 2)
+        raise ValueError("Leaf not detected. Please ensure an orchid leaf is clearly visible in the image.")
+
+    largest_leaf = max(detected_leaves, key=lambda x: x["area"])
+    leaf_area_cm2 = largest_leaf["area"] / (pixels_per_cm ** 2)
+
+    contours, _ = cv2.findContours(largest_leaf["mask"], cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    if contours:
+        contour = max(contours, key=cv2.contourArea)
+
+        # Width v2
+        width_cm, _width_line = calculate_leaf_width_v2(
+            contour,
+            pixels_per_cm
+        )
+
+        # Length v3
+        length_cm, _length_pixels, _tip, _base, _contour, _skeleton = calculate_leaf_length_v3(
+            largest_leaf["mask"],
+            pixels_per_cm
+        )
     else:
-        largest_leaf = max(detected_leaves, key=lambda x: x["area"])
-        leaf_area_cm2 = largest_leaf["area"] / (pixels_per_cm ** 2)
-
-        contours, _ = cv2.findContours(largest_leaf["mask"], cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-        if contours:
-            contour = max(contours, key=cv2.contourArea)
-
-            # Width v2
-            width_cm, _width_line = calculate_leaf_width_v2(
-                contour,
-                pixels_per_cm
-            )
-
-            # Length v3
-            length_cm, _length_pixels, _tip, _base, _contour, _skeleton = calculate_leaf_length_v3(
-                largest_leaf["mask"],
-                pixels_per_cm
-            )
-        else:
-            length_cm = 8.0
-            width_cm = 2.5
+        length_cm = 8.0
+        width_cm = 2.5
 
     input_df = pd.DataFrame({
         "opencv_leaf_length_cm": [length_cm],
