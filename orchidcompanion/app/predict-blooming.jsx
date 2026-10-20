@@ -562,7 +562,7 @@ export default function PredictBloomingScreen() {
             <ActivityIndicator size="small" color="#7e22ce" className="py-4" />
           ) : telemetryReadings.length === 0 ? (
             <Text className="text-xs italic text-gray-400 text-center py-3">
-              No telemetry logs in the last 30 days. Standard baseline climate will be applied.
+              No telemetry logs in the last 30 days. Connect your DHT11 and BH1750 sensors.
             </Text>
           ) : (
             <View className="space-y-1.5 max-h-52">
@@ -804,9 +804,12 @@ export default function PredictBloomingScreen() {
                   style={{ borderColor: colors.borderGray }}
                 >
                   <View>
-                    <Text className="text-xs font-bold text-purple-950">{item.weeks} Weeks</Text>
+                    <Text className="text-xs font-bold text-purple-950">
+                      {item.current_stage ? `${item.current_stage} • ` : ""}
+                      {item.weeks === 0 ? "Currently Blooming" : `Ready in ~${item.weeks ?? 1} Wks`}
+                    </Text>
                     <Text className="text-[9px] text-gray-400 font-mono">
-                      {item.created_at ? new Date(item.created_at).toLocaleString() : "—"}
+                      {item.flowering_date_range_display || item.estimated_flowering_date || (item.created_at ? new Date(item.created_at).toLocaleString() : "—")}
                     </Text>
                   </View>
                   <Text className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md">
