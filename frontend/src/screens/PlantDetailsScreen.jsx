@@ -626,7 +626,7 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
                     </div>
                   ) : (
                     <div className="py-4 text-center">
-                      <p className="text-xs text-gray-400 italic">No reading recorded for {slot}.</p>
+                      <p className="text-xs text-gray-400 italic"> No records for {slot} today.</p>
                     </div>
                   )}
 
@@ -961,8 +961,8 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
                             <td className="px-4 py-3">
                               <span
                                 className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${row.verdict === "HEALTHY"
-                                    ? "bg-emerald-100 text-emerald-800"
-                                    : "bg-rose-100 text-rose-800"
+                                  ? "bg-emerald-100 text-emerald-800"
+                                  : "bg-rose-100 text-rose-800"
                                   }`}
                               >
                                 {row.verdict === "HEALTHY" ? (
