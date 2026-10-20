@@ -459,9 +459,9 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
         {/* Top-Level Segmented Tabs Navigation */}
         <div className="mt-7 pt-5 border-t border-gray-100 flex items-center gap-2 overflow-x-auto">
           {[
-            { id: "sampling", label: "Daily NPK Sampling", icon: Activity, count: null },
-            { id: "telemetry", label: "Sensor Telemetry History", icon: Cpu, count: sensorTotal },
-            { id: "diagnostics", label: "AI Diagnostic Records", icon: Layers, count: outputTotal },
+            { id: "sampling", label: "Daily Sensor Readings", icon: Activity, count: null },
+            { id: "telemetry", label: "Sensor Reading History", icon: Cpu, count: null },
+            { id: "diagnostics", label: "Diagnostic Records", icon: Layers, count: null },
           ].map((tab) => {
             const Icon = tab.icon;
             const isActive = activeMainTab === tab.id;
@@ -469,19 +469,17 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
               <button
                 key={tab.id}
                 onClick={() => setActiveMainTab(tab.id)}
-                className={`inline-flex items-center gap-2 px-4 py-2.5 text-xs font-bold rounded-xl transition shrink-0 ${
-                  isActive
-                    ? "bg-slate-900 text-white shadow-xs"
-                    : "bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200/50"
-                }`}
+                className={`inline-flex items-center gap-2 px-4 py-2.5 text-xs font-bold rounded-xl transition shrink-0 ${isActive
+                  ? "bg-slate-900 text-white shadow-xs"
+                  : "bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200/50"
+                  }`}
               >
                 <Icon className={`w-4 h-4 ${isActive ? "text-emerald-400" : "text-gray-400"}`} />
                 <span>{tab.label}</span>
                 {tab.count !== null && (
                   <span
-                    className={`ml-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
-                      isActive ? "bg-slate-700 text-emerald-300" : "bg-gray-200 text-gray-600"
-                    }`}
+                    className={`ml-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold ${isActive ? "bg-slate-700 text-emerald-300" : "bg-gray-200 text-gray-600"
+                      }`}
                   >
                     {tab.count}
                   </span>
@@ -499,10 +497,10 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
             <div className="space-y-0.5">
               <h2 className="font-extrabold text-gray-900 text-base flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-teal-500 animate-pulse"></span>
-                Daily Orchid NPK Sampling
+                NPK Sensor Readings
               </h2>
               <p className="text-xs text-gray-500">
-                Trigger live Nitrogen, Phosphorus, and Potassium soil telemetry from your wireless ESP32 node via MQTT.
+                Live sensor readings to capture morning, afternoon & evening fertilizer levels.
               </p>
             </div>
 
@@ -536,11 +534,10 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
           {/* Status Indicator Banner */}
           {sensorStatus && (
             <div
-              className={`p-3.5 rounded-xl text-xs font-medium flex items-center justify-between border ${
-                sensorStatus.online
-                  ? "bg-emerald-50 border-emerald-200 text-emerald-800"
-                  : "bg-rose-50 border-rose-200 text-rose-800"
-              }`}
+              className={`p-3.5 rounded-xl text-xs font-medium flex items-center justify-between border ${sensorStatus.online
+                ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                : "bg-rose-50 border-rose-200 text-rose-800"
+                }`}
             >
               <div className="flex items-center gap-2.5">
                 {sensorStatus.online ? (
@@ -587,11 +584,10 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
                     <div className="flex items-center gap-1.5">
                       {res && (
                         <span
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                            res.saved
-                              ? "bg-emerald-100 text-emerald-800"
-                              : "bg-amber-100 text-amber-800"
-                          }`}
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${res.saved
+                            ? "bg-emerald-100 text-emerald-800"
+                            : "bg-amber-100 text-amber-800"
+                            }`}
                         >
                           {res.saved ? "Saved" : "Unsaved"}
                         </span>
@@ -681,9 +677,9 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
         <div className="bg-white border border-gray-200/80 rounded-2xl p-6 shadow-xs space-y-5 animate-in fade-in duration-200">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-gray-100 pb-4">
             <div>
-              <h2 className="font-extrabold text-gray-900 text-base">Historical Hardware Telemetry</h2>
+              <h2 className="font-extrabold text-gray-900 text-base">Historical Sensor Readings</h2>
               <p className="text-xs text-gray-500">
-                Logged sensor readings for NPK nutrient levels, ambient DHT11 temperature/humidity, and BH1750 lux.
+                Logged sensor readings for NPK nutrient levels, temperature, humidity and light intensity.
               </p>
             </div>
 
@@ -691,17 +687,16 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
             <div className="flex items-center gap-1.5 bg-gray-100 p-1 rounded-xl">
               {[
                 { id: "npk", label: "NPK Sensor" },
-                { id: "dht11", label: "DHT11 Temp/Humidity" },
-                { id: "bh1750", label: "BH1750 Light" },
+                { id: "dht11", label: "Temperature & Humidity" },
+                { id: "bh1750", label: "Light Intensity" },
               ].map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setSensorTab(tab.id)}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
-                    sensorTab === tab.id
-                      ? "bg-white text-emerald-700 shadow-xs"
-                      : "text-gray-600 hover:text-gray-900"
-                  }`}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${sensorTab === tab.id
+                    ? "bg-white text-emerald-700 shadow-xs"
+                    : "text-gray-600 hover:text-gray-900"
+                    }`}
                 >
                   {tab.label}
                 </button>
@@ -846,27 +841,26 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
         <div className="bg-white border border-gray-200/80 rounded-2xl p-6 shadow-xs space-y-5 animate-in fade-in duration-200">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-gray-100 pb-4">
             <div>
-              <h2 className="font-extrabold text-gray-900 text-base">AI Diagnostic & Prediction Records</h2>
+              <h2 className="font-extrabold text-gray-900 text-base">Analysis Predictions and Outcomes</h2>
               <p className="text-xs text-gray-500">
-                Historical records of YOLO leaf disease detections, XGBoost fertilizer recommendations, and blooming forecasts.
+                Historical records of leaf disease detections, fertilizer recommendations and blooming forecasts.
               </p>
             </div>
 
             {/* Diagnostic Sub-Tabs */}
             <div className="flex items-center gap-1.5 bg-gray-100 p-1 rounded-xl">
               {[
-                { id: "disease", label: "Disease AI" },
-                { id: "fertilizer", label: "Fertilizer Schedule" },
-                { id: "bloom", label: "Bloom Predictions" },
+                { id: "disease", label: "Disease Identification" },
+                { id: "fertilizer", label: "Fertilizer Recommendation" },
+                { id: "bloom", label: "Bloom Prediction" },
               ].map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setOutputTab(tab.id)}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
-                    outputTab === tab.id
-                      ? "bg-white text-emerald-700 shadow-xs"
-                      : "text-gray-600 hover:text-gray-900"
-                  }`}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${outputTab === tab.id
+                    ? "bg-white text-emerald-700 shadow-xs"
+                    : "text-gray-600 hover:text-gray-900"
+                    }`}
                 >
                   {tab.label}
                 </button>
@@ -887,82 +881,189 @@ export default function PlantDetailsScreen({ selectedPlant, selectedUser, onBack
             <div className="overflow-x-auto rounded-xl border border-gray-200">
               <table className="w-full text-left text-xs text-gray-700">
                 <thead className="bg-gray-50 text-gray-500 font-bold uppercase text-[11px] border-b border-gray-200">
-                  <tr>
-                    <th className="px-4 py-3.5">Date & Time</th>
-                    <th className="px-4 py-3.5">Diagnosis / Schedule</th>
-                    <th className="px-4 py-3.5">Confidence</th>
-                    <th className="px-4 py-3.5">Verdict Status</th>
-                    <th className="px-4 py-3.5">Result Artifact</th>
-                  </tr>
+                  {outputTab === "disease" && (
+                    <tr>
+                      <th className="px-4 py-3.5">Date & Time</th>
+                      <th className="px-4 py-3.5">Diagnosis / Condition</th>
+                      <th className="px-4 py-3.5">Confidence</th>
+                      <th className="px-4 py-3.5">Health Status</th>
+                      <th className="px-4 py-3.5">Result Artifact</th>
+                    </tr>
+                  )}
+                  {outputTab === "fertilizer" && (
+                    <tr>
+                      <th className="px-4 py-3.5">Date & Time</th>
+                      <th className="px-4 py-3.5">Growth Stage</th>
+                      <th className="px-4 py-3.5">Recommended Fertilizer</th>
+                      <th className="px-4 py-3.5">Dosage / Application</th>
+                      <th className="px-4 py-3.5">Status</th>
+                    </tr>
+                  )}
+                  {outputTab === "bloom" && (
+                    <tr>
+                      <th className="px-4 py-3.5">Date & Time</th>
+                      <th className="px-4 py-3.5">Current Stage</th>
+                      <th className="px-4 py-3.5">Days to Bloom</th>
+                      <th className="px-4 py-3.5">Forecast Bloom Window</th>
+                      <th className="px-4 py-3.5">Confidence</th>
+                    </tr>
+                  )}
                 </thead>
                 <tbody className="divide-y divide-gray-100 bg-white">
-                  {outputData.map((row, idx) => (
-                    <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-4 py-3 text-gray-600 font-medium whitespace-nowrap">
-                        {row.created_at ? (
-                          <div>
-                            <span>{new Date(row.created_at).toLocaleDateString()}</span>
-                            <span className="text-gray-400 text-[10px] block">{new Date(row.created_at).toLocaleTimeString()}</span>
-                          </div>
-                        ) : (
-                          "N/A"
-                        )}
-                      </td>
+                  {outputData.map((row, idx) => {
+                    // Fertilizer helper values
+                    const fertStage =
+                      row.growth_stage ||
+                      (row.fertilizer && row.fertilizer.includes("(")
+                        ? row.fertilizer.match(/\((.*?)\)/)?.[1]
+                        : null) ||
+                      "Matured";
+                    const fertCleanName = row.fertilizer
+                      ? row.fertilizer.replace(/\s*\(.*?\)/, "").trim() || row.fertilizer
+                      : "N/A";
 
-                      {/* Output Details */}
-                      <td className="px-4 py-3 font-bold text-gray-900">
-                        {outputTab === "disease" && (row.disease_name || "N/A")}
-                        {outputTab === "fertilizer" && `${row.fertilizer || "N/A"} (${row.qty || 0} ${row.unit || ""})`}
-                        {outputTab === "bloom" && (row.weeks ? `${row.weeks} Weeks` : (row.bloom_status || row.prediction || "N/A"))}
-                      </td>
+                    return (
+                      <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                        {/* Common Column 1: Date & Time */}
+                        <td className="px-4 py-3 text-gray-600 font-medium whitespace-nowrap">
+                          {row.created_at ? (
+                            <div>
+                              <span>{new Date(row.created_at).toLocaleDateString()}</span>
+                              <span className="text-gray-400 text-[10px] block">
+                                {new Date(row.created_at).toLocaleTimeString()}
+                              </span>
+                            </div>
+                          ) : (
+                            "N/A"
+                          )}
+                        </td>
 
-                      {/* Confidence */}
-                      <td className="px-4 py-3 font-semibold text-gray-700">
-                        {row.confidence !== undefined && row.confidence !== null ? (
-                          <span className="inline-flex items-center gap-1 bg-gray-100 px-2 py-0.5 rounded text-[11px] font-bold">
-                            {row.confidence}%
-                          </span>
-                        ) : (
-                          "N/A"
-                        )}
-                      </td>
+                        {/* ================= TAB 1: DISEASE AI ================= */}
+                        {outputTab === "disease" && (
+                          <>
+                            {/* Diagnosis */}
+                            <td className="px-4 py-3 font-bold text-gray-900">
+                              {row.disease_name || "N/A"}
+                            </td>
 
-                      {/* Verdict */}
-                      <td className="px-4 py-3">
-                        {outputTab === "disease" ? (
-                          <span
-                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                              row.verdict === "HEALTHY"
-                                ? "bg-emerald-100 text-emerald-800"
-                                : "bg-rose-100 text-rose-800"
-                            }`}
-                          >
-                            {row.verdict === "HEALTHY" ? <CheckCircle2 className="w-3.5 h-3.5" /> : null}
-                            {row.verdict || "N/A"}
-                          </span>
-                        ) : (
-                          <span className="px-2.5 py-0.5 bg-gray-100 text-gray-700 rounded-full font-semibold text-xs capitalize">
-                            {row.status || row.verdict || "Completed"}
-                          </span>
-                        )}
-                      </td>
+                            {/* Confidence */}
+                            <td className="px-4 py-3 font-semibold text-gray-700">
+                              {row.confidence !== undefined && row.confidence !== null ? (
+                                <span className="inline-flex items-center gap-1 bg-gray-100 px-2 py-0.5 rounded text-[11px] font-bold">
+                                  {row.confidence}%
+                                </span>
+                              ) : (
+                                "N/A"
+                              )}
+                            </td>
 
-                      {/* Annotated Image */}
-                      <td className="px-4 py-3">
-                        {row.result_image_b64 ? (
-                          <button
-                            onClick={() => setSelectedImage(`data:image/jpeg;base64,${row.result_image_b64}`)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-sky-50 text-sky-700 hover:bg-sky-100 rounded-lg text-xs font-bold border border-sky-200/60 transition"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                            Preview Image
-                          </button>
-                        ) : (
-                          <span className="text-gray-400 text-xs">No image</span>
+                            {/* Health Status */}
+                            <td className="px-4 py-3">
+                              <span
+                                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${row.verdict === "HEALTHY"
+                                    ? "bg-emerald-100 text-emerald-800"
+                                    : "bg-rose-100 text-rose-800"
+                                  }`}
+                              >
+                                {row.verdict === "HEALTHY" ? (
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                ) : null}
+                                {row.verdict || "N/A"}
+                              </span>
+                            </td>
+
+                            {/* Result Artifact (Preview button only for Disease AI) */}
+                            <td className="px-4 py-3">
+                              {row.result_image_b64 ? (
+                                <button
+                                  onClick={() =>
+                                    setSelectedImage(`data:image/jpeg;base64,${row.result_image_b64}`)
+                                  }
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 bg-sky-50 text-sky-700 hover:bg-sky-100 rounded-lg text-xs font-bold border border-sky-200/60 transition"
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                  Preview Image
+                                </button>
+                              ) : (
+                                <span className="text-gray-400 text-xs">No image</span>
+                              )}
+                            </td>
+                          </>
                         )}
-                      </td>
-                    </tr>
-                  ))}
+
+                        {/* ================= TAB 2: FERTILIZER SCHEDULE ================= */}
+                        {outputTab === "fertilizer" && (
+                          <>
+                            {/* Growth Stage */}
+                            <td className="px-4 py-3">
+                              <span className="inline-block px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200/60">
+                                {fertStage}
+                              </span>
+                            </td>
+
+                            {/* Recommended Fertilizer */}
+                            <td className="px-4 py-3 font-bold text-gray-900">
+                              {fertCleanName}
+                            </td>
+
+                            {/* Dosage / Quantity */}
+                            <td className="px-4 py-3 font-medium text-gray-700">
+                              {`${row.qty ?? 1} ${row.unit || "application"}`}
+                            </td>
+
+                            {/* Status */}
+                            <td className="px-4 py-3">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200/80">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                Completed
+                              </span>
+                            </td>
+                          </>
+                        )}
+
+                        {/* ================= TAB 3: BLOOM PREDICTIONS ================= */}
+                        {outputTab === "bloom" && (
+                          <>
+                            {/* Current Stage */}
+                            <td className="px-4 py-3">
+                              <span className="inline-block px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-purple-50 text-purple-700 border border-purple-200/60">
+                                {row.current_stage || row.stage || row.bloom_status || "Vegetative"}
+                              </span>
+                            </td>
+
+                            {/* Days to Bloom */}
+                            <td className="px-4 py-3 font-bold text-gray-900">
+                              {row.display_total_days !== undefined && row.display_total_days !== null
+                                ? `${row.display_total_days} Days`
+                                : row.weeks
+                                  ? `${row.weeks} Weeks`
+                                  : row.total_days_to_flowering
+                                    ? `${Math.round(row.total_days_to_flowering)} Days`
+                                    : "N/A"}
+                            </td>
+
+                            {/* Forecast Bloom Window */}
+                            <td className="px-4 py-3 font-medium text-gray-700">
+                              {row.flowering_date_range_display ||
+                                row.estimated_flowering_date ||
+                                "N/A"}
+                            </td>
+
+                            {/* Confidence */}
+                            <td className="px-4 py-3 font-semibold text-gray-700">
+                              {row.confidence !== undefined && row.confidence !== null ? (
+                                <span className="inline-flex items-center gap-1 bg-gray-100 px-2 py-0.5 rounded text-[11px] font-bold">
+                                  {row.confidence}%
+                                </span>
+                              ) : (
+                                "N/A"
+                              )}
+                            </td>
+                          </>
+                        )}
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
