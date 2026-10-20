@@ -732,22 +732,20 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
                   <div className="flex items-center gap-2 self-start md:self-auto flex-wrap">
                     {/* Always-Visible Status Badge */}
                     <span
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-full border transition shrink-0 ${
-                        doneCount === 3
-                          ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                          : doneCount > 0
-                            ? "bg-amber-50/80 text-amber-900 border-amber-200/80"
-                            : "bg-gray-100 text-gray-600 border-gray-200"
-                      }`}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-full border transition shrink-0 ${doneCount === 3
+                        ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                        : doneCount > 0
+                          ? "bg-amber-50/80 text-amber-900 border-amber-200/80"
+                          : "bg-gray-100 text-gray-600 border-gray-200"
+                        }`}
                     >
                       <Activity
-                        className={`w-3.5 h-3.5 ${
-                          doneCount === 3
-                            ? "text-emerald-600"
-                            : doneCount > 0
-                              ? "text-teal-600"
-                              : "text-gray-400"
-                        }`}
+                        className={`w-3.5 h-3.5 ${doneCount === 3
+                          ? "text-emerald-600"
+                          : doneCount > 0
+                            ? "text-teal-600"
+                            : "text-gray-400"
+                          }`}
                       />
                       <span>
                         {doneCount === 3
@@ -759,11 +757,10 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
                     {/* Toggle Sensor Readings Panel */}
                     <button
                       onClick={() => toggleLocationSensors(loc.location_id)}
-                      className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-full border transition ${
-                        isSensorsOpen
-                          ? "bg-teal-700 hover:bg-teal-800 text-white border-teal-700 shadow-xs"
-                          : "bg-white text-teal-700 border-teal-200 hover:bg-teal-50"
-                      }`}
+                      className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-full border transition ${isSensorsOpen
+                        ? "bg-teal-700 hover:bg-teal-800 text-white border-teal-700 shadow-xs"
+                        : "bg-white text-teal-700 border-teal-200 hover:bg-teal-50"
+                        }`}
                     >
                       <Activity className="w-3.5 h-3.5" />
                       <span>{isSensorsOpen ? "Hide Sensor Readings" : "Sensor Readings"}</span>
@@ -979,7 +976,7 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
                               ) : (
                                 <div className="py-2.5 text-center">
                                   <p className="text-xs text-gray-400 italic">
-                                    No telemetry recorded for {slot} today.
+                                    No records for {slot} today.
                                   </p>
                                 </div>
                               )}
