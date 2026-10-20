@@ -51,6 +51,7 @@ class PlantUpdate(BaseModel):
 
 BASE_DIR = Path(__file__).resolve().parent
 MODEL_PATH = BASE_DIR / "models" / "species-identification.pt"
+DEFAULT_CONF_THRESHOLD = float(os.getenv("CONF_THRESHOLD", "0.60"))
 
 _species_model: Optional[YOLO] = None
 
@@ -115,7 +116,7 @@ def get_species_info():
 @app.post("/api/species/identify", tags=["Inference"])
 async def identify_orchid_species(
     files: List[UploadFile] = File(...),
-    conf_threshold: float = Query(0.35, ge=0.05, le=0.95),
+    conf_threshold: float = Query(DEFAULT_CONF_THRESHOLD, ge=0.05, le=0.95),
     user_id: Optional[str] = Form(None),
     plant_id: Optional[str] = Form(None),
     x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
@@ -153,6 +154,11 @@ async def identify_orchid_species(
 
         preds = model.predict(source=pil_image, conf=conf_threshold, imgsz=640)
         result = preds[0]
+
+        # Explicitly filter boxes so only detections meeting the threshold are drawn on the image and returned
+        if result.boxes is not None and len(result.boxes) > 0:
+            result = result[result.boxes.conf >= conf_threshold]
+
         boxes = result.boxes
 
         detections = []

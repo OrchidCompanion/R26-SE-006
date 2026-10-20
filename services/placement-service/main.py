@@ -346,7 +346,7 @@ async def trigger_live_npk_read(module_id: str):
             raise HTTPException(status_code=500, detail=str(e))
 
     # Trigger live NPK read over MQTT
-    mqtt_npk = trigger_mqtt_npk_read(clean_id, timeout_seconds=6.0)
+    mqtt_npk = trigger_mqtt_npk_read(clean_id, timeout_seconds=8.0)
     if mqtt_npk and "nitrogen_n" in mqtt_npk:
         return {
             "nitrogen_n": float(mqtt_npk["nitrogen_n"]),
