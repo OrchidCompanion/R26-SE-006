@@ -36,11 +36,11 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
   const [sensorStatus, setSensorStatus] = useState(null);
   const [actionError, setActionError] = useState("");
 
-  // Collapsible Ambient Telemetry Sampling per zone
-  const [expandedZoneSensors, setExpandedZoneSensors] = useState({});
+  // Collapsible Ambient Telemetry Sampling per location
+  const [expandedLocationSensors, setExpandedLocationSensors] = useState({});
 
-  const toggleZoneSensors = (locationId) => {
-    setExpandedZoneSensors((prev) => ({
+  const toggleLocationSensors = (locationId) => {
+    setExpandedLocationSensors((prev) => ({
       ...prev,
       [locationId]: !prev[locationId],
     }));
@@ -297,13 +297,13 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
       const now = new Date();
       const saveTime = now.toLocaleTimeString();
 
-      const zonePlants = plants.filter((p) => p.location_id === locationId);
+      const locationPlants = plants.filter((p) => p.location_id === locationId);
 
-      // Prepare save requests for all orchids in this zone, or at zone-level if no orchids assigned
+      // Prepare save requests for all orchids in this location, or at location-level if no orchids assigned
       const savePromises = [];
 
-      if (zonePlants.length > 0) {
-        zonePlants.forEach((p) => {
+      if (locationPlants.length > 0) {
+        locationPlants.forEach((p) => {
           savePromises.push(
             fetch(`${API_BASE_URL}/sensors/dht11`, {
               method: "POST",
@@ -342,7 +342,7 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
           );
         });
       } else {
-        // Fallback: save at location level if no plants are in this zone yet
+        // Fallback: save at location level if no plants are in this location yet
         savePromises.push(
           fetch(`${API_BASE_URL}/sensors/dht11`, {
             method: "POST",
@@ -383,7 +383,7 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
       const failed = responses.some((res) => !res.ok);
 
       if (failed) {
-        throw new Error("Failed to save ambient sensor readings for all zone orchids.");
+        throw new Error("Failed to save ambient sensor readings for all orchids in this location.");
       }
 
       setReadingResults((prev) => {
@@ -393,7 +393,7 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
             ...prev[slotKey],
             saved: true,
             savedAt: saveTime,
-            orchidsCount: zonePlants.length,
+            orchidsCount: locationPlants.length,
           },
         };
         try {
@@ -446,7 +446,7 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.detail || "Failed to create location zone.");
+        throw new Error(errData.detail || "Failed to create location.");
       }
 
       setShowAddLocationModal(false);
@@ -464,7 +464,7 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
   const handleUpdateLocation = async (e) => {
     if (e) e.preventDefault();
     if (!editLocName.trim()) {
-      setEditLocationError("Please enter a location zone name.");
+      setEditLocationError("Please enter a location name.");
       return;
     }
 
@@ -486,7 +486,7 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.detail || "Failed to update location zone.");
+        throw new Error(errData.detail || "Failed to update location.");
       }
 
       setEditingLocationId(null);
@@ -500,7 +500,7 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
   };
 
   const handleDeleteLocation = async (locId) => {
-    if (!window.confirm("Are you sure you want to delete this location zone? Plants in this location will become unassigned.")) return;
+    if (!window.confirm("Are you sure you want to delete this location? Plants in this location will become unassigned.")) return;
     const token = localStorage.getItem("admin_token");
     try {
       const res = await fetch(`${API_BASE_URL}/locations/${locId}`, {
@@ -606,7 +606,7 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
               Back to Dashboard
             </button>
             <h1 className="text-gray-900 text-2xl sm:text-3xl font-black tracking-tight flex items-center gap-2.5">
-              <span>Zone Locations & Orchids</span>
+              <span>Your Locations & Orchid Plants</span>
             </h1>
             <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-gray-500">
               <span className="inline-flex items-center gap-1.5 bg-gray-50 border border-gray-200/60 px-2.5 py-1 rounded-lg">
@@ -618,7 +618,7 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
               <span className="text-gray-400">•</span>
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-emerald-50 text-emerald-700 font-bold rounded-full text-[11px] border border-emerald-200/50">
                 <Layers className="w-3 h-3" />
-                {locations.length} Zones
+                {locations.length} {locations.length === 1 ? "Location" : "Locations"}
               </span>
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-teal-50 text-teal-700 font-bold rounded-full text-[11px] border border-teal-200/50">
                 🪴 {plants.length} Plants
@@ -633,7 +633,7 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
               className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs hover:shadow transition"
             >
               <Plus className="w-4 h-4" />
-              New Location Zone
+              New Location
             </button>
             <button
               onClick={() => {
@@ -660,7 +660,7 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
       {loading ? (
         <div className="p-16 text-center bg-white border border-gray-100 rounded-2xl shadow-xs">
           <div className="w-10 h-10 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-          <p className="text-gray-500 text-xs font-semibold">Loading orchid collection and zones...</p>
+          <p className="text-gray-500 text-xs font-semibold">Loading orchid collection and locations...</p>
         </div>
       ) : locations.length === 0 ? (
         <div className="bg-white border border-gray-200 rounded-2xl p-12 text-center shadow-xs space-y-4">
@@ -668,9 +668,9 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
             🏡
           </div>
           <div className="max-w-md mx-auto space-y-1">
-            <h3 className="text-gray-900 font-bold text-base">No Location Zones Created Yet</h3>
+            <h3 className="text-gray-900 font-bold text-base">No Locations Created Yet</h3>
             <p className="text-gray-500 text-xs">
-              Organize your orchids by micro-climate zones like Balconies, Greenhouses, or Indoor Plant Shelves.
+              Organize your orchids by locations like Balconies, Greenhouses, or Indoor Plant Shelves.
             </p>
           </div>
           <button
@@ -678,7 +678,7 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
             className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition"
           >
             <Plus className="w-4 h-4" />
-            Create First Location Zone
+            Create First Location
           </button>
         </div>
       ) : (
@@ -696,77 +696,90 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
             const isEveningDone = Boolean(readingResults[eveningKey]?.saved);
 
             const doneCount = (isMorningDone ? 1 : 0) + (isAfternoonDone ? 1 : 0) + (isEveningDone ? 1 : 0);
-            const isSensorsOpen = expandedZoneSensors[loc.location_id];
+            const isSensorsOpen = expandedLocationSensors[loc.location_id];
 
             return (
               <div
                 key={loc.location_id}
                 className="bg-white border border-gray-200/80 rounded-2xl shadow-xs overflow-hidden transition-all duration-200 hover:shadow-sm"
               >
-                {/* Zone Header Bar */}
+                {/* Location Header Bar */}
                 <div className="bg-gradient-to-r from-gray-50 via-slate-50/60 to-white px-6 py-4 border-b border-gray-200/70 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                  <div className="flex items-center gap-2.5 flex-wrap flex-1 min-w-0">
-                    <div className="w-7 h-7 rounded-lg bg-emerald-100/70 text-emerald-800 flex items-center justify-center font-bold text-xs shrink-0">
-                      <MapPin className="w-3.5 h-3.5" />
+                  {/* Left: Location Icon, Title, Orchid Count & Description */}
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="w-9 h-9 rounded-xl bg-emerald-100/70 text-emerald-800 flex items-center justify-center font-bold text-xs shrink-0">
+                      <MapPin className="w-4 h-4 text-emerald-700" />
                     </div>
 
-                    {/* Single div grouping location name and description horizontally */}
-                    <div className="flex items-baseline gap-2 flex-wrap">
-                      <h2 className="text-gray-900 font-black text-lg tracking-tight">
-                        {loc.location_name}
-                      </h2>
-                      {loc.description && (
-                        <span className="text-xs text-gray-500 font-medium">
-                          • {loc.description}
+                    <div className="space-y-0.5 min-w-0">
+                      <div className="flex items-center gap-2.5 flex-wrap">
+                        <h2 className="text-gray-900 font-black text-base sm:text-lg tracking-tight">
+                          {loc.location_name}
+                        </h2>
+                        <span className="px-2.5 py-0.5 bg-emerald-50 border border-emerald-200/60 text-emerald-700 text-[11px] font-bold rounded-full shrink-0">
+                          {locPlants.length} {locPlants.length === 1 ? "Orchid" : "Orchids"}
                         </span>
+                      </div>
+                      {loc.description && (
+                        <p className="text-xs text-gray-500 font-normal">
+                          {loc.description}
+                        </p>
                       )}
                     </div>
+                  </div>
 
-                    <span className="px-2.5 py-0.5 bg-emerald-50 border border-emerald-200/50 text-emerald-700 text-[11px] font-bold rounded-full shrink-0">
-                      {locPlants.length} Orchids
-                    </span>
-
-                    {/* Always-Visible Status Badge in Zone Header */}
+                  {/* Right: Daily Readings Status Badge & Action Buttons */}
+                  <div className="flex items-center gap-2 self-start md:self-auto flex-wrap">
+                    {/* Always-Visible Status Badge */}
                     <span
-                      className={`inline-flex items-center gap-1 px-2.5 py-0.5 text-[11px] font-bold rounded-full border shrink-0 ${doneCount === 3
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-full border transition shrink-0 ${doneCount === 3
                         ? "bg-emerald-50 text-emerald-800 border-emerald-200"
                         : doneCount > 0
-                          ? "bg-amber-50 text-amber-800 border-amber-200"
+                          ? "bg-amber-50/80 text-amber-900 border-amber-200/80"
                           : "bg-gray-100 text-gray-600 border-gray-200"
                         }`}
                     >
-                      <Activity className="w-3 h-3 text-teal-600" />
-                      {doneCount === 3
-                        ? "✓ 3/3 Daily Readings"
-                        : `${doneCount}/3 Daily Readings`}
+                      <Activity
+                        className={`w-3.5 h-3.5 ${doneCount === 3
+                          ? "text-emerald-600"
+                          : doneCount > 0
+                            ? "text-teal-600"
+                            : "text-gray-400"
+                          }`}
+                      />
+                      <span>
+                        {doneCount === 3
+                          ? "✓ 3/3 Daily Readings"
+                          : `${doneCount}/3 Daily Readings`}
+                      </span>
                     </span>
-                  </div>
 
-                  <div className="flex items-center gap-2 self-end md:self-auto flex-wrap">
-                    {/* Toggle Ambient Sampling Panel */}
+                    {/* Toggle Sensor Readings Panel */}
                     <button
-                      onClick={() => toggleZoneSensors(loc.location_id)}
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border transition ${isSensorsOpen
-                        ? "bg-teal-600 text-white border-teal-600 shadow-xs"
+                      onClick={() => toggleLocationSensors(loc.location_id)}
+                      className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-full border transition ${isSensorsOpen
+                        ? "bg-teal-700 hover:bg-teal-800 text-white border-teal-700 shadow-xs"
                         : "bg-white text-teal-700 border-teal-200 hover:bg-teal-50"
                         }`}
                     >
                       <Activity className="w-3.5 h-3.5" />
-                      <span>{isSensorsOpen ? "Hide Live Sampling" : "Live Sensor Sampling"}</span>
+                      <span>{isSensorsOpen ? "Hide Sensor Readings" : "Sensor Readings"}</span>
                       {isSensorsOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                     </button>
 
+                    {/* Add Orchid Button */}
                     <button
                       onClick={() => {
                         setTargetLocationId(loc.location_id);
                         setShowAddPlantModal(true);
                       }}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold rounded-xl border border-emerald-200/60 transition"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold rounded-full border border-emerald-200/80 transition"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       Add Orchid
                     </button>
 
+                    {/* Edit Location Button */}
                     <button
                       onClick={() => {
                         setEditingLocationId(loc.location_id);
@@ -774,23 +787,24 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
                         setEditLocDesc(loc.description || "");
                         setEditLocationError("");
                       }}
-                      title="Edit Zone"
-                      className="p-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg transition"
+                      title="Edit Location"
+                      className="p-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl transition"
                     >
                       <Edit2 className="w-3.5 h-3.5" />
                     </button>
 
+                    {/* Delete Location Button */}
                     <button
                       onClick={() => handleDeleteLocation(loc.location_id)}
-                      title="Delete Zone"
-                      className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg border border-rose-200/60 transition"
+                      title="Delete Location"
+                      className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl border border-rose-200/60 transition"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
 
-                {/* Zone Body */}
+                {/* Location Body */}
                 <div className="p-6 space-y-6">
                   {/* Collapsible ESP32 Ambient Telemetry Sampling */}
                   {isSensorsOpen && (
@@ -800,7 +814,7 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
                           <div className="flex items-center gap-2 flex-wrap">
                             <h3 className="font-extrabold text-gray-900 text-sm flex items-center gap-2">
                               <span className="w-2.5 h-2.5 rounded-full bg-teal-500 animate-pulse"></span>
-                              ESP32 Ambient Telemetry Sampling
+                              Environment Sensor Readings
                             </h3>
                             <span
                               className={`text-[11px] font-bold px-2 py-0.5 rounded-md ${doneCount === 3
@@ -816,7 +830,7 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
                             </span>
                           </div>
                           <p className="text-xs text-gray-500">
-                            30-second live sampling (samples at 1s, 15s, 28s) to compute accurate daily morning, afternoon & evening microclimate.
+                            Live sensor readings to capture morning, afternoon & evening microclimate.
                           </p>
                         </div>
 
@@ -962,7 +976,7 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
                               ) : (
                                 <div className="py-2.5 text-center">
                                   <p className="text-xs text-gray-400 italic">
-                                    No telemetry recorded for {slot} today.
+                                    No records for {slot} today.
                                   </p>
                                 </div>
                               )}
@@ -1015,7 +1029,7 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
                     </div>
                   )}
 
-                  {/* Zone Plants Grid */}
+                  {/* Location Plants Grid */}
                   <div className="space-y-3">
                     {locPlants.length === 0 ? (
                       <div className="p-8 rounded-2xl border border-dashed border-gray-200 bg-gray-50/50 text-center">
@@ -1023,7 +1037,7 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
                           🪴
                         </div>
                         <p className="text-xs font-bold text-gray-700">
-                          No orchids registered in this zone
+                          No orchids registered in this location
                         </p>
                         <p className="text-[11px] text-gray-400 mt-0.5">
                           Add an orchid or transfer one here to start tracking health and telemetry.
@@ -1089,7 +1103,7 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
                       {plants.filter((p) => !p.location_id).length}
                     </span>
                   </h4>
-                  <p className="text-xs text-gray-400">These orchids are not assigned to any physical microclimate location zone</p>
+                  <p className="text-xs text-gray-400">These orchids are not assigned to any physical location</p>
                 </div>
               </div>
 
@@ -1137,7 +1151,7 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
                 <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold">
                   <MapPin className="w-4 h-4" />
                 </div>
-                <h3 className="text-base font-extrabold text-gray-900">Add Location Zone</h3>
+                <h3 className="text-base font-extrabold text-gray-900">Add Location</h3>
               </div>
               <button
                 type="button"
@@ -1161,7 +1175,7 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
             <form onSubmit={handleCreateLocation} className="space-y-3.5">
               <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">
-                  Location Zone Name <span className="text-rose-500">*</span>
+                  Location Name <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -1200,7 +1214,7 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
                   disabled={savingLocation}
                   className="px-4 py-2 text-xs bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 font-bold rounded-xl text-white transition flex items-center gap-1.5 shadow-xs"
                 >
-                  {savingLocation ? "Saving Zone..." : "Save Zone"}
+                  {savingLocation ? "Saving Location..." : "Save Location"}
                 </button>
               </div>
             </form>
@@ -1217,7 +1231,7 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
                 <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold">
                   <MapPin className="w-4 h-4" />
                 </div>
-                <h3 className="text-base font-extrabold text-gray-900">Edit Location Zone</h3>
+                <h3 className="text-base font-extrabold text-gray-900">Edit Location</h3>
               </div>
               <button
                 type="button"
@@ -1241,7 +1255,7 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
             <form onSubmit={handleUpdateLocation} className="space-y-3.5">
               <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">
-                  Location Zone Name <span className="text-rose-500">*</span>
+                  Location Name <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -1336,7 +1350,7 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
               </div>
               <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">
-                  Orchid Genus / Species
+                  Orchid Species
                 </label>
                 <select
                   value={newPlant.plant_species}
@@ -1346,15 +1360,11 @@ export default function PlantsScreen({ selectedUser, onSelectPlant, onNavigateTo
                   className="w-full px-3.5 py-2 text-xs border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white font-medium"
                 >
                   <option value="Dendrobium">Dendrobium</option>
-                  <option value="Phalaenopsis">Phalaenopsis</option>
-                  <option value="Cattleya">Cattleya</option>
-                  <option value="Vanda">Vanda</option>
-                  <option value="Oncidium">Oncidium</option>
                 </select>
               </div>
               <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">
-                  Assign Location Zone
+                  Assign Location
                 </label>
                 <select
                   value={targetLocationId}

@@ -9,7 +9,7 @@ try:
 except ImportError:
     mqtt = None
 
-from database import save_ambient_reading, get_latest_ambient
+from database import save_ambient_reading, get_latest_ambient, update_module_last_seen
 
 MQTT_HOST = os.getenv("MQTT_BROKER_HOST", "mqtt-broker")
 MQTT_PORT = int(os.getenv("MQTT_BROKER_PORT", "1883"))
@@ -104,7 +104,10 @@ def on_message(client, userdata, msg):
             elif "sensor_ok" in payload and is_npk:
                 target_dict[clean_mac]["npk_probe"] = bool(payload["sensor_ok"])
 
-            update_module_last_seen(clean_mac)
+            try:
+                update_module_last_seen(clean_mac)
+            except Exception as e:
+                print(f"[MQTT] Note: DB update_module_last_seen skipped: {e}")
             print(f"[MQTT] Heartbeat received from {clean_mac} ({'NPK' if is_npk else 'ENV'}): online={is_online}")
 
         temp = payload.get("temperature") or payload.get("temp")
@@ -170,7 +173,10 @@ def on_message(client, userdata, msg):
                 latest_readings[clean_mac]["online"] = True
             else:
                 latest_readings[clean_mac] = {"online": True}
-            update_module_last_seen(clean_mac)
+            try:
+                update_module_last_seen(clean_mac)
+            except Exception as e:
+                print(f"[MQTT] Note: DB update_module_last_seen skipped: {e}")
             print(f"[MQTT] NPK reading captured for {clean_mac}: N={n}, P={p}, K={k}")
     except Exception as e:
         print(f"[MQTT] Error handling message on {msg.topic}: {e}")
@@ -200,7 +206,7 @@ def trigger_mqtt_ambient_read(module_id: str, timeout_seconds: float = 3.0) -> O
     return None
 
 
-def trigger_mqtt_npk_read(module_id: str, timeout_seconds: float = 6.0) -> Optional[Dict[str, Any]]:
+def trigger_mqtt_npk_read(module_id: str, timeout_seconds: float = 8.0) -> Optional[Dict[str, Any]]:
     """Publishes a trigger command over MQTT to the NPK ESP32 and waits for response."""
     global _client
     if not _client or not _client.is_connected():
