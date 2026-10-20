@@ -6,6 +6,7 @@
 #include <DHT.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
+#include <esp_mac.h>
 
 // PIN DEFINITIONS & HARDWARE CONFIG
 #define RGB_PIN 48
@@ -55,25 +56,97 @@ void setRGB_Green()      { setRGB_SoftGreen(); }    // Backward-compatible alias
 void setRGB_Yellow()     { setRGB_Orange(); }       // Backward-compatible alias
 void setRGB_Off()        { setRGB(0, 0, 0); }       // Off
 
-// FORMAT MAC ADDRESS
+// FORMAT MAC ADDRESS FROM HARDWARE SILICON
 String getFormattedMacAddress() {
-  String mac = WiFi.macAddress();
-  mac.replace(":", "");
-  mac.toLowerCase();
-  return mac;
+  uint8_t baseMac[6];
+  esp_read_mac(baseMac, ESP_MAC_WIFI_STA);
+  char cleanMac[13];
+  snprintf(cleanMac, sizeof(cleanMac), "%02x%02x%02x%02x%02x%02x",
+           baseMac[0], baseMac[1], baseMac[2], baseMac[3], baseMac[4], baseMac[5]);
+  String result = String(cleanMac);
+  if (result == "000000000000" || result.length() < 12) {
+    String mac = WiFi.macAddress();
+    mac.replace(":", "");
+    mac.toLowerCase();
+    if (mac.length() >= 12 && mac != "000000000000") {
+      result = mac;
+    }
+  }
+  return result;
 }
 
 // LCD UI HELPER FUNCTIONS
+// Correct HD44780 DDRAM offsets for 16x4 LCD: row 0=0x00, row 1=0x40, row 2=0x10, row 3=0x50.
+void setLcdCursor(uint8_t col, uint8_t row) {
+  const uint8_t row_offsets[] = { 0x00, 0x40, 0x10, 0x50 };
+  if (row >= 4) row = 3;
+  if (col >= 16) col = 15;
+  lcd.command(0x80 | (col + row_offsets[row]));
+}
+
+// Idle Screen showing Header, Module ID, Connected Wi-Fi Name, and Status
 void showIdleScreen() {
   lcd.clear();
-  lcd.setCursor(0, 0);
+  setLcdCursor(0, 0);
   lcd.print("ORCHID COMPANION");
-  lcd.setCursor(0, 1);
-  lcd.print("Status: MQTT ONLINE");
-  lcd.setCursor(0, 2);
-  lcd.print("Device: " + macAddress.substring(0, 8) + "...");
-  lcd.setCursor(0, 3);
-  lcd.print("Mode  : AUTO SENS");
+
+  setLcdCursor(0, 1);
+  String idStr = "ID: " + macAddress;
+  if (idStr.length() > 16) idStr = idStr.substring(0, 16);
+  lcd.print(idStr);
+
+  String ssid = WiFi.SSID();
+  if (ssid.length() == 0) ssid = "No Wi-Fi";
+  if (ssid.length() > 16) ssid = ssid.substring(0, 16);
+  int pad = (16 - (int)ssid.length()) / 2;
+  setLcdCursor(pad > 0 ? pad : 0, 2);
+  lcd.print(ssid);
+
+  setLcdCursor(1, 3);
+  lcd.print("Status: ONLINE");
+}
+
+// Submitting to Server screen
+void showSubmittingScreen() {
+  lcd.clear();
+  setLcdCursor(3, 1);
+  lcd.print("Submitting");
+  setLcdCursor(2, 2);
+  lcd.print("to Server...");
+}
+
+// Sensor Readings Screen (4 rows: Header + Temp + Humd + LUX)
+void showSensorReadingsScreen(float temp, float hum, float lux, bool dht_ok, bool bh_ok) {
+  lcd.clear();
+  setLcdCursor(0, 0);
+  lcd.print("Reading Sensors");
+
+  char line1[17];
+  if (dht_ok) {
+    snprintf(line1, sizeof(line1), "Temp: %.1f C", temp);
+  } else {
+    snprintf(line1, sizeof(line1), "Temp: ERROR");
+  }
+  setLcdCursor(0, 1);
+  lcd.print(line1);
+
+  char line2[17];
+  if (dht_ok) {
+    snprintf(line2, sizeof(line2), "Humd: %.1f %%", hum);
+  } else {
+    snprintf(line2, sizeof(line2), "Humd: ERROR");
+  }
+  setLcdCursor(0, 2);
+  lcd.print(line2);
+
+  char line3[17];
+  if (bh_ok) {
+    snprintf(line3, sizeof(line3), "LUX : %.0f lx", lux);
+  } else {
+    snprintf(line3, sizeof(line3), "LUX : ERROR");
+  }
+  setLcdCursor(0, 3);
+  lcd.print(line3);
 }
 
 bool readDHT11(float &temp, float &hum) {
@@ -121,6 +194,7 @@ unsigned long lastSessionSampleTime = 0;
 // FORWARD DECLARATIONS
 void flushOfflineBuffer();
 void executeSample(int sampleIndex, int totalSamples);
+void sendHealthStatus(bool showLcd = false);
 
 // FLUSH OFFLINE BUFFER OVER MQTT
 void flushOfflineBuffer() {
@@ -165,23 +239,20 @@ void executeSample(int sampleIndex, int totalSamples) {
   float hum = 0.0;
   bool dht_ok = readDHT11(temp, hum);
   float lux = readBH1750();
+  bool bh_ok = isBh1750Ready;
 
   Serial.printf("[SAMPLE] Sample %d/%d captured: T=%.1fC, H=%.1f%%, Lux=%.1f\n",
     sampleIndex, totalSamples, temp, hum, lux);
 
-  // Update LCD with current sample
-  lcd.clear();
-  lcd.setCursor(0, 0);
-  lcd.printf("T:%.1fC H:%.1f%%", temp, hum);
-  lcd.setCursor(0, 1);
-  lcd.printf("Lux: %.1f lx", lux);
-  lcd.setCursor(0, 2);
-  lcd.printf("SAMPLE %d OF %d", sampleIndex, totalSamples);
-  lcd.setCursor(0, 3);
-  lcd.print("ID: " + macAddress.substring(0, 8) + "...");
+  // Show reading values on 4-row LCD
+  showSensorReadingsScreen(temp, hum, lux, dht_ok, bh_ok);
+  delay(1800);
 
   // If online, publish live
   if (WiFi.status() == WL_CONNECTED && mqttClient.connected()) {
+    showSubmittingScreen();
+    setRGB_Violet();
+
     flushOfflineBuffer(); // Flush any previously queued readings first
 
     StaticJsonDocument<256> doc;
@@ -206,12 +277,11 @@ void executeSample(int sampleIndex, int totalSamples) {
     Serial.print("[MQTT] Published live sample: ");
     Serial.println(jsonBuffer);
 
-    // Violet flash (transmitted) -> Lime Green (success confirmation) -> Soft Green (idle)
-    setRGB_Violet();
-    delay(500);
+    // Lime Green (success confirmation) -> Soft Green (idle)
     setRGB_LimeGreen();
     delay(800);
     setRGB_SoftGreen();
+    showIdleScreen();
   } else {
     // OFFLINE: Store in RAM buffer so data is never lost
     if (bufferCount < MAX_BUFFERED_READINGS) {
@@ -226,23 +296,34 @@ void executeSample(int sampleIndex, int totalSamples) {
         sampleIndex, totalSamples, bufferCount);
     }
 
-    lcd.setCursor(0, 2);
-    lcd.print("OFFLINE: BUFFERED");
+    lcd.clear();
+    setLcdCursor(0, 1);
+    lcd.print("OFFLINE:BUFFERED");
 
     setRGB_Orange();
-    delay(800);
+    delay(1500);
+    showIdleScreen();
   }
 }
 
 // REPORT COMPREHENSIVE SENSOR HEALTH STATUS & TELEMETRY
-void sendHealthStatus() {
-  setRGB_Blue();
+void sendHealthStatus(bool showLcd) {
+  if (showLcd) {
+    setRGB_Blue();
+  }
 
   float temp = 0.0;
   float hum = 0.0;
   bool dht_ok = readDHT11(temp, hum);
   float lux = readBH1750();
   bool bh_ok = isBh1750Ready;
+
+  if (showLcd) {
+    showSensorReadingsScreen(temp, hum, lux, dht_ok, bh_ok);
+    delay(1800);
+    showSubmittingScreen();
+    setRGB_Violet();
+  }
 
   StaticJsonDocument<256> statusDoc;
   statusDoc["device_id"]   = macAddress;
@@ -268,9 +349,16 @@ void sendHealthStatus() {
     dht_ok ? "OPERATIONAL" : "NO_SIGNAL", temp, hum,
     bh_ok ? "OPERATIONAL" : "NO_SIGNAL", lux);
 
-  setRGB_Violet();
-  delay(400);
-  setRGB_SoftGreen();
+  if (showLcd) {
+    setRGB_LimeGreen();
+    delay(800);
+    setRGB_SoftGreen();
+    showIdleScreen();
+  } else {
+    setRGB_Violet();
+    delay(400);
+    setRGB_SoftGreen();
+  }
 }
 
 // PUBLISH SENSOR TELEMETRY OVER MQTT (Single Trigger)
@@ -308,7 +396,22 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
         strcmp(action, "ping") == 0 || 
         strcmp(action, "status") == 0 ||
         strcmp(action, "check_status") == 0) {
-      sendHealthStatus();
+      setRGB_Violet();
+      lcd.clear();
+      setLcdCursor(0, 0);
+      lcd.print("ORCHID COMPANION");
+      setLcdCursor(1, 1);
+      lcd.print("Ping Received");
+      setLcdCursor(1, 2);
+      lcd.print("Status: ONLINE");
+      setLcdCursor(2, 3);
+      lcd.print("Sensors: READY");
+
+      sendHealthStatus(false);
+
+      delay(1500);
+      setRGB_SoftGreen();
+      showIdleScreen();
     } else if (strcmp(action, "start_session") == 0) {
       int samples = doc["samples"] | 3;
       int interval = doc["interval_sec"] | 14;
@@ -316,7 +419,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     } else if (strcmp(action, "read_now") == 0 || 
                strcmp(action, "read_sensors") == 0 || 
                strcmp(action, "read_ambient") == 0) {
-      sendHealthStatus();
+      sendHealthStatus(true);
     }
   }
 }
@@ -326,6 +429,14 @@ void reconnectMQTT() {
   while (!mqttClient.connected()) {
     setRGB_Cyan();
     Serial.print("[MQTT] Connecting to broker...");
+
+    // 6. "Connecting to Server"
+    lcd.clear();
+    setLcdCursor(1, 1);
+    lcd.print("Connecting to");
+    setLcdCursor(3, 2);
+    lcd.print("Server...");
+
     String clientId = "ESP32-ENV-" + macAddress;
 
     bool connected = false;
@@ -338,6 +449,16 @@ void reconnectMQTT() {
     if (connected) {
       Serial.println(" CONNECTED!");
       setRGB_SoftGreen();
+
+      // 7. "Connection Successful"
+      lcd.clear();
+      setLcdCursor(3, 1);
+      lcd.print("Connection");
+      setLcdCursor(3, 2);
+      lcd.print("Successful");
+      delay(1500);
+
+      // 8. Idle Screen
       showIdleScreen();
 
       // Subscribe to command topics
@@ -345,24 +466,29 @@ void reconnectMQTT() {
       mqttClient.subscribe("orchid/commands/env");
 
       // Immediately publish comprehensive health status and sensor diagnostics
-      sendHealthStatus();
+      sendHealthStatus(false);
 
       // Flush any offline buffered readings from RAM
       flushOfflineBuffer();
+      break;
     } else {
       setRGB_Orange();
       Serial.print(" FAILED, rc=");
       Serial.print(mqttClient.state());
-      Serial.println(" Retrying in 5 seconds...");
-      delay(5000);
+      Serial.println(" Retrying in 4 seconds...");
+      delay(4000);
     }
   }
 }
 
 void setup() {
   Serial.begin(115200);
-  delay(1000);
+  delay(500);
   setRGB_Cyan(); // System booting
+
+  Serial.println("\n==========================================");
+  Serial.println("   ORCHID COMPANION - ESP32-S3 ENV NODE   ");
+  Serial.println("==========================================");
 
   // LCD Setup & I2C Bus Check
   Wire.begin(LCD_SDA_PIN, LCD_SCL_PIN);
@@ -392,12 +518,21 @@ void setup() {
   lcd.init();
   Wire.begin(LCD_SDA_PIN, LCD_SCL_PIN); // Re-assert custom pins
   lcd.backlight();
-  lcd.clear();
   delay(50);
-  lcd.setCursor(0, 0);
-  lcd.print("ORCHID COMPANION");
-  lcd.setCursor(0, 1);
-  lcd.print("BOOTING SYSTEM...");
+
+  // 1. "Powering ON..."
+  lcd.clear();
+  setLcdCursor(1, 1);
+  lcd.print("Powering ON...");
+  delay(1200);
+
+  // 2. "Welcome to Orchid Companion"
+  lcd.clear();
+  setLcdCursor(3, 1);
+  lcd.print("Welcome to");
+  setLcdCursor(0, 2);
+  lcd.print("Orchid Companion");
+  delay(1800);
 
   // BH1750 Setup & Self-Test
   I2C_BH1750.begin(BH1750_SDA_PIN, BH1750_SCL_PIN);
@@ -427,30 +562,63 @@ void setup() {
     delay(1500);
   }
 
-  // WiFi Setup
+  // WiFi mode & MAC address
   WiFi.mode(WIFI_STA);
-  wifiMulti.addAP("Galaxy A20s5650", "azdrea7339");
-  wifiMulti.addAP("Dialog 4G 096", "B6582be1");
-  wifiMulti.addAP("SLT_FIBRE", "0112760972");
-  wifiMulti.addAP("Galaxy M31B79A", "yaluwek@23");
-
-  lcd.setCursor(0, 2);
-  lcd.print("Connecting WiFi...");
-  setRGB_Cyan(); // Cyan indicates wireless connecting/pairing
-
-  while (wifiMulti.run() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-
-  Serial.println("\nWiFi Connected! IP: " + WiFi.localIP().toString());
-
-  // Format MAC Address AFTER WiFi radio is initialized!
   macAddress = getFormattedMacAddress();
   telemetryTopic = "orchid/" + macAddress + "/env";
   statusTopic    = "orchid/" + macAddress + "/status";
   commandTopic   = "orchid/" + macAddress + "/command";
   Serial.println("Device MAC Address: " + macAddress);
+
+  // 3. "MAC Address : "
+  lcd.clear();
+  setLcdCursor(1, 1);
+  lcd.print("MAC Address :");
+  setLcdCursor(2, 2);
+  lcd.print(macAddress);
+  delay(2000);
+
+  // WiFi Setup
+  wifiMulti.addAP("Galaxy A20s5650", "azdrea7339");
+  wifiMulti.addAP("Dialog 4G 096", "B6582be1");
+  wifiMulti.addAP("SLT_FIBRE", "0112760972");
+  wifiMulti.addAP("Galaxy M31B79A", "yaluwek@23");
+
+  // 4. "Connecting to Wifi"
+  lcd.clear();
+  setLcdCursor(1, 1);
+  lcd.print("Connecting to");
+  setLcdCursor(4, 2);
+  lcd.print("Wifi...");
+  setRGB_Cyan(); // Cyan indicates wireless connecting/pairing
+  Serial.print("[Wi-Fi] Connecting to Wi-Fi");
+
+  while (wifiMulti.run() != WL_CONNECTED) {
+    delay(400);
+    Serial.print(".");
+  }
+
+  Serial.println("\nWiFi Connected! IP: " + WiFi.localIP().toString());
+
+  // Ensure true MAC is captured after Wi-Fi connects if not previously set
+  if (macAddress == "000000000000" || macAddress.length() < 12) {
+    macAddress = getFormattedMacAddress();
+    telemetryTopic = "orchid/" + macAddress + "/env";
+    statusTopic    = "orchid/" + macAddress + "/status";
+    commandTopic   = "orchid/" + macAddress + "/command";
+    Serial.println("Updated Device MAC Address: " + macAddress);
+  }
+
+  // 5. "Wifi Connected"
+  lcd.clear();
+  setLcdCursor(1, 1);
+  lcd.print("Wifi Connected");
+  String connectedSSID = WiFi.SSID();
+  if (connectedSSID.length() > 16) connectedSSID = connectedSSID.substring(0, 16);
+  int ssidPad = (16 - (int)connectedSSID.length()) / 2;
+  setLcdCursor(ssidPad > 0 ? ssidPad : 0, 2);
+  lcd.print(connectedSSID);
+  delay(1500);
 
   setRGB_Cyan();
 
@@ -462,6 +630,9 @@ void setup() {
   mqttClient.setSocketTimeout(15);
 
   reconnectMQTT();
+
+  // 8. Idle screen
+  showIdleScreen();
 }
 
 void loop() {

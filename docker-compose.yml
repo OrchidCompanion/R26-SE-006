@@ -48,7 +48,7 @@ services:
     environment:
       - PORT=7860
       - SPECIES_DB_URL=postgresql://${POSTGRES_USER:-orchid_admin}:${POSTGRES_PASSWORD:-orchid_secret_2026}@postgres-db:5432/orchid_species_db
-      - CONF_THRESHOLD=${CONF_THRESHOLD:-0.35}
+      - CONF_THRESHOLD=${CONF_THRESHOLD:-0.60}
     depends_on:
       - postgres-db
     networks:
