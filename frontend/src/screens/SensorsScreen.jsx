@@ -5,7 +5,6 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export default function SensorsScreen({ selectedUser, onBack }) {
   const [modules, setModules] = useState([]);
-  const [locations, setLocations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -19,7 +18,6 @@ export default function SensorsScreen({ selectedUser, onBack }) {
   const [newModule, setNewModule] = useState({
     module_id: "",
     device_name: "",
-    location_id: "",
   });
 
   useEffect(() => {
@@ -33,25 +31,15 @@ export default function SensorsScreen({ selectedUser, onBack }) {
     setError("");
     const token = localStorage.getItem("admin_token");
     try {
-      const [modRes, locRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/sensors/modules/user/${selectedUser.user_id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        fetch(`${API_BASE_URL}/locations/user/${selectedUser.user_id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-      ]);
+      const res = await fetch(`${API_BASE_URL}/sensors/modules/user/${selectedUser.user_id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-      if (modRes.ok) {
-        const modData = await modRes.json();
+      if (res.ok) {
+        const modData = await res.json();
         setModules(modData);
       } else {
         setError("Failed to fetch sensor modules.");
-      }
-
-      if (locRes.ok) {
-        const locData = await locRes.json();
-        setLocations(locData);
       }
     } catch (err) {
       console.error(err);
@@ -124,14 +112,13 @@ export default function SensorsScreen({ selectedUser, onBack }) {
         body: JSON.stringify({
           module_id: cleanMac,
           device_name: newModule.device_name.trim() || "ESP32 Sensor Node",
-          location_id: newModule.location_id || null,
           user_id: selectedUser.user_id,
         }),
       });
 
       if (res.ok) {
         setShowAddModal(false);
-        setNewModule({ module_id: "", device_name: "", location_id: "" });
+        setNewModule({ module_id: "", device_name: "" });
         loadData();
       } else {
         const errData = await res.json().catch(() => ({}));
@@ -175,14 +162,14 @@ export default function SensorsScreen({ selectedUser, onBack }) {
             className="group inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 hover:text-emerald-700 bg-gray-50 hover:bg-emerald-50 border border-gray-200 hover:border-emerald-200 px-3 py-1.5 rounded-lg transition-all mb-2 shadow-xs"
           >
             <ArrowLeft className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-0.5" />
-            Back to Plants & Zones
+            Back to Plant Locations
           </button>
           <h2 className="text-[#1f2937] text-2xl font-black flex items-center gap-2">
             <Cpu className="w-6 h-6 text-emerald-600" />
-            Hardware Sensor Nodes
+            IoT Sensor Modules
           </h2>
           <p className="text-gray-500 text-xs sm:text-sm">
-            Active ESP32 IoT sensor modules paired with{" "}
+            Active IoT sensor modules paired with{" "}
             <strong className="text-gray-800">
               {selectedUser.first_name} {selectedUser.last_name}
             </strong>{" "}
@@ -195,7 +182,7 @@ export default function SensorsScreen({ selectedUser, onBack }) {
           className="px-4 py-2.5 bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-1.5 shrink-0"
         >
           <Plus className="w-4 h-4" />
-          <span> Pair Sensor Module</span>
+          <span> Add New Module</span>
         </button>
       </div>
 
@@ -246,15 +233,9 @@ export default function SensorsScreen({ selectedUser, onBack }) {
                         {m.device_name || "ESP32 Sensor Node"}
                       </h4>
                       <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-[11px] font-mono font-semibold">
-                        {m.module_id}
+                        MAC : {m.module_id}
                       </span>
                     </div>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      Assigned Zone:{" "}
-                      <strong className="text-emerald-700">
-                        {m.location_name || "Global / Unassigned"}
-                      </strong>
-                    </p>
                   </div>
 
                   <button
@@ -297,8 +278,8 @@ export default function SensorsScreen({ selectedUser, onBack }) {
                   {statusInfo?.data && (
                     <div className="grid grid-cols-2 gap-2 pt-1 border-t border-gray-200/60 text-[11px]">
                       {m.device_name?.toLowerCase().includes("npk") || statusInfo.data.sensor_type === "npk" ? (
-                        <div className="flex justify-between col-span-2">
-                          <span className="text-gray-500">RS485 NPK Probe:</span>
+                        <div className="flex items-center gap-1.5 col-span-2">
+                          <span className="text-gray-500">RS485 NPK Probe :</span>
                           <span
                             className={`font-semibold ${statusInfo.data.npk_probe ? "text-emerald-700" : "text-rose-600"
                               }`}
@@ -308,8 +289,8 @@ export default function SensorsScreen({ selectedUser, onBack }) {
                         </div>
                       ) : (
                         <>
-                          <div className="flex justify-between">
-                            <span className="text-gray-500">DHT11 Temp/RH:</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-gray-500">DHT11 Temp/RH :</span>
                             <span
                               className={`font-semibold ${statusInfo.data.dht11 ? "text-emerald-700" : "text-rose-600"
                                 }`}
@@ -317,8 +298,8 @@ export default function SensorsScreen({ selectedUser, onBack }) {
                               {statusInfo.data.dht11 ? "Operational" : "No Signal"}
                             </span>
                           </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-500">BH1750 Lux:</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-gray-500">BH1750 Lux :</span>
                             <span
                               className={`font-semibold ${statusInfo.data.bh1750 ? "text-emerald-700" : "text-rose-600"
                                 }`}
@@ -405,24 +386,6 @@ export default function SensorsScreen({ selectedUser, onBack }) {
                   onChange={(e) => setNewModule({ ...newModule, module_id: e.target.value })}
                   className="w-full px-3 py-2 text-sm border font-mono rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                 />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">
-                  Assign to Location Zone (Optional)
-                </label>
-                <select
-                  value={newModule.location_id}
-                  onChange={(e) => setNewModule({ ...newModule, location_id: e.target.value })}
-                  className="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white"
-                >
-                  <option value="">-- Unassigned (Global) --</option>
-                  {locations.map((loc) => (
-                    <option key={loc.location_id} value={loc.location_id}>
-                      {loc.location_name}
-                    </option>
-                  ))}
-                </select>
               </div>
 
               <div className="flex justify-end space-x-2 pt-3">
